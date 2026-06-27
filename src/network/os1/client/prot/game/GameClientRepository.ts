@@ -24,16 +24,23 @@ import OpNpc6Decoder from "#/network/os1/client/codec/game/OpNpc6Decoder.js";
 import OpNpc6Handler from "#/network/os1/client/handler/game/OpNpc6Handler.js";
 import OpObj6Decoder from "#/network/os1/client/codec/game/OpObj6Decoder.js";
 import OpObj6Handler from "#/network/os1/client/handler/game/OpObj6Handler.js";
+import EventAppletFocusDecoder from '../../codec/game/EventAppletFocusDecoder.ts';
+import EventCameraPositionDecoder from '../../codec/game/EventCameraPositionDecoder.ts';
 
 export default class GameClientRepository extends ClientRepository {
     constructor() {
         super();
 
+        this.bind(new NoOpDecoder(19, 0), new NoOpHandler()); // NO_TIMEOUT
+        this.bind(new NoOpDecoder(213, 0), new NoOpHandler()); // MAP_BUILD_COMPLETE
+
+        this.bind(new EventAppletFocusDecoder(), new NoOpHandler()); // EVENT_APPLET_FOCUS
+        this.bind(new EventCameraPositionDecoder(), new NoOpHandler()); // EVENT_CAMERA_POSITION
+
         // this.bind(new MoveClickDecoder(176), new MoveClickHandler()); // MOVE_GAMECLICK
         // this.bind(new MoveClickDecoder(60), new MoveClickHandler()); // MOVE_MINIMAPCLICK
         // this.bind(new MoveClickDecoder(214), new MoveClickHandler()); // MOVE_OPCLICK
 
-        // this.bind(new NoOpDecoder(72, -1), new NoOpHandler());
         // this.bind(new NoOpDecoder(228, 0), new NoOpHandler());
         // this.bind(new NoOpDecoder(210, 4), new NoOpHandler());
         // this.bind(new NoOpDecoder(161, 4), new NoOpHandler());
