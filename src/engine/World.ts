@@ -7,6 +7,7 @@ import IfOpenSub from '#/network/server/model/game/IfOpenSub.ts';
 import IfOpenTop from '#/network/server/model/game/IfOpenTop.ts';
 import PlayerInfo from '#/network/server/model/game/PlayerInfo.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
+import { Worker } from 'worker_threads';
 
 class World {
     cache = OpenRs2.OSRS_1;
@@ -14,11 +15,22 @@ class World {
     players: Player[] = [];
     currentTick: number = 100; // start with a minute of uptime in case scripts skip testing 0-checks
 
+    // private readonly loggerThread = new Worker('./src/server/logger/LoggerThread.ts'); todo
+
     async load() {
         await this.cache.predownload();
         await this.cache.loadKeys();
 
         this.cycle();
+    }
+
+    submitInputTracking(player: Player, buf: Uint8Array) {
+        // this.loggerThread.postMessage({
+        //     type: 'input_track',
+        //     session_uuid: player.session,
+        //     timestamp: Date.now(),
+        //     buf: Buffer.from(buf).toString('base64')
+        // });
     }
 
     cycle() {

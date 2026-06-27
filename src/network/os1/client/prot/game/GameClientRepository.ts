@@ -26,6 +26,12 @@ import OpObj6Decoder from "#/network/os1/client/codec/game/OpObj6Decoder.js";
 import OpObj6Handler from "#/network/os1/client/handler/game/OpObj6Handler.js";
 import EventAppletFocusDecoder from '../../codec/game/EventAppletFocusDecoder.ts';
 import EventCameraPositionDecoder from '../../codec/game/EventCameraPositionDecoder.ts';
+import EventAppletFocusHandler from '../../handler/game/EventAppletFocusHandler.ts';
+import EventCameraPositionHandler from '../../handler/game/EventCameraPositionHandler.ts';
+import EventMouseClickDecoder from '../../codec/game/EventMouseClickDecoder.ts';
+import EventMouseMoveDecoder from '../../codec/game/EventMouseMoveDecoder.ts';
+import EventMouseClickHandler from '../../handler/game/EventMouseClickHandler.ts';
+import EventMouseMoveHandler from '../../handler/game/EventMouseMoveHandler.ts';
 
 export default class GameClientRepository extends ClientRepository {
     constructor() {
@@ -34,8 +40,10 @@ export default class GameClientRepository extends ClientRepository {
         this.bind(new NoOpDecoder(19, 0), new NoOpHandler()); // NO_TIMEOUT
         this.bind(new NoOpDecoder(213, 0), new NoOpHandler()); // MAP_BUILD_COMPLETE
 
-        this.bind(new EventAppletFocusDecoder(), new NoOpHandler()); // EVENT_APPLET_FOCUS
-        this.bind(new EventCameraPositionDecoder(), new NoOpHandler()); // EVENT_CAMERA_POSITION
+        this.bind(new EventAppletFocusDecoder(), new EventAppletFocusHandler()); // EVENT_APPLET_FOCUS
+        this.bind(new EventCameraPositionDecoder(), new EventCameraPositionHandler()); // EVENT_CAMERA_POSITION
+        this.bind(new EventMouseClickDecoder(), new EventMouseClickHandler()); // EVENT_MOUSE_CLICK
+        this.bind(new EventMouseMoveDecoder(), new EventMouseMoveHandler()); // EVENT_MOUSE_MOVE
 
         // this.bind(new MoveClickDecoder(176), new MoveClickHandler()); // MOVE_GAMECLICK
         // this.bind(new MoveClickDecoder(60), new MoveClickHandler()); // MOVE_MINIMAPCLICK
