@@ -40,7 +40,7 @@ export default class NetworkPlayer extends Player {
             available -= 1;
 
             NetworkPlayer.in.pos = 0;
-            this.client.packetType = NetworkPlayer.in.g1(); // todo: isaac
+            this.client.packetType = (NetworkPlayer.in.g1() - this.client.decryptor!.takeNextValue()) & 0xFF;
 
             const decoder = NetworkPlayer.clientRepo.getDecoder(this.client.packetType);
             if (typeof decoder === 'undefined') {
@@ -124,7 +124,7 @@ export default class NetworkPlayer extends Player {
                 throw new Error(`Cannot write ${message.constructor.name} message`);
             }
 
-            buf.p1(encoder.opcode); // todo: isaac
+            buf.p1((encoder.opcode + this.client.encryptor!.takeNextValue()) & 0xFF);
             if (encoder.size === -1) {
                 buf.p1(0);
             } else if (encoder.size === -2) {

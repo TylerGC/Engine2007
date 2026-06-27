@@ -2,11 +2,10 @@ import type Packet from '#/io/Packet.ts';
 import OpenRs2 from '#/util/OpenRs2.ts';
 
 import MessageEncoder from '#/network/server/codec/MessageEncoder.ts';
-
 import type RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
 
 export default class RebuildNormalEncoder extends MessageEncoder {
-    opcode = 21;
+    opcode = 79;
     size = -2;
 
     write(buf: Packet, message: RebuildNormal) {
@@ -17,23 +16,24 @@ export default class RebuildNormalEncoder extends MessageEncoder {
         const zz = z >> 3;
 
         // todo: helper class to get local coord
-        buf.p2(z - ((zz - 6) << 3));
-        buf.p2_alt1(x - ((zx - 6) << 3));
+        const localX = x - ((zx - 6) << 3);
+        const localZ = z - ((zz - 6) << 3);
 
         // todo: better key provider
         for (let mx = (zx - 6) >> 3; mx <= (zx + 6) >> 3; mx++) {
             for (let mz = (zz - 6) >> 3; mz <= (zz + 6) >> 3; mz++) {
                 const key = OpenRs2.OSRS_1.getKey(mx, mz);
                 for (let i = 0; i < 4; i++) {
-                    buf.p4_alt2(key[i]);
+                    buf.p4_alt1(key[i]);
                 }
             }
         }
 
-        buf.p1_alt2(0); // todo
-
+        buf.p2_alt2(zz);
+        buf.p2_alt3(localX);
         buf.p2(zx);
-        buf.p2_alt3(zz);
+        buf.p1_alt3(0);
+        buf.p2(localZ);
     }
 
     test(message: RebuildNormal): number {
@@ -46,9 +46,7 @@ export default class RebuildNormalEncoder extends MessageEncoder {
         let maps = 0;
         for (let mx = (zx - 6) >> 3; mx <= (zx + 6) >> 3; mx++) {
             for (let mz = (zz - 6) >> 3; mz <= (zz + 6) >> 3; mz++) {
-                for (let i = 0; i < 4; i++) {
-                    maps++;
-                }
+                maps++;
             }
         }
 

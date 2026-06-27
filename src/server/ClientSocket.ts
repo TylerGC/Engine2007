@@ -1,10 +1,17 @@
 import type NetworkPlayer from '#/engine/NetworkPlayer.ts';
 import type Packet from '#/io/Packet.ts';
+import Isaac from '#/io/Isaac.ts';
 
 export default abstract class ClientSocket {
     state: number = 0;
 
+    remoteAddress = 'unknown';
     player: NetworkPlayer | null = null;
+    encryptor: Isaac | null = null;
+    decryptor: Isaac | null = null;
+
+    opcode: number = -1;
+    waiting: number = 0;
 
     inBuffer: Uint8Array = new Uint8Array(65536); // todo: 65kb on each client adds some mem pressure and node doesn't store the socket buffer for us :(
     inBufferPos = 0;

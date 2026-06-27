@@ -14,7 +14,7 @@ type OpenRs2Xtea = {
 };
 
 export default class OpenRs2 {
-    static OSRS_1 = new OpenRs2(241);
+    static OSRS_1 = new OpenRs2(726);
 
     id: number;
     keys: OpenRs2Xtea[] = [];

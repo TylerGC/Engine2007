@@ -1,11 +1,7 @@
 import net from 'net';
 
 import TcpSocket from '#/server/TcpSocket.ts';
-import Packet from '#/io/Packet.ts';
-
-import World from '#/engine/World.ts';
 import Login from '#/engine/Login.ts';
-import Js5 from '#/engine/Js5.ts';
 
 export default class TcpServer {
     server: net.Server;
@@ -17,12 +13,11 @@ export default class TcpServer {
 
             const client = new TcpSocket(s);
 
-            s.on('data', async data => {
+            s.on('data', (data: Buffer) => {
                 try {
+                    client.buffer(data);
                     if (client.state === 0) {
-                        Login.decode(client, data);
-                    } else {
-                        client.buffer(data);
+                        Login.decode(client);
                     }
                 } catch (err) {
                     console.error(err);
