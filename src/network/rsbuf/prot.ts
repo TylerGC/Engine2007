@@ -14,15 +14,15 @@ export enum PlayerInfoProt {
 
 export function playerInfoProtIndex(prot: PlayerInfoProt): number {
     switch (prot) {
-        case PlayerInfoProt.CHAT:        return 0;
-        case PlayerInfoProt.SAY:         return 1;
-        case PlayerInfoProt.ANIM:        return 2;
-        case PlayerInfoProt.FACE_COORD:  return 3;
-        case PlayerInfoProt.FACE_ENTITY: return 4;
-        case PlayerInfoProt.APPEARANCE:  return 5;
-        case PlayerInfoProt.DAMAGE:      return 6;
-        case PlayerInfoProt.DAMAGE2:     return 7;
-        case PlayerInfoProt.SPOT_ANIM:   return 8;
+        case PlayerInfoProt.SAY:         return 0;
+        case PlayerInfoProt.FACE_COORD:  return 1;
+        case PlayerInfoProt.SPOT_ANIM:   return 2;
+        case PlayerInfoProt.ANIM:        return 3;
+        case PlayerInfoProt.APPEARANCE:  return 4;
+        case PlayerInfoProt.DAMAGE:      return 5;
+        case PlayerInfoProt.DAMAGE2:     return 6;
+        case PlayerInfoProt.CHAT:        return 7;
+        case PlayerInfoProt.FACE_ENTITY: return 8;
         case PlayerInfoProt.BIG:
         case PlayerInfoProt.EXACT_MOVE:  return 255;
     }

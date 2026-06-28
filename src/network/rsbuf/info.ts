@@ -10,7 +10,7 @@ import { NpcRenderer, PlayerRenderer } from './renderer.js';
 import { Visibility } from './visibility.js';
 
 export class PlayerInfoEncoder {
-    private static readonly BITS_ADD = 11 + 5 + 5 + 1 + 1;
+    private static readonly BITS_ADD = 11 + 5 + 5 + 1 + 1 + 3;
     private static readonly BITS_RUN = 1 + 2 + 3 + 3 + 1;
     private static readonly BITS_WALK = 1 + 2 + 3 + 1;
     private static readonly BITS_EXTEND = 1 + 2;
@@ -118,10 +118,11 @@ export class PlayerInfoEncoder {
 
     private add(renderer: PlayerRenderer, player: Player, other: Player, pid: number, x: number, z: number, jump: boolean): void {
         this.buf.pbit(11, pid);
-        this.buf.pbit(5, x);
-        this.buf.pbit(5, z);
-        this.buf.pbit(1, jump ? 1 : 0);
+        this.buf.pbit(3, 0); // angle
         this.buf.pbit(1, 1);
+        this.buf.pbit(5, z);
+        this.buf.pbit(5, x);
+        this.buf.pbit(1, jump ? 1 : 0);
         this.lowdefinition(renderer, player, other);
         player.build.players.insert(other.pid);
     }
@@ -135,15 +136,13 @@ export class PlayerInfoEncoder {
     private teleport(renderer: PlayerRenderer, player: Player, other: Player, x: number, y: number, z: number, jump: boolean, extend: boolean): void {
         this.buf.pbit(1, 1);
         this.buf.pbit(2, 3);
+        this.buf.pbit(1, jump ? 1 : 0);
         this.buf.pbit(2, y);
+        this.buf.pbit(1, extend ? 1 : 0);
         this.buf.pbit(7, x);
         this.buf.pbit(7, z);
-        this.buf.pbit(1, jump ? 1 : 0);
         if (extend) {
-            this.buf.pbit(1, 1);
             this.highdefinition(renderer, player, other);
-        } else {
-            this.buf.pbit(1, 0);
         }
     }
 
@@ -227,37 +226,46 @@ export class PlayerInfoEncoder {
             this.updates.p1(masks);
         }
 
-        if ((masks & PlayerInfoProt.APPEARANCE) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.APPEARANCE);
-        }
-        if ((masks & PlayerInfoProt.ANIM) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.ANIM);
-        }
-        if ((masks & PlayerInfoProt.FACE_ENTITY) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.FACE_ENTITY);
-        }
         if ((masks & PlayerInfoProt.SAY) !== 0) {
             renderer.write(this.updates, other.pid, PlayerInfoProt.SAY);
         }
-        if ((masks & PlayerInfoProt.DAMAGE) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.DAMAGE);
-        }
-        if ((masks & PlayerInfoProt.FACE_COORD) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.FACE_COORD);
-        }
-        if ((masks & PlayerInfoProt.CHAT) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.CHAT);
-        }
-        if ((masks & PlayerInfoProt.SPOT_ANIM) !== 0) {
-            renderer.write(this.updates, other.pid, PlayerInfoProt.SPOT_ANIM);
-        }
+        
         if ((masks & PlayerInfoProt.EXACT_MOVE) !== 0 && other.exactMove !== null) {
             const x = ((player.origin.x() >> 3) - 6) << 3;
             const z = ((player.origin.z() >> 3) - 6) << 3;
             renderer.writeExactmove(this.updates, other.exactMove.startX - x, other.exactMove.startZ - z, other.exactMove.endX - x, other.exactMove.endZ - z, other.exactMove.begin, other.exactMove.finish, other.exactMove.dir);
         }
+
+        if ((masks & PlayerInfoProt.FACE_COORD) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.FACE_COORD);
+        }
+        
+        if ((masks & PlayerInfoProt.SPOT_ANIM) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.SPOT_ANIM);
+        }
+        
+        if ((masks & PlayerInfoProt.ANIM) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.ANIM);
+        }
+        
+        if ((masks & PlayerInfoProt.APPEARANCE) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.APPEARANCE);
+        }
+        
+        if ((masks & PlayerInfoProt.DAMAGE) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.DAMAGE);
+        }
+        
         if ((masks & PlayerInfoProt.DAMAGE2) !== 0) {
             renderer.write(this.updates, other.pid, PlayerInfoProt.DAMAGE2);
+        }
+        
+        if ((masks & PlayerInfoProt.CHAT) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.CHAT);
+        }
+        
+        if ((masks & PlayerInfoProt.FACE_ENTITY) !== 0) {
+            renderer.write(this.updates, other.pid, PlayerInfoProt.FACE_ENTITY);
         }
     }
 
