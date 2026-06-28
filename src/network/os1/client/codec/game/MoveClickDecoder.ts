@@ -18,26 +18,33 @@ export default class MoveClickDecoder extends MessageDecoder {
     }
 
     read(buf: Packet, length: number): ClientMessage {
-        const offset = this.opcode === 60 ? 14 : 0; // extra input data when clicking minimap
-        const waypoints = (length - 3 - offset) / 2;
+        const offset = this.opcode === 199 ? 14 : 0;
+        const startZ = buf.g2();
+        const ctrlHeld = buf.g1_alt2();   
 
-        const path = [];
-        for (let i = 1; i < waypoints; i++) {
-            const x = buf.g1b_alt2();
-            const z = buf.g1b_alt3();
+        const waypointsStartPos = buf.pos;
 
-            path.push({ x, z });
+        buf.pos = length - offset - 2;
+        const startX = buf.g2_alt2();
+
+        buf.pos = waypointsStartPos;
+
+        const waypoints = (length - offset - 5) / 2;
+
+        const path: { x: number; z: number }[] = [{ x: startX, z: startZ }];
+
+        for (let index = 1; index <= waypoints && index < 25; index++) {
+            const dx = buf.g1b_alt3(); 
+            const dz = buf.g1b_alt2(); 
+
+            path.push({
+                x: startX + dx,
+                z: startZ + dz
+            });
         }
 
-        const startZ = buf.g2_alt3();
-        const ctrlHeld = buf.g1();
-        const startX = buf.g2();
+        const opClick = this.opcode === 159;
 
-        for (let i = 0; i < path.length; i++) {
-            path[i].x += startX;
-            path[i].z += startZ;
-        }
-
-        return new MoveClick(path, ctrlHeld == 1);
+        return new MoveClick(path, ctrlHeld, opClick);
     }
 }

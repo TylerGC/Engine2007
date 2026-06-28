@@ -1,18 +1,20 @@
 import type NetworkPlayer from '#/engine/NetworkPlayer.ts';
-import type MoveClick from '#/network/client/model/game/MoveClick.ts';
 import MessageHandler from '#/network/client/handler/MessageHandler.ts';
+import type MoveClick from '#/network/client/model/game/MoveClick.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
 
 export default class MoveClickHandler extends MessageHandler {
     handle(message: MoveClick, player: NetworkPlayer): boolean {
-        if (!message.route.length) {
+        if (!message.path.length) {
             return true;
         }
 
-        let destX = message.route[message.route.length - 1].x;
-        let destZ = message.route[message.route.length - 1].z;
+        const dest = message.path[0];
 
-        player.write(new RebuildNormal(destX, destZ));
+        player.x = dest.x;
+        player.z = dest.z;
+
+        player.write(new RebuildNormal(dest.x, dest.z));
         return true;
     }
 }

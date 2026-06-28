@@ -45,9 +45,9 @@ export default class GameClientRepository extends ClientRepository {
         this.bind(new EventMouseClickDecoder(), new EventMouseClickHandler()); // EVENT_MOUSE_CLICK
         this.bind(new EventMouseMoveDecoder(), new EventMouseMoveHandler()); // EVENT_MOUSE_MOVE
 
-        // this.bind(new MoveClickDecoder(176), new MoveClickHandler()); // MOVE_GAMECLICK
-        // this.bind(new MoveClickDecoder(60), new MoveClickHandler()); // MOVE_MINIMAPCLICK
-        // this.bind(new MoveClickDecoder(214), new MoveClickHandler()); // MOVE_OPCLICK
+        this.bind(new MoveClickDecoder(200), new MoveClickHandler()); // MOVE_GAMECLICK
+        this.bind(new MoveClickDecoder(199), new MoveClickHandler()); // MOVE_MINIMAPCLICK
+        this.bind(new MoveClickDecoder(159), new MoveClickHandler()); // MOVE_OPCLICK
 
         // this.bind(new NoOpDecoder(228, 0), new NoOpHandler());
         // this.bind(new NoOpDecoder(210, 4), new NoOpHandler());

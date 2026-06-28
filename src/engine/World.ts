@@ -8,6 +8,7 @@ import IfOpenTop from '#/network/server/model/game/IfOpenTop.ts';
 import PlayerInfo from '#/network/server/model/game/PlayerInfo.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
 import { Worker } from 'worker_threads';
+import * as rsbuf from '#/network/rsbuf/index.js';
 
 class World {
     cache = OpenRs2.OSRS_1;
@@ -70,7 +71,46 @@ class World {
                 continue;
             }
 
-            player.write(new PlayerInfo());
+            if (player.client.state === -1) {
+                rsbuf.removePlayer(player.slot);
+                continue;
+            }
+
+            rsbuf.computePlayer(
+                player.x,
+                player.level,
+                player.z,
+                player.x, // originX
+                player.z, // originZ
+                player.slot,
+                false, // tele
+                false, // jump
+                -1, // runDir
+                -1, // walkDir
+                rsbuf.Visibility.DEFAULT,
+                true,
+                0,               // masks
+                new Uint8Array(0), // appearance
+                -1,              // lastAppearance
+                -1,              // faceEntity
+                -1, -1,          // faceX, faceZ
+                -1, -1,          // orientationX, orientationZ
+                0, 0, 0, 0,      // damage
+                0, 0,            // hitpoints
+                -1, 0,           // animId, animDelay
+                null,            // say
+                null,            // chatMessage
+                0, 0, 0,         // chat color, effect, ignored
+                -1, 0, 0,        // graphic
+                -1, -1, -1, -1, 0, 0, 0  // exactMove
+            );
+
+            const dx = Math.abs(player.lastTickX - player.x);
+            const dz = Math.abs(player.lastTickZ - player.z);
+            const levelChanged = player.lastLevel !== player.level;
+
+            const bytes = rsbuf.playerInfo(0, player.slot, dx, dz, levelChanged);
+            player.write(new PlayerInfo(bytes));
 
             if (player.buffer.length > 0) {
                 for (const message of player.buffer) {
@@ -79,8 +119,12 @@ class World {
 
                 player.buffer.length = 0;
             }
+            player.lastTickX = player.x;
+            player.lastTickZ = player.z;
+            player.lastLevel = player.level;
         }
 
+        rsbuf.cleanup();
         this.currentTick++;
 
         // todo: account for drift due to event loop/OS scheduling
@@ -91,6 +135,9 @@ class World {
         this.players.push(player);
 
         if (player instanceof NetworkPlayer) {
+            const slot = this.players.length - 1; // todo actual logic
+            player.slot = slot;
+            rsbuf.addPlayer(slot);
             const reply = Packet.alloc(9);
             if (reconnect) {
                 reply.p1(15);
@@ -105,7 +152,7 @@ class World {
             reply.p1(0);      // underage
             reply.p1(0);      // mapQuickchat
             reply.p1(0);      // mouseTracked
-            reply.p2(2047);   // selfSlot
+            reply.p2(player.slot);   // selfSlot
             reply.p1(1);      // membersAccount
             player.client.write(reply);
             player.client.state = 1;
