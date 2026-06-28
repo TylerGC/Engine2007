@@ -32,6 +32,8 @@ import EventMouseClickDecoder from '../../codec/game/EventMouseClickDecoder.ts';
 import EventMouseMoveDecoder from '../../codec/game/EventMouseMoveDecoder.ts';
 import EventMouseClickHandler from '../../handler/game/EventMouseClickHandler.ts';
 import EventMouseMoveHandler from '../../handler/game/EventMouseMoveHandler.ts';
+import MessagePublicHandler from '../../handler/game/MessagePublicHandler.ts';
+import MessagePublicDecoder from '../../codec/game/MessagePublicDecoder.ts';
 
 export default class GameClientRepository extends ClientRepository {
     constructor() {
@@ -48,6 +50,8 @@ export default class GameClientRepository extends ClientRepository {
         this.bind(new MoveClickDecoder(200), new MoveClickHandler()); // MOVE_GAMECLICK
         this.bind(new MoveClickDecoder(199), new MoveClickHandler()); // MOVE_MINIMAPCLICK
         this.bind(new MoveClickDecoder(159), new MoveClickHandler()); // MOVE_OPCLICK
+
+        this.bind(new MessagePublicDecoder(), new MessagePublicHandler());
 
         // this.bind(new NoOpDecoder(228, 0), new NoOpHandler());
         // this.bind(new NoOpDecoder(210, 4), new NoOpHandler());

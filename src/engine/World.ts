@@ -9,6 +9,7 @@ import PlayerInfo from '#/network/server/model/game/PlayerInfo.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
 import { Worker } from 'worker_threads';
 import * as rsbuf from '#/network/rsbuf/index.js';
+import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
 
 class World {
     cache = OpenRs2.OSRS_1;
@@ -76,6 +77,10 @@ class World {
                 continue;
             }
 
+            const appearance = (player.masks & PlayerInfoProt.APPEARANCE)
+                ? player.generateAppearance()
+                : (player.appearanceBuf ?? player.generateAppearance());
+
             rsbuf.computePlayer(
                 player.x,
                 player.level,
@@ -89,8 +94,8 @@ class World {
                 -1, // walkDir
                 rsbuf.Visibility.DEFAULT,
                 true,
-                0,               // masks
-                new Uint8Array(0), // appearance
+                player.masks,
+                appearance,
                 -1,              // lastAppearance
                 -1,              // faceEntity
                 -1, -1,          // faceX, faceZ
@@ -99,8 +104,10 @@ class World {
                 0, 0,            // hitpoints
                 -1, 0,           // animId, animDelay
                 null,            // say
-                null,            // chatMessage
-                0, 0, 0,         // chat color, effect, ignored
+                player.chatMessage ?? null,
+                player.chatColour ?? 0,
+                player.chatEffect ?? 0,
+                player.chatRights ?? 0,
                 -1, 0, 0,        // graphic
                 -1, -1, -1, -1, 0, 0, 0  // exactMove
             );
@@ -122,6 +129,12 @@ class World {
             player.lastTickX = player.x;
             player.lastTickZ = player.z;
             player.lastLevel = player.level;
+        }
+
+        // todo: Hook up actual players into player loop
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            player.resetEntity(false);
         }
 
         rsbuf.cleanup();
@@ -164,21 +177,21 @@ class World {
             player.write(new IfOpenTop(548));
 
             // // runescript: if_openoverlay(toplevel:x, y);
-            // player.write(new IfOpenSub((548 << 16) | 90, 137, 0)); // toplevel:chat -> chat
-            // player.write(new IfOpenSub((548 << 16) | 99, 92, 0)); // toplevel:stone0 -> combat-unarmed
-            // player.write(new IfOpenSub((548 << 16) | 100, 320, 0)); // toplevel:stone1 -> stats
-            // player.write(new IfOpenSub((548 << 16) | 101, 274, 0)); // toplevel:stone2 -> questjournal_v2
-            // player.write(new IfOpenSub((548 << 16) | 102, 149, 0)); // toplevel:stone3 -> inventory
-            // player.write(new IfOpenSub((548 << 16) | 103, 387, 0)); // toplevel:stone4 -> wornitems
-            // player.write(new IfOpenSub((548 << 16) | 104, 271, 0)); // toplevel:stone5 -> prayer
-            // player.write(new IfOpenSub((548 << 16) | 105, 192, 0)); // toplevel:stone6 -> magic
-            // player.write(new IfOpenSub((548 << 16) | 106, 589, 0)); // toplevel:stone7 -> clanjoin
-            // player.write(new IfOpenSub((548 << 16) | 107, 550, 0)); // toplevel:stone8 -> friends2
-            // player.write(new IfOpenSub((548 << 16) | 108, 551, 0)); // toplevel:stone9 -> ignore2
-            // player.write(new IfOpenSub((548 << 16) | 109, 182, 0)); // toplevel:stone10 -> logout
-            // player.write(new IfOpenSub((548 << 16) | 110, 261, 0)); // toplevel:stone11 -> options
-            // player.write(new IfOpenSub((548 << 16) | 111, 464, 0)); // toplevel:stone12 -> emotes
-            // player.write(new IfOpenSub((548 << 16) | 112, 239, 0)); // toplevel:stone13 -> music
+            // player.write(new IfOpenSub((548 << 16) | 112, 137, 1)); // toplevel:chat -> chat
+            // player.write(new IfOpenSub((548 << 16) | 126, 92, 1)); // toplevel:stone0 -> combat-unarmed
+            // player.write(new IfOpenSub((548 << 16) | 127, 320, 1)); // toplevel:stone1 -> stats
+            // player.write(new IfOpenSub((548 << 16) | 128, 274, 1)); // toplevel:stone2 -> questjournal_v2
+            // player.write(new IfOpenSub((548 << 16) | 129, 149, 1)); // toplevel:stone3 -> inventory
+            // player.write(new IfOpenSub((548 << 16) | 130, 387, 1)); // toplevel:stone4 -> wornitems
+            // player.write(new IfOpenSub((548 << 16) | 131, 271, 1)); // toplevel:stone5 -> prayer
+            // player.write(new IfOpenSub((548 << 16) | 132, 192, 1)); // toplevel:stone6 -> magic
+            // player.write(new IfOpenSub((548 << 16) | 133, 589, 1)); // toplevel:stone7 -> clanjoin
+            // player.write(new IfOpenSub((548 << 16) | 134, 550, 1)); // toplevel:stone8 -> friends2
+            // player.write(new IfOpenSub((548 << 16) | 135, 551, 1)); // toplevel:stone9 -> ignore2
+            // player.write(new IfOpenSub((548 << 16) | 136, 182, 1)); // toplevel:stone10 -> logout
+            // player.write(new IfOpenSub((548 << 16) | 137, 261, 1)); // toplevel:stone11 -> options
+            // player.write(new IfOpenSub((548 << 16) | 138, 464, 1)); // toplevel:stone12 -> emotes
+            // player.write(new IfOpenSub((548 << 16) | 139, 239, 1)); // toplevel:stone13 -> music
         }
     }
 }
