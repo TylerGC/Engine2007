@@ -11,6 +11,6 @@ await Js5.load();
 await World.load();
 
 const server = new TcpServer();
-await server.start(40001);
+await server.start(43594);
 
 ServerList.update(1, 0);
