@@ -125,13 +125,13 @@ export default class Player {
         }
 
         // anims
+        stream.p2(0x328);
         stream.p2(0x337);
-        stream.p2(0x337);
-        stream.p2(0x337);
+        stream.p2(0x333);
+        stream.p2(0x334);
         stream.p2(0x335);
         stream.p2(0x336);
-        stream.p2(0x337);
-        stream.p2(0x337);
+        stream.p2(0x338);
 
         stream.p8(this.username37); // username
         stream.p1(3);  // combatLevel
