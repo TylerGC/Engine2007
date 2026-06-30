@@ -7,9 +7,9 @@ import ClientCheatHandler from '#/network/client/handler/game/ClientCheatHandler
 import MoveClickHandler from '#/network/client/handler/game/MoveClickHandler.ts';
 import NoOpHandler from '#/network/client/handler/game/NoOpHandler.ts';
 import ClanDecoder from '#/network/client/codec/game/ClanDecoder.ts';
-import IfButtonDecoder from '#/network/client/codec/game/IfButtonDecoder.ts';
+import IfButtonXDecoder from '#/network/client/codec/game/IfButtonXDecoder.ts';
 import ClanHandler from '#/network/client/handler/game/ClanHandler.ts';
-import IfButtonHandler from '#/network/client/handler/game/IfButtonHandler.ts';
+import IfButtonXHandler from '#/network/client/handler/game/IfXButtonHandler.ts';
 import OpPlayerDecoder from '#/network/client/codec/game/OpPlayerDecoder.ts';
 import OpPlayerHandler from '#/network/client/handler/game/OpPlayerHandler.ts';
 import OpNpcDecoder from '#/network/client/codec/game/OpNpcDecoder.ts';
@@ -26,6 +26,8 @@ import OpObj6Decoder from '#/network/client/codec/game/OpObj6Decoder.ts';
 import OpObj6Handler from '#/network/client/handler/game/OpObj6Handler.ts';
 import MessagePublicDecoder from '../../codec/game/MessagePublicDecoder.ts';
 import MessagePublicHandler from '../../handler/game/MessagePublicHandler.ts';
+import IfButtonDecoder from '../../codec/game/IfButtonDecoder.ts';
+import IfButtonHandler from '../../handler/game/IfButtonHandler.ts';
 
 export default class GameClientRepository extends ClientRepository {
     constructor() {
@@ -48,21 +50,21 @@ export default class GameClientRepository extends ClientRepository {
         this.bind(new NoOpDecoder(207, 9), new NoOpHandler()); // INV_BUTTOND
         this.bind(new NoOpDecoder(213, 0), new NoOpHandler()); // MAP_BUILD_COMPLETE
         this.bind(new NoOpDecoder(226, 0), new NoOpHandler()); // IDLE_TIMER
-        this.bind(new NoOpDecoder(135, 12), new NoOpHandler()); // IF_BUTTOND
 
         this.bind(new ClientCheatDecoder(), new ClientCheatHandler())
         this.bind(new ClanDecoder(), new ClanHandler())
 
-        this.bind(new IfButtonDecoder(1, 44), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(2, 50), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(3, 103), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(4, 64), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(5, 178), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(6, 81), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(7, 236), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(8, 188), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(9, 128), new IfButtonHandler())
-        this.bind(new IfButtonDecoder(10, 254), new IfButtonHandler())
+        this.bind(new IfButtonDecoder(109), new IfButtonHandler()); // IF_BUTTON
+        this.bind(new IfButtonXDecoder(1, 44), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(2, 50), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(3, 103), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(4, 64), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(5, 178), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(6, 81), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(7, 236), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(8, 188), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(9, 128), new IfButtonXHandler())
+        this.bind(new IfButtonXDecoder(10, 254), new IfButtonXHandler())
 
         this.bind(new OpPlayerDecoder(1, 65), new OpPlayerHandler())
         this.bind(new OpPlayerDecoder(2, 151), new OpPlayerHandler())

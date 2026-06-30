@@ -1,12 +1,12 @@
 import type NetworkPlayer from '#/engine/NetworkPlayer.ts';
 import MessageHandler from '#/network/client/handler/MessageHandler.ts';
-import type IfButton from "#/network/client/model/game/IfButton.js";
-import Logout from "#/network/server/model/game/Logout.js";
+import Logout from '#/network/server/model/game/Logout.ts';
+import type IfButton from '../../model/game/IfButton.ts';
 
 export default class IfButtonHandler extends MessageHandler {
     handle(message: IfButton, player: NetworkPlayer): boolean {
-        //todo: runescript
-        if (message.com === 11927558) {
+        console.log(`IfButtonHandler: ${message.com}`);
+         if (message.com === 11927558) {
             player.write(new Logout())
             return true;
         }
