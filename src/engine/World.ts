@@ -12,7 +12,7 @@ import * as rsbuf from '#/network/rsbuf/index.js';
 import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
 
 class World {
-    cache = OpenRs2.OSRS_1;
+    cache = OpenRs2.RS2_500;
 
     players: Player[] = [];
     currentTick: number = 100; // start with a minute of uptime in case scripts skip testing 0-checks
@@ -22,6 +22,7 @@ class World {
     async load() {
         await this.cache.predownload();
         await this.cache.loadKeys();
+        await this.cache.loadMapIndex();
 
         this.cycle();
     }
@@ -164,20 +165,20 @@ class World {
             reply.p1(0);      // playermod
             reply.p1(0);      // underage
             reply.p1(0);      // mapQuickchat
-            reply.p1(0);      // mouseTracked
+            reply.p1(1);      // mouseTracked
             reply.p2(player.slot);   // selfSlot
             reply.p1(1);      // membersAccount
             player.client.write(reply);
             player.client.state = 1;
 
-            player.write(new RebuildNormal(2316, 3790));
+            player.write(new RebuildNormal(2656, 4704));
             // runescript: mes("Welcome to RuneScape.");
             player.write(new MessageGame('Welcome to RuneScape.'));
             // runescript: if_opentop(toplevel);
             player.write(new IfOpenTop(548));
 
             // // runescript: if_openoverlay(toplevel:x, y);
-            // player.write(new IfOpenSub((548 << 16) | 112, 137, 1)); // toplevel:chat -> chat
+            player.write(new IfOpenSub((548 << 16) | 112, 137, 1)); // toplevel:chat -> chat
             // player.write(new IfOpenSub((548 << 16) | 126, 92, 1)); // toplevel:stone0 -> combat-unarmed
             // player.write(new IfOpenSub((548 << 16) | 127, 320, 1)); // toplevel:stone1 -> stats
             // player.write(new IfOpenSub((548 << 16) | 128, 274, 1)); // toplevel:stone2 -> questjournal_v2

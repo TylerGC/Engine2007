@@ -4,8 +4,8 @@ import Player from '#/engine/Player.ts';
 
 import type ClientSocket from '#/server/ClientSocket.ts';
 
-import GameServerRepository from '#/network/os1/server/prot/GameServerRepository.ts';
-import GameClientRepository from '#/network/os1/client/prot/game/GameClientRepository.ts';
+import GameServerRepository from '#/network/server/prot/GameServerRepository.ts';
+import GameClientRepository from '#/network/client/prot/game/GameClientRepository.ts';
 import GameClientLimit from '#/network/client/codec/game/GameClientLimit.ts';
 import GameMessageDecoder from '#/network/client/codec/game/GameMessageDecoder.ts';
 import type GameServerMessage from '#/network/server/GameServerMessage.ts';

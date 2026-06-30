@@ -3,6 +3,23 @@ import GZip from '#/io/GZip.ts';
 import BZip2 from '#/io/BZip2.ts';
 
 export default class Js5Index {
+    static hashName(name: string) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = (name.toLowerCase().charCodeAt(i) + ((hash << 5) - hash)) | 0;
+        }
+        return hash;
+    }
+
+    isGroupValid(group: number) {
+        return group >= 0 && group < this.capacity && this.groupSize[group] > 0;
+    }
+
+    getGroupId(name: string) {
+        const group = this.groupNameHashTable.get(Js5Index.hashName(name));
+        return typeof group !== 'undefined' && this.isGroupValid(group) ? group : -1;
+    }
+
     static decompress(src: Uint8Array) {
         const buf = new Packet(src);
 
@@ -193,50 +210,105 @@ export default class Js5Index {
         }
     }
 
-    unpackGroup(group: number, key: number[] = []) {
-        if (!this.packed[group] || !this.fileIds[group]) {
+    unpackGroup(group: number, key: number[] = []): boolean {
+        if (!this.packed[group]) {
             return false;
         }
 
         const files = this.groupSize[group];
         const fileIds = this.fileIds[group];
 
-        let fullyUnpackedFiles = true;
-        for (let i = 0; i < files; i++) {
-            if (typeof this.unpacked[group][fileIds[i]] === 'undefined') {
-                fullyUnpackedFiles = false;
-                break;
+        if (this.unpacked[group] && this.unpacked[group].length > 0) {
+            let fullyUnpackedFiles = true;
+            for (let i = 0; i < files; i++) {
+                const fid = fileIds ? fileIds[i] : i;
+                if (typeof this.unpacked[group][fid] === 'undefined' || this.unpacked[group][fid] === null) {
+                    fullyUnpackedFiles = false;
+                    break;
+                }
+            }
+
+            if (fullyUnpackedFiles) {
+                return true;
             }
         }
 
-        if (fullyUnpackedFiles) {
-            return true;
-        }
-
         let compressed = this.packed[group];
-        if (key.length === 0 || (key[0] === 0 && key[1] === 0 && key[2] === 0 && key[3] === 0)) {
-            // todo: copy bytes
-        } else {
-            // todo: copy bytes
-            // const buf = new Packet(compressed);
-            // buf.tinydec(key, 5, compressed.length);
+
+        if (key.length > 0 && !(key[0] === 0 && key[1] === 0 && key[2] === 0 && key[3] === 0)) {
+            const buf = new Packet(compressed);
+            buf.tinydec(key, 5, compressed.length);
         }
 
         let uncompressed = new Uint8Array();
         try {
             uncompressed = Js5Index.decompress(compressed);
+
+            if (this.discardPacked) {
+                this.packed[group] = null;
+            }
+
+            const capacity = this.groupCapacity[group];
+            if (!this.unpacked[group] || this.unpacked[group].length === 0) {
+                this.unpacked[group] = new Array(capacity).fill(null);
+            }
+
+            if (files > 1) {
+                const stripeCount = uncompressed[uncompressed.length - 1] & 0xff;
+
+                const tableOffset = uncompressed.length - 1 - files * stripeCount * 4;
+
+                const fileSizes = new Int32Array(files);
+                const view = new DataView(uncompressed.buffer, uncompressed.byteOffset);
+
+                let tablePos = tableOffset;
+                for (let stripe = 0; stripe < stripeCount; stripe++) {
+                    let delta = 0;
+                    for (let i = 0; i < files; i++) {
+                        delta += view.getInt32(tablePos, false);
+                        fileSizes[i] += delta;
+                        tablePos += 4;
+                    }
+                }
+
+                const fileBuffers: Uint8Array[] = new Array(files);
+                for (let i = 0; i < files; i++) {
+                    fileBuffers[i] = new Uint8Array(fileSizes[i]);
+                    fileSizes[i] = 0;
+                }
+
+                tablePos = tableOffset;
+                let readPos = 0;
+                for (let stripe = 0; stripe < stripeCount; stripe++) {
+                    let delta = 0;
+                    for (let i = 0; i < files; i++) {
+                        delta += view.getInt32(tablePos, false);
+                        tablePos += 4;
+                        fileBuffers[i].set(
+                            uncompressed.subarray(readPos, readPos + delta),
+                            fileSizes[i]
+                        );
+                        readPos += delta;
+                        fileSizes[i] += delta;
+                    }
+                }
+
+                for (let i = 0; i < files; i++) {
+                    const fid = fileIds ? fileIds[i] : i;
+                    this.unpacked[group][fid] = fileBuffers[i];
+                }
+            } else {
+                const fid = fileIds ? fileIds[0] : 0;
+                this.unpacked[group][fid] = uncompressed;
+            }
+
+            if (this.discardUnpacked) {
+            }
+
+            return true;
         } catch (err) {
             console.error(err);
+            return false;
         }
-
-        if (this.discardPacked) {
-            this.packed[group] = null;
-        }
-
-        if (files > 1) {
-            // tood
-        }
-
-        return true;
     }
 }

@@ -27,7 +27,7 @@ export default class Js5OpenRs2 extends Js5Index {
     }
 }
 
-// const config = new Js5OpenRs2(OpenRs2.OSRS_1, 10, false, false);
+// const config = new Js5OpenRs2(OpenRs2.RS2_500, 10, false, false);
 // await config.load();
 // config.unpackGroup(1);
 // console.log(config.packed);

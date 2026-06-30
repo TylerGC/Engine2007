@@ -46,7 +46,7 @@ export default class TcpServer {
     start(port: number): Promise<void> {
         return new Promise((res) => {
             this.server.listen({
-                host: '0.0.0.0',
+                host: '127.0.0.1',
                 port: port
             }, () => {
                 console.log(`Listening on port ${port}`);

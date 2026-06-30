@@ -12,8 +12,9 @@ const priv = forge.pki.privateKeyFromPem(
 );
 
 class Login {
-    decode(client: ClientSocket) {
+    revision = 500;
 
+    decode(client: ClientSocket) {
         if (client.opcode === -1) {
             if (client.available < 1) return;
             const tmp = new Uint8Array(1);
@@ -36,7 +37,7 @@ class Login {
             if (client.available < 1) return;
             const tmp = new Uint8Array(1);
             client.read(tmp, 0, 1);
-            client.waiting = client.available;
+            client.waiting = tmp[0];
         }
 
         if (client.available < client.waiting) return;
@@ -57,27 +58,57 @@ class Login {
             reply.p4(Math.floor(Math.random() * 0xffffffff));
             client.write(reply);
         } else if (opcode === 15) {
-            const _revision = buf.g4();
+            const revision = buf.g4();
 
-            // todo: out of date response
+            if (revision !== this.revision) {
+                client.close();
+                return;
+            }
 
             Js5.addClient(client);
         } else if (opcode === 16 || opcode === 18) {
+            const revision = buf.g4();
 
-            const _rev = buf.g4();
-            const _lowMemory = buf.g1();
+            if (revision !== this.revision) {
+                client.close();
+                return;
+            }
 
-            buf.pos += 24; // todo: UID
+            const lowMemory = buf.g1();
 
-            const _settings = buf.gjstr();
-            const _affid = buf.g4();
+            buf.pos += 24; // uid192
 
-            for (let i = 0; i < 27; i++) buf.g4();
+            const settings = buf.gjstr();
+            if (settings === null) {
+                client.close();
+                return;
+            }
 
-            buf.rsadec(priv);
+            if (buf.pos + 4 > buf.length) {
+                client.close();
+                return;
+            }
+            const affiliate = buf.g4();
 
-            if (buf.g1() !== 10) {
-                client.write(Uint8Array.from([6]));
+            const crcCount = 27;
+            if (buf.pos + crcCount * 4 > buf.length) {
+                client.close();
+                return;
+            }
+            for (let i = 0; i < crcCount; i++) buf.g4();
+
+            try {
+                buf.rsadec(priv);
+            } catch (err) {
+                console.warn('Login RSA decode failed:', err);
+                client.close();
+                return;
+            }
+
+            if (buf.pos >= buf.length || buf.g1() !== 10) {
+                const reply = Packet.alloc(1);
+                reply.p1(6);
+                client.write(reply);
                 client.close();
                 return;
             }
@@ -89,8 +120,8 @@ class Login {
             for (let i = 0; i < 4; i++) seed[i] += 50;
             client.encryptor = new Isaac(seed);
 
-            const _userhash = buf.g8();
-            const _password = buf.gjstr();
+            const userhash = buf.g8();
+            const password = buf.gjstr();
 
             const player = new NetworkPlayer(client);
             World.addPlayer(player, opcode === 18);
