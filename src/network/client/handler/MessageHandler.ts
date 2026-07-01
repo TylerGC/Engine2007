@@ -1,4 +1,4 @@
-import type Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 import type ClientMessage from '#/network/client/ClientMessage.ts';
 import type ClientSocket from '#/server/ClientSocket.ts';
 

@@ -3,6 +3,7 @@ import MessageHandler from '#/network/client/handler/MessageHandler.ts';
 import ClientCheat from '#/network/client/model/game/ClientCheat.ts';
 import IfOpenSub from '#/network/server/model/game/IfOpenSub.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
+import OpenRs2 from '#/util/OpenRs2.ts';
 
 export default class ClientCheatHandler extends MessageHandler {
     handle(message: ClientCheat, player: NetworkPlayer): boolean {
@@ -31,7 +32,12 @@ export default class ClientCheatHandler extends MessageHandler {
                 player.messageGame('example: tele 3222 3222');
                 return true;
             }
-
+            const missingKeys = OpenRs2.RS2_500.getMissingKeysForRebuild(parseInt(args[0]),parseInt(args[1]));
+            if (missingKeys.length > 0) {
+                const keyList = missingKeys.map(key => `${key.x}_${key.z}`).join(', ');
+                player.messageGame(`Blocked movement rebuild; missing XTEA keys for ${keyList}`);
+                return true;
+            }
             player.write(new RebuildNormal(parseInt(args[0]), parseInt(args[1])));
         }
 

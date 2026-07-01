@@ -1,4 +1,4 @@
-import type Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 import MessageHandler from '#/network/client/handler/MessageHandler.ts';
 import type EventMouseClick from '#/network/client/model/game/EventMouseClick.ts';
 

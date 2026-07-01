@@ -1,4 +1,4 @@
-import type Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 import MessageHandler from '#/network/client/handler/MessageHandler.ts';
 import type EventCameraPosition from '#/network/client/model/game/EventCameraPosition.ts';
 

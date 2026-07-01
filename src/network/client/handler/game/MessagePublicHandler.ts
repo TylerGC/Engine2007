@@ -1,6 +1,6 @@
 import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
 
-import Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 import Packet from '#/io/Packet.js';
 import MessagePublic from '#/network/client/model/game/MessagePublic.ts';
 import WordPack from '#/wordfilter2/WordPack.ts';
@@ -20,16 +20,14 @@ export default class MessagePublicHandler extends MessageHandler {
         }
 
         const buf = new Packet(input);
-        // const unpack: string = WordPack.unpack(buf);
-        const unpack: string = "Wow should probably init huffman";
-
+        const unpack: string = WordPack.unpack(buf);
         player.chatColour = colour;
         player.chatEffect = effect;
         player.chatRights = Math.min(player.staffModLevel, 2);
         player.logMessage = unpack;
 
         const out: Packet = Packet.alloc(1024);
-        // WordPack.pack(out, unpack); // todo: Filter out no-no words? No more client-side wordenc filter. 
+        WordPack.pack(out, unpack); // todo: Filter out no-no words? No more client-side wordenc filter. 
         player.chatMessage = new Uint8Array(out.pos);
         out.pos = 0;
         out.gdata(player.chatMessage, 0, player.chatMessage.length);

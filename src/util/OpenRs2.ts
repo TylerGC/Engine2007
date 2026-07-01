@@ -21,6 +21,7 @@ export default class OpenRs2 {
     id: number;
     keys: OpenRs2Xtea[] = [];
     mapIndex: Js5Index | null = null;
+    archiveIndexes: Map<number, Js5Index> = new Map();
 
     constructor(id: number) {
         this.id = id;
@@ -170,5 +171,52 @@ export default class OpenRs2 {
         }
 
         return missing;
+    }
+
+    async loadArchiveIndex(archive: number): Promise<Js5Index | null> {
+        const cached = this.archiveIndexes.get(archive);
+        if (cached) {
+            return cached;
+        }
+
+        const raw = await this.getGroup(255, archive);
+        if (!raw) {
+            return null;
+        }
+
+        const index = new Js5Index(false, false);
+        index.decode(raw);
+        this.archiveIndexes.set(archive, index);
+        return index;
+    }
+
+    async getFile(archive: number, groupName: string, fileName: string): Promise<Uint8Array | null> {
+        const index = await this.loadArchiveIndex(archive);
+        if (!index) {
+            return null;
+        }
+
+        const groupId = index.getGroupId(groupName);
+        if (groupId === -1) {
+            return null;
+        }
+
+        const packed = await this.getGroup(archive, groupId);
+        if (!packed) {
+            return null;
+        }
+
+        index.packed[groupId] = packed;
+        if (!index.unpackGroup(groupId, [])) {
+            return null;
+        }
+
+        let fileId = 0;
+        if (fileName !== '') {
+            const hash = Js5Index.hashName(fileName);
+            fileId = index.fileNameHashTable[groupId]?.get(hash) ?? 0;
+        }
+
+        return index.unpacked[groupId]?.[fileId] ?? null;
     }
 }

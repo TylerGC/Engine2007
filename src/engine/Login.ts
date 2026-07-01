@@ -6,6 +6,7 @@ import Packet from '#/io/Packet.ts';
 import type ClientSocket from '#/server/ClientSocket.ts';
 import forge from 'node-forge';
 import fs from 'fs';
+import { fromBase37 } from '#/util/JString.ts';
 
 const priv = forge.pki.privateKeyFromPem(
     fs.readFileSync('./data/config/private.pem', 'utf8')
@@ -123,8 +124,8 @@ class Login {
             const userhash = buf.g8();
             const password = buf.gjstr();
 
-            const player = new NetworkPlayer(client);
-            World.addPlayer(player, opcode === 18);
+        const player = new NetworkPlayer(client, fromBase37(userhash), userhash, userhash);
+        World.addPlayer(player, opcode === 18);
         }
     }
 }

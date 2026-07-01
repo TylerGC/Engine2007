@@ -256,7 +256,7 @@ export default class Packet {
         }
     }
 
-    psmarts(value: number): void {
+    psmart(value: number): void {
         if (value < 128) {
             this.p1(value);
         } else {
@@ -264,7 +264,7 @@ export default class Packet {
         }
     }
 
-    psmart(value: number): void {
+    psmarts(value: number): void {
         if (value < -64 || value >= 64) {
             this.p2(value + 49152);
         } else {
@@ -433,12 +433,23 @@ export default class Packet {
         return this.gjstr();
     }
 
-    gsmarts(): number {
+    gsmart(): number {
         return this.#view.getUint8(this.pos) < 128 ? this.g1() : this.g2() - 32768;
     }
 
-    gsmart(): number {
+    gsmarts(): number {
         return this.#view.getUint8(this.pos) < 128 ? this.g1() - 64 : this.g2s() - 49152;
+    }
+
+    gSmart2or4(): number {
+        const byte1 = this.#view.getUint8(this.pos);
+        if ((byte1 & 0x80) === 0) {
+            // 2-byte value
+            return this.g2();
+        } else {
+            // 4-byte value with high bit set
+            return this.g4() & 0x7fffffff;
+        }
     }
 
     bits(): void {

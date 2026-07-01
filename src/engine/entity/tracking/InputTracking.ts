@@ -1,6 +1,6 @@
 import World from '#/engine/World.ts';
 
-import Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 
 import Packet from '#/io/Packet.ts';
 

@@ -1,8 +1,9 @@
 import Packet from '#/io/Packet.ts';
 
-import Player from '#/engine/Player.ts';
+import Player from '#/engine/entity/Player.js';
 
 import type ClientSocket from '#/server/ClientSocket.ts';
+import NullSocket from '#/server/NullSocket.ts';
 
 import GameServerRepository from '#/network/server/prot/GameServerRepository.ts';
 import GameClientRepository from '#/network/client/prot/game/GameClientRepository.ts';
@@ -22,9 +23,8 @@ export default class NetworkPlayer extends Player {
     buffer: GameServerMessage[] = [];
     bufferSize = 0;
 
-    constructor(client: ClientSocket) {
-        super();
-
+    constructor(client: ClientSocket, username: string, username37: bigint, hash64: bigint) {
+        super(username, username37, hash64);
         this.client = client;
         this.client.player = this;
     }
@@ -155,4 +155,8 @@ export default class NetworkPlayer extends Player {
     messageGame(message: string) {
         this.write(new MessageGame(message));
     }
+}
+
+export function isClientConnected(player: Player): player is NetworkPlayer {
+    return player instanceof NetworkPlayer && !(player.client instanceof NullSocket);
 }

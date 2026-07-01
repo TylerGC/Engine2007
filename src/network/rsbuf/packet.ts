@@ -18,9 +18,48 @@ export class Packet {
         this.data[this.pos++] = value & 0xff;
     }
 
+    p1_alt1(value: number): void {
+        this.view.setUint8(this.pos++, value + 128);
+    }
+
+    p1_alt2(value: number): void {
+        this.view.setUint8(this.pos++, -value);
+    }
+
+    p1_alt3(value: number): void {
+        this.view.setUint8(this.pos++, 128 - value);
+    }
+
     p2(value: number): void {
         this.view.setUint16(this.pos, value & 0xffff);
         this.pos += 2;
+    }
+
+    p2_alt1(value: number): void {
+        this.view.setUint16(this.pos, value, true);
+        this.pos += 2;
+    }
+
+    p2_alt2(value: number): void {
+        this.view.setUint8(this.pos++, (value >> 8) & 0xFF);
+        this.view.setUint8(this.pos++, (value + 128) & 0xFF);
+    }
+
+    p2_alt3(value: number): void {
+        this.view.setUint8(this.pos++, value + 128);
+        this.view.setUint8(this.pos++, value >> 8);
+    }
+
+    pdata_alt1(src: Uint8Array, off: number = 0, len: number = src.length): void {
+        for (let i: number = off + len - 1; i >= off; i--) {
+            this.view.setUint8(this.pos++, src[i]);
+        }
+    }
+
+    pdata_alt2(src: Uint8Array, off: number = 0, len: number = src.length): void {
+        for (let i: number = off; i < off + len; i++) {
+            this.view.setUint8(this.pos++, 128 + src[i]);
+        }
     }
 
     ip2(value: number): void {
