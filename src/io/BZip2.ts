@@ -10,4 +10,8 @@ export default class BZip2 {
         // assumes the rest of the data available is compressed
         return bzip2.decompress(buf.data.subarray(buf.pos), ulen, true);
     }
+
+    static compress(data: Uint8Array, blockSize: number = 1): Uint8Array {
+        return bzip2.compress(data, false, true, blockSize);
+    }
 }

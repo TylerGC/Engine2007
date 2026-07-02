@@ -6,10 +6,10 @@ import { CollisionType, CollisionFlag } from '@2004scape/rsmod-pathfinder';
 
 // import Component from '#/cache/config/Component.js';
 // import FontType from '#/cache/config/FontType.js';
-// import InvType from '#/cache/config/InvType.js';
+import InvType from '#/cache/config/InvType.js';
 // import LocType from '#/cache/config/LocType.js';
 // import NpcType from '#/cache/config/NpcType.js';
-// import ObjType from '#/cache/config/ObjType.js';
+import ObjType from '#/cache/config/ObjType.js';
 // import { ParamHelper } from '#/cache/config/ParamHelper.js';
 // import ParamType from '#/cache/config/ParamType.js';
 // import ScriptVarType from '#/cache/config/ScriptVarType.js';
@@ -40,7 +40,8 @@ import { PlayerStat, PlayerStatEnabled, PlayerStatFree, PlayerStatNameMap } from
 import InputTracking from '#/engine/entity/tracking/InputTracking.js';
 import type { WealthEventParams } from '#/engine/entity/tracking/WealthEvent.ts';
 // import { changeNpcCollision, changePlayerCollision, findNaivePath, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
-import type { Inventory, InventoryListener } from '#/engine/Inventory.ts';
+import { Inventory } from '#/engine/Inventory.ts';
+import type {InventoryListener } from '#/engine/Inventory.ts';
 import ScriptFile from '#/engine/script/ScriptFile.js';
 import ScriptPointer from '#/engine/script/ScriptPointer.js';
 import ScriptProvider from '#/engine/script/ScriptProvider.ts';
@@ -224,36 +225,35 @@ export default class Player extends PathingEntity {
         //     }
         // }
 
-        // let invCount = 0;
-        // const invStartPos = sav.pos;
-        // sav.p1(0); // placeholder for saved inventory count
-        // for (const [typeId, inventory] of this.invs) {
-        //     const invType = InvType.get(typeId);
-        //     if (invType.scope !== InvType.SCOPE_PERM) {
-        //         continue;
-        //     }
+        let invCount = 0;
+        const invStartPos = sav.pos;
+        for (const [typeId, inventory] of this.invs) {
+            const invType = InvType.get(typeId);
+            if (invType.scope !== InvType.SCOPE_PERM) {
+                continue;
+            }
+        
+            sav.p2(typeId);
+            sav.p2(inventory.capacity);
+            for (let slot = 0; slot < inventory.capacity; slot++) {
+                const obj = inventory.get(slot);
+                if (!obj) {
+                    sav.p2(0);
+                    continue;
+                }
 
-        //     sav.p2(typeId);
-        //     sav.p2(inventory.capacity);
-        //     for (let slot = 0; slot < inventory.capacity; slot++) {
-        //         const obj = inventory.get(slot);
-        //         if (!obj) {
-        //             sav.p2(0);
-        //             continue;
-        //         }
-
-        //         sav.p2(obj.id + 1);
-        //         if (obj.count >= 255) {
-        //             sav.p1(255);
-        //             sav.p4(obj.count);
-        //         } else {
-        //             sav.p1(obj.count);
-        //         }
-        //     }
-        //     invCount++;
-        // }
+                sav.p2(obj.id + 1);
+                if (obj.count >= 255) {
+                    sav.p1(255);
+                    sav.p4(obj.count);
+                } else {
+                    sav.p1(obj.count);
+                }
+            }
+            invCount++;
+        }
         // // set the total saved inv count as the placeholder
-        // sav.data[invStartPos] = invCount;
+        sav.data[invStartPos] = invCount;
 
         // // afk zones
         // sav.p1(this.afkZones.length);
@@ -605,32 +605,32 @@ export default class Player extends PathingEntity {
     calculateRunWeight() {
         this.runweight = 0;
 
-        // const invs = this.invs.values();
-        // for (let i = 0; i < this.invs.size; i++) {
-        //     const inv = invs.next().value;
-        //     if (!inv) {
-        //         continue;
-        //     }
+        const invs = this.invs.values();
+        for (let i = 0; i < this.invs.size; i++) {
+            const inv = invs.next().value;
+            if (!inv) {
+                continue;
+            }
 
-        //     const invType = InvType.get(inv.type);
-        //     if (!invType || !invType.runweight) {
-        //         continue;
-        //     }
+            const invType = InvType.get(inv.type);
+            if (!invType || !invType.runweight) {
+                continue;
+            }
 
-        //     for (let slot = 0; slot < inv.capacity; slot++) {
-        //         const item = inv.get(slot);
-        //         if (!item) {
-        //             continue;
-        //         }
+            for (let slot = 0; slot < inv.capacity; slot++) {
+                const item = inv.get(slot);
+                if (!item) {
+                    continue;
+                }
 
-        //         const type = ObjType.get(item.id);
-        //         if (!type || type.stackable) {
-        //             continue;
-        //         }
+                const type = ObjType.get(item.id);
+                if (!type || type.stackable) {
+                    continue;
+                }
 
-        //         this.runweight += type.weight * item.count;
-        //     }
-        // } todo
+                this.runweight += type.weight * item.count;
+            }
+        }
     }
 
     addSessionLog(event_type: LoggerEventType, message: string, ...args: string[]): void {
@@ -811,13 +811,12 @@ export default class Player extends PathingEntity {
     }
 
     canAccess() {
-        // if (World.shutdown) {
-        //     // once the world has gone past shutting down, no protection rules apply
-        //     return true;
-        // } else {
-        //     return !this.protect && !this.busy();
-        // }
-        return true; // todo
+        if (World.shutdown) {
+            // once the world has gone past shutting down, no protection rules apply
+            return true;
+        } else {
+            return !this.protect && !this.busy();
+        }
     }
 
     /**
@@ -951,8 +950,8 @@ export default class Player extends PathingEntity {
                 // set clock back to interval
                 timer.clock = World.currentTick;
 
-                // const script = ScriptRunner.init(timer.script, this, null, timer.args);
-                // this.executeScript(script, timer.type === PlayerTimerType.NORMAL); todo
+                const script = ScriptRunner.init(timer.script, this, null, timer.args);
+                this.executeScript(script, timer.type === PlayerTimerType.NORMAL);
             }
         }
     }
@@ -1410,22 +1409,23 @@ export default class Player extends PathingEntity {
             return null;
         }
 
+        const invType = InvType.get(inv);
         let container = null;
-        // const invType = InvType.get(inv);
-        // if (!invType) {
-        //     return null;
-        // }
 
-        // if (invType.scope === InvType.SCOPE_SHARED) {
-        //     container = World.getInventory(inv);
-        // } else {
-        //     container = this.invs.get(inv);
+        if (!invType) {
+            return null;
+        }
 
-        //     if (!container) {
-        //         container = Inventory.fromType(inv);
-        //         this.invs.set(inv, container);
-        //     }
-        // } todo
+        if (invType.scope === InvType.SCOPE_SHARED) {
+            container = World.getInventory(inv);
+        } else {
+            container = this.invs.get(inv);
+
+            if (!container) {
+                container = Inventory.fromType(inv);
+                this.invs.set(inv, container);
+            }
+        }
 
         return container;
     }
@@ -1445,10 +1445,10 @@ export default class Player extends PathingEntity {
             this.invListeners.splice(sameCom, 1);
         }
 
-        // const invType = InvType.get(inv);
-        // if (invType.scope === InvType.SCOPE_SHARED) {
-        //     source = -1;
-        // } todo
+        const invType = InvType.get(inv);
+        if (invType.scope === InvType.SCOPE_SHARED) {
+            source = -1;
+        }
 
         this.invListeners.push({ type: inv, com, source, firstSeen: true });
     }
@@ -1569,20 +1569,20 @@ export default class Player extends PathingEntity {
             throw new Error('invItemSpace: Invalid inventory type: ' + inv);
         }
 
-        // const objType = ObjType.get(obj);
+        const objType = ObjType.get(obj);
 
         // oc_uncert
         let uncert = obj;
-        // if (objType.certtemplate >= 0 && objType.certlink >= 0) {
-        //     uncert = objType.certlink;
-        // }
-        // if (objType.stackable || uncert != obj || container.stackType == Inventory.ALWAYS_STACK) {
-        //     const stockObj = InvType.get(inv).stockobj?.includes(obj) === true;
-        //     if (this.invTotal(inv, obj) == 0 && this.invFreeSpace(inv) == 0 && !stockObj) {
-        //         return count;
-        //     }
-        //     return Math.max(0, count - (Inventory.STACK_LIMIT - this.invTotal(inv, obj)));
-        // } todo
+        if (objType.certtemplate >= 0 && objType.certlink >= 0) {
+            uncert = objType.certlink;
+        }
+        if (objType.stackable || uncert != obj || container.stackType == Inventory.ALWAYS_STACK) {
+            const stockObj = InvType.get(inv).stockobj?.includes(obj) === true;
+            if (this.invTotal(inv, obj) == 0 && this.invFreeSpace(inv) == 0 && !stockObj) {
+                return count;
+            }
+            return Math.max(0, count - (Inventory.STACK_LIMIT - this.invTotal(inv, obj)));
+        }
         return Math.max(0, count - (this.invFreeSpace(inv) - (this.invSize(inv) - size)));
     }
 
@@ -1654,8 +1654,7 @@ export default class Player extends PathingEntity {
             throw new Error('invTotalCat: Invalid inventory type: ' + inv);
         }
 
-        // return container.itemsFiltered.filter(obj => ObjType.get(obj.id).category == category).reduce((count, obj) => count + obj.count, 0);
-        return 0; // todo
+        return container.itemsFiltered.filter(obj => ObjType.get(obj.id).category == category).reduce((count, obj) => count + obj.count, 0);
     }
 
     private _invTotalParam(inv: number, param: number, stack: boolean): number {
@@ -1802,7 +1801,7 @@ export default class Player extends PathingEntity {
 
         if (this.combatLevel != this.getCombatLevel()) {
             this.combatLevel = this.getCombatLevel();
-            // this.buildAppearance(InvType.WORN); todo
+            this.buildAppearance(InvType.WORN);
         }
     }
 
@@ -1822,7 +1821,7 @@ export default class Player extends PathingEntity {
 
         if (this.getCombatLevel() != this.combatLevel) {
             this.combatLevel = this.getCombatLevel();
-            // this.buildAppearance(InvType.WORN); todo
+            this.buildAppearance(InvType.WORN);
         }
     }
 

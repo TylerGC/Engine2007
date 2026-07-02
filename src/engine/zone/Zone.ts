@@ -1,4 +1,4 @@
-// import ObjType from '#/cache/config/ObjType.js';
+import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
 import { EntityLifeCycle } from '#/engine/entity/EntityLifeCycle.js';
 import Loc from '#/engine/entity/Loc.js';
@@ -303,15 +303,15 @@ export default class Zone {
     }
 
     revealObj(obj: Obj): void {
-        // const objType: ObjType = ObjType.get(obj.type);
+        const objType: ObjType = ObjType.get(obj.type);
 
         obj.lastChange = -1;
 
         // If the obj is not tradeable, or it's members in an f2p world, or it's already revealed, then skip
-        // if (!objType.tradeable || (objType.members && !Environment.NODE_MEMBERS) || obj.reveal === -1) {
-        //     obj.reveal = -1;
-        //     return;
-        // }
+        if (!objType.tradeable || (objType.members && !Environment.NODE_MEMBERS) || obj.reveal === -1) {
+            obj.reveal = -1;
+            return;
+        }
 
         const initialReceiver = obj.receiver64;
         obj.receiver64 = Obj.NO_RECEIVER;

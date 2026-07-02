@@ -5,6 +5,7 @@ import OpenRs2 from '#/util/OpenRs2.ts';
 import MessageGame from '#/network/server/model/game/MessageGame.ts';
 import IfOpenSub from '#/network/server/model/game/IfOpenSub.ts';
 import IfOpenTop from '#/network/server/model/game/IfOpenTop.ts';
+import UpdateInvFull from '#/network/server/model/game/UpdateInvFull.ts';
 import PlayerInfo from '#/network/server/model/game/PlayerInfo.ts';
 import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
 import { Worker } from 'worker_threads';
@@ -13,13 +14,16 @@ import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
 import Huffman from '#/wordfilter2/Huffman.ts';
 import WordPack from '#/wordfilter2/WordPack.ts';
 import { PlayerStat } from '#/engine/entity/PlayerStat.js';
-
+import { Inventory } from './Inventory.ts';
+import InvType from '#/cache/config/InvType.ts';
+import ObjType from '#/cache/config/ObjType.ts';
 class World {
     cache = OpenRs2.RS2_500;
 
     readonly players: Player[] = new Array(2048);
     currentTick: number = 100; // start with a minute of uptime in case scripts skip testing 0-checks
-
+    readonly invs: Set<Inventory> = new Set();
+    shutdownTick: number = -1;
     // private readonly loggerThread = new Worker('./src/server/logger/LoggerThread.ts'); todo
 
     getNextPlayerSlot(): number {
@@ -41,6 +45,16 @@ class World {
             throw new Error('Missing huffman table in cache index 10');
         }
         WordPack.setHuffman(new Huffman(huffmanBytes));
+
+        const objIndex = await this.cache.loadLocalPackedIndex(19);
+        if (objIndex) {
+            ObjType.load(objIndex);
+        }
+
+        const configIndex = await this.cache.loadLocalPackedIndex(2, [5]);
+        if (configIndex) {
+            InvType.load(configIndex);
+        }
 
         this.cycle();
     }
@@ -232,8 +246,38 @@ class World {
             player.write(new IfOpenSub((548 << 16) | 140, 464, 1)); // toplevel:stone12 -> emotes
             player.write(new IfOpenSub((548 << 16) | 141, 187, 1)); // toplevel:stone13 -> music
             player.write(new IfOpenSub((548 << 16) | 142, 182, 1));  // toplevel:logout -> logout
+
+            let inv = this.getInventory(InvType.INV);
+            if (inv) {
+            player.write(new UpdateInvFull((149 << 16) | 0, inv));
+            }
         }
     }
+
+    getInventory(inv: number): Inventory | null {
+        if (inv === -1) {
+            return null;
+        }
+
+        for (const inventory of this.invs) {
+            if (inventory.type === inv) {
+                return inventory;
+            }
+        }
+
+        const inventory: Inventory = Inventory.fromType(inv);
+        this.invs.add(inventory);
+        return inventory;
+    }
+
+    get shutdown() {
+        return this.shutdownTick != -1 && this.currentTick >= this.shutdownTick;
+    }
+
+    get shutdownSoon() {
+        return this.shutdownTick != -1 && this.currentTick >= this.shutdownTick - 50;
+    }
+
 }
 
 export default new World();

@@ -190,6 +190,26 @@ export default class OpenRs2 {
         return index;
     }
 
+    async loadLocalPackedIndex(archive: number, groups?: number[]): Promise<Js5Index | null> {
+        const index = await this.loadArchiveIndex(archive);
+        if (!index) {
+            return null;
+        }
+
+        const targets = groups ?? Array.from({ length: index.capacity }, (_, g) => g)
+            .filter(g => index.isGroupValid(g));
+
+        for (const g of targets) {
+            const packedPath = `data/pack/cache/${archive}/${g}.dat`;
+            if (!fs.existsSync(packedPath)) {
+                continue;
+            }
+            index.packed[g] = Uint8Array.from(fs.readFileSync(packedPath));
+        }
+
+        return index;
+    }
+
     async getFile(archive: number, groupName: string, fileName: string): Promise<Uint8Array | null> {
         const index = await this.loadArchiveIndex(archive);
         if (!index) {
@@ -218,5 +238,28 @@ export default class OpenRs2 {
         }
 
         return index.unpacked[groupId]?.[fileId] ?? null;
+    }
+
+    async loadArchiveIndexWithGroups(archive: number, groups?: number[]): Promise<Js5Index | null> {
+        const index = await this.loadArchiveIndex(archive);
+        if (!index) {
+            return null;
+        }
+
+        const targets = groups ?? Array.from({ length: index.capacity }, (_, g) => g)
+            .filter(g => index.isGroupValid(g));
+
+        for (const g of targets) {
+            if (!index.isGroupValid(g) || index.packed[g]) {
+                continue; 
+            }
+
+            const packed = await this.getGroup(archive, g);
+            if (packed) {
+                index.packed[g] = packed;
+            }
+        }
+
+        return index;
     }
 }

@@ -30,6 +30,8 @@ import UpdateStat from '#/network/server/model/game/UpdateStat.ts';
 import UpdateStatEncoder from '#/network/server/codec/game/UpdateStatEncoder.ts';
 import ChatFilterSettingsPrivateChat from '#/network/server/model/game/ChatFilterSettingsPrivateChat.ts';
 import ChatFilterSettingsPrivateChatEncoder from '#/network/server/codec/game/ChatFilterSettingsPrivateChatEncoder.ts';
+import UpdateInvFull from '#/network/server/model/game/UpdateInvFull.ts';
+import UpdateInvFullEncoder from '#/network/server/codec/game/UpdateInvFullEncoder.ts';
 
 export default class GameServerRepository extends ServerRepository {
     constructor() {
@@ -50,5 +52,6 @@ export default class GameServerRepository extends ServerRepository {
         this.bind(UpdateStat, new UpdateStatEncoder());
         this.bind(ChatFilterSettingsPrivateChat, new ChatFilterSettingsPrivateChatEncoder());
         this.bind(SynthSound, new SynthSoundEncoder());
+        this.bind(UpdateInvFull, new UpdateInvFullEncoder());
     }
 }
