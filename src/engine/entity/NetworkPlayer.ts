@@ -95,14 +95,13 @@ export class NetworkPlayer extends Player {
 
             this.client.waiting = ClientGameProtSize[this.client.opcode];
 
-            // const packetType = ClientGameProt.byId[this.client.opcode];
-            // if (!packetType) {
-            //     this.client.opcode = -1;
-            //     this.client.close();
-            //     return false;
-            // }
-
-            // this.client.waiting = packetType.length;
+            const packetType = ClientGameProt.byId[this.client.opcode];
+            if (!packetType) {
+                printError(`Unhandled packet opcode: ${this.client.opcode}`);
+                this.client.opcode = -1;
+                this.client.close();
+                return false;
+            }
         }
 
         if (this.client.waiting === -1) {
