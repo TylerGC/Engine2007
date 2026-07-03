@@ -4,10 +4,10 @@ import Player from '#/engine/entity/Player.js';
 
 import Packet from '#/io/Packet.ts';
 
-import EventAppletFocus from '#/network/client/model/game/EventAppletFocus.ts';
-import EventCameraPosition from '#/network/client/model/game/EventCameraPosition.ts';
-import EventMouseClick from '#/network/client/model/game/EventMouseClick.ts';
-import EventMouseMove from '#/network/client/model/game/EventMouseMove.ts';
+import EventAppletFocus from '#/network/game/client/model/EventAppletFocus.ts';
+import EventCameraPosition from '#/network/game/client/model/EventCameraPosition.ts';
+import EventMouseClick from '#/network/game/client/model/EventMouseClick.ts';
+import EventMouseMove from '#/network/game/client/model/EventMouseMove.ts';
 
 enum InputTrackingEvent {
     CAMERA_POSITION = 1,
@@ -21,7 +21,7 @@ export default class InputTracking {
     private softLimit: number = 1500;
 
     active: boolean = false;
-    buf: Packet = Packet.alloc(1);
+    buf: Packet = Packet.alloc(5000);
 
     constructor(player: Player) {
         this.player = player;

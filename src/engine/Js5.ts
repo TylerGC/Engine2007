@@ -1,8 +1,8 @@
 import Packet from '#/io/Packet.ts';
 import OpenRs2 from '#/util/OpenRs2.ts';
-import Js5ClientRepository from '#/network/client/prot/js5/Js5ClientRepository.ts';
-import Js5ServerRepository from '#/network/server/prot/Js5ServerRepository.ts';
-import Js5GroupResponse from '#/network/server/model/js5/Js5GroupResponse.ts';
+import Js5ClientRepository from '#/network/game/client/prot/js5/Js5ClientRepository.ts';
+import Js5ServerRepository from '#/network/game/server/prot/js5/Js5ServerRepository.ts';
+import Js5GroupResponse from '#/network/game/server/model/js5/Js5GroupResponse.ts';
 import type ClientSocket from '#/server/ClientSocket.ts';
 
 type Js5Request = {
@@ -14,8 +14,9 @@ type Js5Request = {
 class Js5 {
     static cache = OpenRs2.RS2_500;
 
-    static serverRepo = new Js5ServerRepository();
-    static clientRepo = new Js5ClientRepository();
+    // these are already singleton instances (default-exported), don't `new` them
+    static serverRepo = Js5ServerRepository;
+    static clientRepo = Js5ClientRepository;
 
     static in = Packet.alloc(4);
 
@@ -25,7 +26,6 @@ class Js5 {
 
     async load() {
         await Js5.cache.predownload();
-
         this.cycle();
     }
 
@@ -50,7 +50,7 @@ class Js5 {
                         break;
                     }
 
-                    client.packetSize = decoder.size;
+                    client.packetSize = decoder.prot.length;
                 }
 
                 if (available < client.packetSize) {
@@ -64,7 +64,7 @@ class Js5 {
                 Js5.in.pos = 0;
                 available -= client.packetSize;
 
-                const message = decoder.read(Js5.in, decoder.size);
+                const message = decoder.decode(Js5.in, decoder.prot.length);
                 client.packetType = -1;
 
                 if (!handler.handle(message, client)) {
@@ -93,8 +93,8 @@ class Js5 {
             }
 
             const buf = Packet.alloc(10_000_000);
-            encoder.write(buf, message);
-            req.client.write(buf);
+            encoder.encode(buf, message);
+            req.client.send(buf.data.subarray(0, buf.pos));
             buf.release();
         }
 
@@ -118,19 +118,19 @@ class Js5 {
             }
 
             const buf = Packet.alloc(10_000_000);
-            encoder.write(buf, message);
-            req.client.write(buf);
+            encoder.encode(buf, message);
+            req.client.send(buf.data.subarray(0, buf.pos));
             buf.release();
         }
 
-        // todo: account for drift due to event loop/OS scheduling
         setTimeout(this.cycle.bind(this), 50);
     }
 
     addClient(client: ClientSocket) {
         const reply = Packet.alloc(1);
         reply.p1(0);
-        client.write(reply);
+        client.send(reply.data.subarray(0, reply.pos));
+        reply.release();
         client.state = 2;
 
         this.clients.push(client);

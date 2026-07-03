@@ -207,6 +207,13 @@ export default class Packet {
         this.#view.setUint8(this.pos++, value >> 16);
     }
 
+    p4_alt3(value: number): void {
+        this.#view.setUint8(this.pos++, value >> 16);
+        this.#view.setUint8(this.pos++, value >> 24);
+        this.#view.setUint8(this.pos++, value);
+        this.#view.setUint8(this.pos++, value >> 8);
+    }
+
     p5(value: bigint): void {
         this.p1(Number(value >> 32n));
         this.p4(Number(value & 0xffffffffn));

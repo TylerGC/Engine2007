@@ -101,7 +101,7 @@ export default class Zone {
     }
 
     computeShared(): void {
-        const buf: Packet = Packet.alloc(1);
+        const buf: Packet = Packet.alloc(5000);
         for (const event of this.enclosed()) {
             // console.log(event.message);
             // const encoder: ServerGameZoneMessageEncoder<ServerGameZoneMessage> | undefined = ServerGameProtRepository.getZoneEncoder(event.message);

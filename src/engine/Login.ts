@@ -1,5 +1,5 @@
 import Js5 from '#/engine/Js5.ts';
-import NetworkPlayer from '#/engine/NetworkPlayer.ts';
+import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.ts';
 import World from '#/engine/World.ts';
 import Isaac from '#/io/Isaac.ts';
 import Packet from '#/io/Packet.ts';
@@ -57,7 +57,7 @@ class Login {
             reply.p1(0);
             reply.p4(Math.floor(Math.random() * 0x00ffffff));
             reply.p4(Math.floor(Math.random() * 0xffffffff));
-            client.write(reply);
+            client.send(reply.data.subarray(0, reply.pos));
         } else if (opcode === 15) {
             const revision = buf.g4();
 
@@ -109,7 +109,7 @@ class Login {
             if (buf.pos >= buf.length || buf.g1() !== 10) {
                 const reply = Packet.alloc(1);
                 reply.p1(6);
-                client.write(reply);
+                client.send(reply.data.subarray(0, reply.pos));
                 client.close();
                 return;
             }
@@ -124,7 +124,7 @@ class Login {
             const userhash = buf.g8();
             const password = buf.gjstr();
 
-        const player = new NetworkPlayer(client, fromBase37(userhash), userhash, userhash);
+        const player = new NetworkPlayer(fromBase37(userhash), userhash, userhash, client);
         World.addPlayer(player, opcode === 18);
         }
     }

@@ -1,43 +1,29 @@
 import net from 'net';
 
-import ClientSocket from '#/server/ClientSocket.ts';
-import Packet from '#/io/Packet.ts';
+import ClientSocket from '#/server/ClientSocket.js';
 
-export default class TcpSocket extends ClientSocket {
-    constructor(
-        readonly socket: net.Socket
-    ) {
+export default class TcpClientSocket extends ClientSocket {
+    socket: net.Socket;
+
+    constructor(socket: net.Socket, remoteAddress: string) {
         super();
+
+        this.socket = socket;
+        this.remoteAddress = remoteAddress;
     }
 
-    write(src: Uint8Array | Packet) {
-        if (src instanceof Packet) {
-            this.socket.write(src.data.subarray(0, src.pos));
-        } else {
-            this.socket.write(src);
-        }
+    send(src: Uint8Array): void {
+        this.socket.write(src);
     }
 
-    buffer(data: Buffer): void {
-        this.inBuffer.set(data, this.inBufferPos);
-        this.inBufferPos += data.length;
+    close(): void {
+        // give time to acknowledge and receive packets
+        this.state = -1;
+        setTimeout(() => this.socket.end(), 1000);
     }
 
-    get available(): number {
-        return this.inBufferPos;
-    }
-
-    read(dest: Uint8Array, offset: number, length: number): void {
-        dest.set(this.inBuffer.subarray(0, length), offset);
-        this.inBufferPos -= length;
-        this.inBuffer.set(this.inBuffer.subarray(length), 0);
-    }
-
-    close() {
-        this.socket.end();
-    }
-
-    terminate() {
+    terminate(): void {
+        this.state = -1;
         this.socket.destroy();
     }
 }

@@ -5,7 +5,7 @@ import Js5Index from '#/js5/Js5Index.js';
 export default class ObjType extends ConfigType {
     static configNames: Map<string, number> = new Map();
     static configs: ObjType[] = [];
-    static numDefinitions: number = 0;
+    static count: number = 0;
 
     static get(id: number): ObjType {
         return ObjType.configs[id];
@@ -117,7 +117,7 @@ export default class ObjType extends ConfigType {
             }
         }
 
-        ObjType.numDefinitions = loadedCount;
+        ObjType.count = loadedCount;
     }
 
     name: string | null = null;

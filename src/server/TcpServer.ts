@@ -11,7 +11,7 @@ export default class TcpServer {
             s.setTimeout(30000);
             s.setNoDelay(true);
 
-            const client = new TcpSocket(s);
+            const client = new TcpSocket(s, s.remoteAddress ?? 'unknown');
 
             s.on('data', (data: Buffer) => {
                 try {

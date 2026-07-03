@@ -1,13 +1,12 @@
-import NetworkPlayer from '#/engine/NetworkPlayer.ts';
+import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.ts';
 import type Player from '#/engine/entity/Player.ts';
 import Packet from '#/io/Packet.ts';
 import OpenRs2 from '#/util/OpenRs2.ts';
-import MessageGame from '#/network/server/model/game/MessageGame.ts';
-import IfOpenSub from '#/network/server/model/game/IfOpenSub.ts';
-import IfOpenTop from '#/network/server/model/game/IfOpenTop.ts';
-import UpdateInvFull from '#/network/server/model/game/UpdateInvFull.ts';
-import PlayerInfo from '#/network/server/model/game/PlayerInfo.ts';
-import RebuildNormal from '#/network/server/model/game/RebuildNormal.ts';
+import MessageGame from '#/network/game/server/model/MessageGame.ts';
+import IfOpenSub from '#/network/game/server/model/IfOpenSub.ts';
+import IfOpenTop from '#/network/game/server/model/IfOpenTop.ts';
+import UpdateInvFull from '#/network/game/server/model/UpdateInvFull.ts';
+import RebuildNormal from '#/network/game/server/model/RebuildNormal.ts';
 import { Worker } from 'worker_threads';
 import * as rsbuf from '#/network/rsbuf/index.js';
 import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
@@ -17,6 +16,7 @@ import { PlayerStat } from '#/engine/entity/PlayerStat.js';
 import { Inventory } from './Inventory.ts';
 import InvType from '#/cache/config/InvType.ts';
 import ObjType from '#/cache/config/ObjType.ts';
+
 class World {
     cache = OpenRs2.RS2_500;
 
@@ -25,6 +25,8 @@ class World {
     readonly invs: Set<Inventory> = new Set();
     shutdownTick: number = -1;
     // private readonly loggerThread = new Worker('./src/server/logger/LoggerThread.ts'); todo
+    readonly lastCycleStats: number[] = new Array(12).fill(0);
+    readonly cycleStats: number[] = new Array(12).fill(0);
 
     getNextPlayerSlot(): number {
         for (let i = 1; i < 2047; i++) {
@@ -84,10 +86,10 @@ class World {
 
             // the client has code like `for (int i = 0; i < 5 && read(); i++)` which mirrors this logic
 
-            player.client.userLimit = 0;
-            player.client.clientLimit = 0;
+            player.userLimit = 0;
+            player.clientLimit = 0;
 
-            while (player.client.userLimit < 5 && player.client.clientLimit < 50 && player.read()) {
+            while (player.userLimit < 5 && player.clientLimit < 50 && player.read()) {
                 // empty
             }
         }
@@ -162,20 +164,10 @@ class World {
                 player.exactMoveFacing
             );
 
-            const dx = Math.abs(player.lastTickX - player.x);
-            const dz = Math.abs(player.lastTickZ - player.z);
-            const levelChanged = player.lastLevel !== player.level;
+            player.updatePlayers();
+            player.updateInvs();
+            player.encodeOut();
 
-            const bytes = rsbuf.playerInfo(0, player.pid, dx, dz, levelChanged);
-            player.write(new PlayerInfo(bytes));
-
-            if (player.buffer.length > 0) {
-                for (const message of player.buffer) {
-                    player.write(message, true);
-                }
-
-                player.buffer.length = 0;
-            }
             player.lastTickX = player.x;
             player.lastTickZ = player.z;
             player.lastLevel = player.level;
@@ -185,6 +177,13 @@ class World {
             const player = this.players[i];
             if (!player) continue;
             player.resetEntity(false);
+            for (const inv of player.invs.values()) {
+                if (!inv) {
+                    continue;
+                }
+
+                inv.update = false;
+            }
         }
 
         rsbuf.cleanup();
@@ -202,12 +201,13 @@ class World {
                 return;
             }
             player.pid = slot;
+            player.uid = ((Number(player.username37 & 0x1fffffn) << 11) | player.pid) >>> 0;
             this.players[slot] = player;
             rsbuf.addPlayer(slot);
             const reply = Packet.alloc(9);
             if (reconnect) {
                 reply.p1(15);
-                player.client.write(reply);
+                player.client.send(reply.data.subarray(0, reply.pos));
                 player.client.state = 1;
                 return;
             }
@@ -220,7 +220,7 @@ class World {
             reply.p1(1);      // mouseTracked
             reply.p2(player.pid);   // selfSlot
             reply.p1(1);      // membersAccount
-            player.client.write(reply);
+            player.client.send(reply.data.subarray(0, reply.pos));
             player.client.state = 1;
             player.buildAppearance(0); //todo
             player.write(new RebuildNormal(2656, 4704));
@@ -247,10 +247,8 @@ class World {
             player.write(new IfOpenSub((548 << 16) | 141, 187, 1)); // toplevel:stone13 -> music
             player.write(new IfOpenSub((548 << 16) | 142, 182, 1));  // toplevel:logout -> logout
 
-            let inv = this.getInventory(InvType.INV);
-            if (inv) {
-            player.write(new UpdateInvFull((149 << 16) | 0, inv));
-            }
+            // Runescript inv_transmit(inv, inventory:inv);
+            player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
         }
     }
 
@@ -278,6 +276,25 @@ class World {
         return this.shutdownTick != -1 && this.currentTick >= this.shutdownTick - 50;
     }
 
+    getPlayer(pid: number): Player | undefined {
+        return this.players[pid];
+    }
+
+    getPlayerByUid(uid: number): Player | null {
+        const pid = uid & 0x7ff;
+        const name37 = (uid >> 11) & 0x1fffff;
+
+        const player = this.getPlayer(pid);
+        if (!player) {
+            return null;
+        }
+
+        if (Number(player.username37 & 0x1fffffn) !== name37) {
+            return null;
+        }
+
+        return player;
+    }
 }
 
 export default new World();

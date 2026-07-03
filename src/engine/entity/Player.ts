@@ -29,7 +29,7 @@ import { ModalState } from '#/engine/entity/ModalState.ts';
 import { MoveRestrict } from '#/engine/entity/MoveRestrict.js';
 import { MoveSpeed } from '#/engine/entity/MoveSpeed.js';
 import { MoveStrategy } from '#/engine/entity/MoveStrategy.js';
-import { isClientConnected } from '#/engine/NetworkPlayer.ts';
+import { isClientConnected } from '#/engine/entity/NetworkPlayer.ts';
 // import Npc from '#/engine/entity/Npc.js';
 import Obj from '#/engine/entity/Obj.js';
 import PathingEntity from '#/engine/entity/PathingEntity.ts';
@@ -50,33 +50,32 @@ import ScriptState from '#/engine/script/ScriptState.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
 import World from '#/engine/World.js';
 import Packet from '#/io/Packet.js';
-import ChatFilterSettings from '#/network/server/model/game/ChatFilterSettings.ts';
+import { ServerGameProtPriority } from '#/network/game/server/prot/ServerGameProtPriority.js';
+import ChatFilterSettings from '#/network/game/server/model/ChatFilterSettings.ts';
 // import HintArrow from '#/network/game/server/model/HintArrow.js';
-// import IfClose from '#/network/game/server/model/IfClose.js';
-// import IfSetTab from '#/network/game/server/model/IfSetTab.js';
-// import LastLoginInfo from '#/network/game/server/model/LastLoginInfo.js';
-import MessageGame from '#/network/server/model/game/MessageGame.ts';
-import MidiJingle from '#/network/server/model/game/MidiJingle.js';
-import MidiSong from '#/network/server/model/game/MidiSong.js';
+// import _LastLoginInfo from '#/network/game/server/model/LastLoginInfo.js';
+import MessageGame from '#/network/game/server/model/MessageGame.js';
 // import ResetAnims from '#/network/game/server/model/ResetAnims.js';
 // import ResetClientVarCache from '#/network/game/server/model/ResetClientVarCache.js';
-// import TutOpen from '#/network/game/server/model/TutOpen.js';
 // import UnsetMapFlag from '#/network/game/server/model/UnsetMapFlag.js';
 // import UpdateInvStopTransmit from '#/network/game/server/model/UpdateInvStopTransmit.js';
-// import UpdateUid192 from '#/network/game/server/model/UpdatePid.js';
 // import UpdateRebootTimer from '#/network/game/server/model/UpdateRebootTimer.js';
-// import UpdateRunEnergy from '#/network/game/server/model/UpdateRunEnergy.js';
-// import UpdateStat from '#/network/game/server/model/UpdateStat.js';
+import UpdateRunEnergy from '#/network/game/server/model/UpdateRunEnergy.js';
+import UpdateStat from '#/network/game/server/model/UpdateStat.js';
 // import VarpLarge from '#/network/game/server/model/VarpLarge.js';
 // import VarpSmall from '#/network/game/server/model/VarpSmall.js';
-import ServerGameMessage from '#/network/server/GameServerMessage.ts';
-import { LoggerEventType } from '#/server/logger/LoggerEventType.ts';
-import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#/engine/entity/ChatModes.ts';
+import ServerGameMessage from '#/network/game/server/ServerGameMessage.js';
+import { LoggerEventType } from '#/server/logger/LoggerEventType.js';
+import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#/engine/entity/ChatModes.js';
 import Environment from '#/util/Environment.js';
 import { toDisplayName } from '#/util/JString.js';
 import LinkList from '#/util/LinkList.js';
-// import { MidiPack } from '#tools/pack/PackFile.js';
+// import VarBitType from '#/cache/config/VarBitType.js';
+// import FriendlistLoaded from '#/network/game/server/model/FriendlistLoaded.js';
 // import UpdateIgnoreList from '#/network/game/server/model/UpdateIgnoreList.js';
+import IfOpenTop from '#/network/game/server/model/IfOpenTop.js';
+import IfOpenSub from '#/network/game/server/model/IfOpenSub.js';
+// import { WindowMode } from '#/network/game/client/model/WindowStatus.js';
 
 const levelExperience = new Int32Array(99);
 
@@ -192,7 +191,7 @@ export default class Player extends PathingEntity {
     ]);
 
     save() {
-        const sav = Packet.alloc(1);
+        const sav = Packet.alloc(5000);
         // sav.p2(PlayerLoading.SAV_MAGIC); // magic
         // sav.p2(PlayerLoading.SAV_VERSION); // version
 
@@ -294,8 +293,8 @@ export default class Player extends PathingEntity {
     lastRunEnergy: number = -1;
     runweight: number = 0;
     playtime: number = 0;
-    stats: Int32Array = new Int32Array(21);
-    levels: Uint8Array = new Uint8Array(21);
+    stats: Int32Array = new Int32Array(24);
+    levels: Uint8Array = new Uint8Array(24);
     // vars: Int32Array;
     // varsString: string[];
     invs: Map<number, Inventory> = new Map<number, Inventory>();
@@ -318,9 +317,9 @@ export default class Player extends PathingEntity {
     webClient: boolean = false;
     combatLevel: number = 3;
     headicons: number = 0;
-    baseLevels = new Uint8Array(21);
-    lastStats: Int32Array = new Int32Array(21); // we track this so we know to flush stats only once a tick on changes
-    lastLevels: Uint8Array = new Uint8Array(21); // we track this so we know to flush stats only once a tick on changes
+    baseLevels = new Uint8Array(24);
+    lastStats: Int32Array = new Int32Array(24); // we track this so we know to flush stats only once a tick on changes
+    lastLevels: Uint8Array = new Uint8Array(24); // we track this so we know to flush stats only once a tick on changes
     originX: number = -1;
     originZ: number = -1;
     buildArea: BuildArea = new BuildArea(this);
@@ -336,6 +335,14 @@ export default class Player extends PathingEntity {
     preventLogoutMessage: string | null = null;
     preventLogoutUntil: number = -1;
 
+    // game window information
+    // windowMode: WindowMode = WindowMode.SD;
+    canvasWidth: number = -1;
+    canvasHeight: number = -1;
+    antialiasingmode: number = -1;
+
+    // not stored as a byte buffer so we can write and encrypt opcodes later
+    buffer: ServerGameMessage[] = [];
     lastResponse: number = -1;
     lastConnected: number = -1;
 
@@ -347,7 +354,7 @@ export default class Player extends PathingEntity {
     queue: LinkList<PlayerQueueRequest> = new LinkList();
     weakQueue: LinkList<PlayerQueueRequest> = new LinkList();
     engineQueue: LinkList<PlayerQueueRequest> = new LinkList();
-    // cameraPackets: LinkList<CameraInfo> = new LinkList(); todo
+    // cameraPackets: LinkList<CameraInfo> = new LinkList();
     timers: Map<number, EntityTimer> = new Map();
     tabs: number[] = new Array(14).fill(-1);
     modalState = ModalState.NONE;
@@ -446,6 +453,7 @@ export default class Player extends PathingEntity {
         this.activeScript = null;
         this.invListeners.length = 0;
         this.resumeButtons.length = 0;
+        this.buffer = [];
         this.queue.clear();
         this.weakQueue.clear();
         this.engineQueue.clear();
@@ -496,7 +504,10 @@ export default class Player extends PathingEntity {
         this.write(new ChatFilterSettings(this.publicChat, this.privateChat, this.tradeDuel));
 
         // todo: exact order
-        // if (!Environment.FRIEND_SERVER) {
+        // if (Environment.FRIEND_SERVER) {
+        //     this.write(new FriendlistLoaded(1));
+        // } else {
+        //     this.write(new FriendlistLoaded(2));
         //     this.write(new UpdateIgnoreList([]));
         // }
 
@@ -554,12 +565,14 @@ export default class Player extends PathingEntity {
         // for (let i = 0; i < this.tabs.length; i++) {
         //     this.write(new IfSetTab(this.tabs[i], i));
         // }
-        // this.refreshInvs();
-        // for (let i = 0; i < this.stats.length; i++) {
-        //     this.write(new UpdateStat(i, this.stats[i], this.levels[i]));
-        // }
-        // this.write(new UpdateRunEnergy(this.runenergy));
+        this.refreshInvs();
+        for (let i = 0; i < this.stats.length; i++) {
+            this.write(new UpdateStat(i, this.stats[i], this.levels[i]));
+        }
+        this.write(new UpdateRunEnergy(this.runenergy));
         // this.write(new ResetAnims());
+        this.masks |= this.entitymask; // resync face_entity
+        this.masks |= PlayerInfoProt.APPEARANCE; // resync appearance (todo: is it possible to do this for the local observer only?)
         this.moveSpeed = MoveSpeed.INSTANT;
         this.tele = true;
         this.jump = true;
@@ -1392,16 +1405,16 @@ export default class Player extends PathingEntity {
     }
 
     getInventoryFromListener(listener: InventoryListener) {
-        // if (listener.source === -1) {
-        //     return World.getInventory(listener.type);
-        // } else {
-        //     const player = World.getPlayerByUid(listener.source);
-        //     if (!player) {
-        //         return null;
-        //     }
+        if (listener.source === -1) {
+            return World.getInventory(listener.type);
+        } else {
+            const player = World.getPlayerByUid(listener.source);
+            if (!player) {
+                return null;
+            }
 
-        //     return player.getInventory(listener.type);
-        // } todo
+            return player.getInventory(listener.type);
+        }
     }
 
     getInventory(inv: number): Inventory | null {
@@ -1719,6 +1732,35 @@ export default class Player extends PathingEntity {
         //         this.writeVarp(id, value);
         //     }
         // }
+    }
+
+    getVarBit(id: number) {
+        // const varbit = VarBitType.get(id);
+        // if (!varbit) {
+        //     return 0;
+        // }
+
+        // const { basevar, startbit, endbit } = varbit;
+        // const mask = Packet.bitmask[endbit - startbit + 1];
+
+        // return this.vars[basevar] >> startbit & mask;
+    }
+
+    setVarBit(id: number, value: number) {
+        // const varbit = VarBitType.get(id);
+        // if (!varbit) {
+        //     return 0;
+        // }
+
+        // const { basevar, startbit, endbit } = varbit;
+        // let mask = Packet.bitmask[endbit - startbit + 1];
+
+        // if (value < 0 || value > mask) {
+        //     value = 0;
+        // }
+
+        // mask <<= startbit;
+        // this.setVar(basevar, mask & value << startbit | this.vars[basevar] & ~mask);
     }
 
     private writeVarp(id: number, value: number): void {
@@ -2131,6 +2173,8 @@ export default class Player extends PathingEntity {
     }
 
     wrappedMessageGame(mes: string) {
+        this.messageGame(mes);
+
         // const font = FontType.get(1);
         // const lines = font.split(mes, 456);
         // for (const line of lines) {
@@ -2143,7 +2187,11 @@ export default class Player extends PathingEntity {
             return;
         }
 
-        // this.writeInner(message);
+        if (message.priority === ServerGameProtPriority.IMMEDIATE) {
+            this.writeInner(message);
+        } else {
+            this.buffer.push(message);
+        }
     }
 
     unsetMapFlag() {
@@ -2202,5 +2250,19 @@ export default class Player extends PathingEntity {
         }
 
         return super.isValid();
+    }
+
+    #transmitId: number = 0;
+
+    get transmitId() {
+        return this.#transmitId++;
+    }
+
+    ifOpenTop(interfaceId: number) {
+        this.write(new IfOpenTop(interfaceId));
+    }
+
+    ifOpenSub(interfaceId: number, component: number, type: number) {
+        this.write(new IfOpenSub(interfaceId, component, type));
     }
 }
