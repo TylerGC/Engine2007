@@ -16,6 +16,12 @@ import { PlayerStat } from '#/engine/entity/PlayerStat.js';
 import { Inventory } from './Inventory.ts';
 import InvType from '#/cache/config/InvType.ts';
 import ObjType from '#/cache/config/ObjType.ts';
+import GameMap, { changeLocCollision, changeNpcCollision, changePlayerCollision } from '#/engine/GameMap.js';
+import Environment from '#/util/Environment.js';
+import VarPlayerType from '#/cache/config/VarPlayerType.ts';
+import VarBitType from '#/cache/config/VarbitType.ts';
+import ScriptProvider from '#/engine/script/ScriptProvider.ts';
+import { printError, printDebug } from '#/util/Logger.js';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -27,6 +33,7 @@ class World {
     // private readonly loggerThread = new Worker('./src/server/logger/LoggerThread.ts'); todo
     readonly lastCycleStats: number[] = new Array(12).fill(0);
     readonly cycleStats: number[] = new Array(12).fill(0);
+    readonly gameMap: GameMap = new GameMap(Environment.NODE_MEMBERS);
 
     getNextPlayerSlot(): number {
         for (let i = 1; i < 2047; i++) {
@@ -58,6 +65,22 @@ class World {
             InvType.load(configIndex);
         }
 
+        const VarpIndex = await this.cache.loadLocalPackedIndex(2, [16]);
+        if (VarpIndex) {
+            VarPlayerType.load(VarpIndex);
+        }
+
+        const VarbIndex = await this.cache.loadLocalPackedIndex(22);
+        if (VarbIndex) {
+            VarBitType.load(VarbIndex);
+        }
+
+        const count = ScriptProvider.load('data/pack');
+        if (count === -1) {
+            printError('There was an issue while reloading scripts.');
+        } else {
+            printDebug(`Loaded ${count} scripts.`);
+        }
         this.cycle();
     }
 
@@ -225,7 +248,7 @@ class World {
             player.buildAppearance(0); //todo
             player.write(new RebuildNormal(2656, 4704));
             // runescript: mes("Welcome to RuneScape.");
-            player.write(new MessageGame('Welcome to RuneScape.'));
+            // player.write(new MessageGame('Welcome to RuneScape.'));
             // runescript: if_opentop(toplevel);
             player.write(new IfOpenTop(548));
 
@@ -249,6 +272,7 @@ class World {
 
             // Runescript inv_transmit(inv, inventory:inv);
             player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
+            player.onLogin();
         }
     }
 

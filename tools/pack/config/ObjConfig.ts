@@ -453,7 +453,7 @@ export function parseSourceObjs(
                 continue;
             }
 
-            if (key === 'customcode') {
+            if (key === 'respawnrate') {
                 ops.push({ code: 201, payload: parseInt2(vt, key) });
                 continue;
             }

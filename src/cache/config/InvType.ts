@@ -5,7 +5,7 @@ import Js5Index from '#/js5/Js5Index.js';
 export default class InvType extends ConfigType {
     static configNames: Map<string, number> = new Map();
     static configs: InvType[] = [];
-    static numDefinitions: number = 0;
+    static count: number = 0;
 
     static SCOPE_TEMP = 0;
     static SCOPE_PERM = 1;
@@ -75,7 +75,7 @@ export default class InvType extends ConfigType {
             }
         }
 
-        InvType.numDefinitions = loadedCount;
+        InvType.count = loadedCount;
 
         // Resolve common cache-defined engine indices here:
         InvType.INV = InvType.getId('inv');

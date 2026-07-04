@@ -6,7 +6,7 @@ import forge from 'node-forge';
 
 export default class Packet {
     private static readonly crctable: Int32Array = new Int32Array(256);
-    private static readonly bitmask: Uint32Array = new Uint32Array(33);
+    static readonly bitmask: Uint32Array = new Uint32Array(33);
 
     private static readonly CRC32_POLYNOMIAL = 0xEDB88320;
 

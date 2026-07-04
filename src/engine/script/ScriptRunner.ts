@@ -4,21 +4,21 @@ import Loc from '#/engine/entity/Loc.js';
 import Obj from '#/engine/entity/Obj.js';
 import Player from '#/engine/entity/Player.js';
 import type { ScriptArgument } from '#/engine/entity/PlayerQueueRequest.js';
-// import CoreOps from '#/engine/script/handlers/CoreOps.js';
+import CoreOps from '#/engine/script/handlers/CoreOps.js';
 // import DbOps from '#/engine/script/handlers/DbOps.js';
-// import DebugOps from '#/engine/script/handlers/DebugOps.js';
+import DebugOps from '#/engine/script/handlers/DebugOps.js';
 // import EnumOps from '#/engine/script/handlers/EnumOps.js';
-// import InvOps from '#/engine/script/handlers/InvOps.js';
+import InvOps from '#/engine/script/handlers/InvOps.js';
 // import LocConfigOps from '#/engine/script/handlers/LocConfigOps.js';
 // import LocOps from '#/engine/script/handlers/LocOps.js';
 // import NpcConfigOps from '#/engine/script/handlers/NpcConfigOps.js';
 // import NpcOps from '#/engine/script/handlers/NpcOps.js';
-// import NumberOps from '#/engine/script/handlers/NumberOps.js';
-// import ObjConfigOps from '#/engine/script/handlers/ObjConfigOps.js';
-// import ObjOps from '#/engine/script/handlers/ObjOps.js';
-// import PlayerOps from '#/engine/script/handlers/PlayerOps.js';
-// import ServerOps from '#/engine/script/handlers/ServerOps.js';
-// import StringOps from '#/engine/script/handlers/StringOps.js';
+import NumberOps from '#/engine/script/handlers/NumberOps.js';
+import ObjConfigOps from '#/engine/script/handlers/ObjConfigOps.js';
+import ObjOps from '#/engine/script/handlers/ObjOps.js';
+import PlayerOps from '#/engine/script/handlers/PlayerOps.js';
+import ServerOps from '#/engine/script/handlers/ServerOps.js';
+import StringOps from '#/engine/script/handlers/StringOps.js';
 import ScriptFile from '#/engine/script/ScriptFile.js';
 import { ScriptOpcode, ScriptOpcodeNameMap } from '#/engine/script/ScriptOpcode.js';
 import ScriptPointer from '#/engine/script/ScriptPointer.js';
@@ -36,21 +36,21 @@ export type CommandHandlers = {
 export default class ScriptRunner {
     static readonly HANDLERS: CommandHandlers = {
         // Language required opcodes
-        // ...CoreOps,
-        // ...ServerOps,
-        // ...PlayerOps,
+        ...CoreOps,
+        ...ServerOps,
+        ...PlayerOps,
         // ...NpcOps,
         // ...LocOps,
-        // ...ObjOps,
+        ...ObjOps,
         // ...NpcConfigOps,
         // ...LocConfigOps,
-        // ...ObjConfigOps,
-        // ...InvOps,
+        ...ObjConfigOps,
+        ...InvOps,
         // ...EnumOps,
-        // ...StringOps,
-        // ...NumberOps,
-        // ...DbOps,
-        // ...DebugOps todo
+        ...StringOps,
+        ...NumberOps,
+        // ...DbOps, todo
+        ...DebugOps
     };
 
     /**

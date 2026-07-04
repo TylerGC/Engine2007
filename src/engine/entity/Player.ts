@@ -12,9 +12,9 @@ import InvType from '#/cache/config/InvType.js';
 import ObjType from '#/cache/config/ObjType.js';
 // import { ParamHelper } from '#/cache/config/ParamHelper.js';
 // import ParamType from '#/cache/config/ParamType.js';
-// import ScriptVarType from '#/cache/config/ScriptVarType.js';
+import ScriptVarType from '#/cache/config/ScriptVarType.js';
 // import SeqType from '#/cache/config/SeqType.js';
-// import VarPlayerType from '#/cache/config/VarPlayerType.js';
+import VarPlayerType from '#/cache/config/VarPlayerType.js';
 import { CoordGrid } from '#/engine/CoordGrid.ts';
 import { BlockWalk } from '#/engine/entity/BlockWalk.ts';
 import BuildArea from '#/engine/entity/BuildArea.js';
@@ -70,7 +70,7 @@ import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#/engine/ent
 import Environment from '#/util/Environment.js';
 import { toDisplayName } from '#/util/JString.js';
 import LinkList from '#/util/LinkList.js';
-// import VarBitType from '#/cache/config/VarBitType.js';
+import VarBitType from '#/cache/config/VarbitType.ts';
 // import FriendlistLoaded from '#/network/game/server/model/FriendlistLoaded.js';
 // import UpdateIgnoreList from '#/network/game/server/model/UpdateIgnoreList.js';
 import IfOpenTop from '#/network/game/server/model/IfOpenTop.js';
@@ -295,8 +295,8 @@ export default class Player extends PathingEntity {
     playtime: number = 0;
     stats: Int32Array = new Int32Array(24);
     levels: Uint8Array = new Uint8Array(24);
-    // vars: Int32Array;
-    // varsString: string[];
+    vars: Int32Array;
+    varsString: string[];
     invs: Map<number, Inventory> = new Map<number, Inventory>();
     nextTarget: Entity | null = null;
 
@@ -430,21 +430,24 @@ export default class Player extends PathingEntity {
         this.username37 = username37;
         this.hash64 = hash64;
         this.displayName = toDisplayName(username);
-        // this.vars = new Int32Array(VarPlayerType.count);
-        // this.varsString = new Array(VarPlayerType.count); todo
+        this.vars = new Int32Array(VarPlayerType.count);
+        this.varsString = new Array(VarPlayerType.count);
         this.lastStats.fill(-1);
         this.lastLevels.fill(-1);
         this.input = new InputTracking(this);
 
-        // for (let i = 0; i < this.vars.length; i++) {
-        //     const varp = VarPlayerType.get(i);
-        //     if (varp.type === ScriptVarType.STRING) {
-        //         // todo: "null"? another value?
-        //         continue;
-        //     } else {
-        //         this.vars[i] = varp.type === ScriptVarType.INT ? 0 : -1;
-        //     }
-        // }
+        for (let i = 0; i < this.vars.length; i++) {
+            const varp = VarPlayerType.get(i);
+            if (!varp) {
+                continue;
+            }
+            if (varp.type === ScriptVarType.STRING) {
+                // todo: "null"? another value?
+                continue;
+            } else {
+                this.vars[i] = varp.type === ScriptVarType.INT ? 0 : -1;
+            }
+        }
     }
 
     cleanup(): void {
@@ -524,6 +527,9 @@ export default class Player extends PathingEntity {
         // this.write(new ResetAnims());
 
         const loginTrigger = ScriptProvider.getByTriggerSpecific(ServerTriggerType.LOGIN, -1, -1);
+        const logoutTrigger = ScriptProvider.getByTriggerSpecific(ServerTriggerType.LOGOUT, -1, -1);
+        console.log(logoutTrigger);
+        console.log(loginTrigger);
         if (loginTrigger) {
             this.executeScript(ScriptRunner.init(loginTrigger, this), true);
         }
@@ -717,7 +723,7 @@ export default class Player extends PathingEntity {
         if (this.runenergy === 0) {
             this.run = 0;
             // todo: better way to sync engine varp
-            // this.setVar(VarPlayerType.RUN, this.run);
+            this.setVar(VarPlayerType.RUN, this.run);
         }
         if (this.runenergy < 100) {
             this.tempRun = 0;
@@ -1709,58 +1715,58 @@ export default class Player extends PathingEntity {
     // ----
 
     getVar(id: number) {
-        // const varp = VarPlayerType.get(id);
-        // if (!varp) {
-        //     return 0;
-        // }
+        const varp = VarPlayerType.get(id);
+        if (!varp) {
+            return 0;
+        }
 
-        // return varp.type === ScriptVarType.STRING ? this.varsString[varp.id] : this.vars[varp.id];
+        return varp.type === ScriptVarType.STRING ? this.varsString[varp.id] : this.vars[varp.id];
     }
 
     setVar(id: number, value: number | string) {
-        // const varp = VarPlayerType.get(id);
-        // if (!varp) {
-        //     return;
-        // }
+        const varp = VarPlayerType.get(id);
+        if (!varp) {
+            return;
+        }
 
-        // if (varp.type === ScriptVarType.STRING && typeof value === 'string') {
-        //     this.varsString[varp.id] = value;
-        // } else if (typeof value === 'number') {
-        //     this.vars[varp.id] = value;
+        if (varp.type === ScriptVarType.STRING && typeof value === 'string') {
+            this.varsString[varp.id] = value;
+        } else if (typeof value === 'number') {
+            this.vars[varp.id] = value;
 
-        //     if (varp.transmit) {
-        //         this.writeVarp(id, value);
-        //     }
-        // }
+            if (varp.transmit) {
+                this.writeVarp(id, value);
+            }
+        }
     }
 
     getVarBit(id: number) {
-        // const varbit = VarBitType.get(id);
-        // if (!varbit) {
-        //     return 0;
-        // }
+        const varbit = VarBitType.get(id);
+        if (!varbit) {
+            return 0;
+        }
 
-        // const { basevar, startbit, endbit } = varbit;
-        // const mask = Packet.bitmask[endbit - startbit + 1];
+        const { basevar, startbit, endbit } = varbit;
+        const mask = Packet.bitmask[endbit - startbit + 1];
 
-        // return this.vars[basevar] >> startbit & mask;
+        return this.vars[basevar] >> startbit & mask;
     }
 
     setVarBit(id: number, value: number) {
-        // const varbit = VarBitType.get(id);
-        // if (!varbit) {
-        //     return 0;
-        // }
+        const varbit = VarBitType.get(id);
+        if (!varbit) {
+            return 0;
+        }
 
-        // const { basevar, startbit, endbit } = varbit;
-        // let mask = Packet.bitmask[endbit - startbit + 1];
+        const { basevar, startbit, endbit } = varbit;
+        let mask = Packet.bitmask[endbit - startbit + 1];
 
-        // if (value < 0 || value > mask) {
-        //     value = 0;
-        // }
+        if (value < 0 || value > mask) {
+            value = 0;
+        }
 
-        // mask <<= startbit;
-        // this.setVar(basevar, mask & value << startbit | this.vars[basevar] & ~mask);
+        mask <<= startbit;
+        this.setVar(basevar, mask & value << startbit | this.vars[basevar] & ~mask);
     }
 
     private writeVarp(id: number, value: number): void {

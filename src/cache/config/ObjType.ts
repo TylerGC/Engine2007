@@ -178,7 +178,7 @@ export default class ObjType extends ConfigType {
     weight: number = 0;
     category: number = -1;
     questreq: number = -1;
-    customcode: number = -1;
+    respawnrate: number = 100;
 
 decode(code: number, dat: Packet): void {
         if (code === 1) {
@@ -315,7 +315,7 @@ decode(code: number, dat: Packet): void {
                 this.offsets[index][j] = dat.g2s();
             }
         } else if (code === 201) {
-            this.customcode = dat.g2();
+            this.respawnrate = dat.g2();
         } else if (code === 249) {
             const count = dat.g1();
             if (!this.params) {
