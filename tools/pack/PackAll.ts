@@ -20,6 +20,7 @@ import Packet from '#/io/Packet.js';
 import { runServerCompiler } from '#tools/pack/Compiler.ts';
 // import { packClientVersionList } from '#tools/pack/versionlist/pack.js';
 import { clearFsCache } from '#tools/pack/FsCache.ts';
+import { regenScriptPack } from '#tools/pack/ScriptPack.ts';
 
 export async function packAll(modelFlags: number[]) {
     if (parentPort) {
@@ -43,6 +44,7 @@ export async function packAll(modelFlags: number[]) {
     // packClientInterface(cache, modelFlags);
 
     // // relies on reading configs/interfaces for compile-time context
+    regenScriptPack();
     runServerCompiler();
 
     // await packClientTitle(cache);
