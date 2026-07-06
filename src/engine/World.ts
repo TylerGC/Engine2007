@@ -22,6 +22,7 @@ import VarPlayerType from '#/cache/config/VarPlayerType.ts';
 import VarBitType from '#/cache/config/VarBitType.ts';
 import ScriptProvider from '#/engine/script/ScriptProvider.ts';
 import { printError, printDebug } from '#/util/Logger.js';
+import SeqType from '#/cache/config/SeqType.ts';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -73,6 +74,11 @@ class World {
         const VarbIndex = await this.cache.loadLocalPackedIndex(22);
         if (VarbIndex) {
             VarBitType.load(VarbIndex);
+        }
+
+        const SeqIndex = await this.cache.loadLocalPackedIndex(20);
+        if (SeqIndex) {
+            SeqType.load(SeqIndex);
         }
 
         const count = ScriptProvider.load('data/pack');
