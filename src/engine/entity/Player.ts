@@ -13,7 +13,7 @@ import ObjType from '#/cache/config/ObjType.js';
 // import { ParamHelper } from '#/cache/config/ParamHelper.js';
 // import ParamType from '#/cache/config/ParamType.js';
 import ScriptVarType from '#/cache/config/ScriptVarType.js';
-// import SeqType from '#/cache/config/SeqType.js';
+import SeqType from '#/cache/config/SeqType.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.js';
 import { CoordGrid } from '#/engine/CoordGrid.ts';
 import { BlockWalk } from '#/engine/entity/BlockWalk.ts';
@@ -70,7 +70,7 @@ import { ChatModePrivate, ChatModePublic, ChatModeTradeDuel } from '#/engine/ent
 import Environment from '#/util/Environment.js';
 import { toDisplayName } from '#/util/JString.js';
 import LinkList from '#/util/LinkList.js';
-import VarBitType from '#/cache/config/VarbitType.ts';
+import VarBitType from '#/cache/config/VarBitType.ts';
 // import FriendlistLoaded from '#/network/game/server/model/FriendlistLoaded.js';
 // import UpdateIgnoreList from '#/network/game/server/model/UpdateIgnoreList.js';
 import IfOpenTop from '#/network/game/server/model/IfOpenTop.js';
@@ -1879,15 +1879,15 @@ export default class Player extends PathingEntity {
     }
 
     playAnimation(anim: number, delay: number) {
-        // if (anim >= SeqType.count || this.animProtect) {
-        //     return;
-        // }
+        if (anim >= SeqType.count || this.animProtect) {
+            return;
+        }
 
-        // if (anim == -1 || this.animId == -1 || SeqType.get(anim).priority >= SeqType.get(this.animId).priority) {
-        //     this.animId = anim;
-        //     this.animDelay = delay;
-        //     this.masks |= PlayerInfoProt.ANIM;
-        // } todo
+        if (anim == -1 || this.animId == -1 || SeqType.get(anim).priority >= SeqType.get(this.animId).priority) {
+            this.animId = anim;
+            this.animDelay = delay;
+            this.masks |= PlayerInfoProt.ANIM;
+        }
     }
 
     spotanim(spotanim: number, height: number, delay: number) {

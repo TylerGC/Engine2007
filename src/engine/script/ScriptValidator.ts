@@ -14,7 +14,7 @@ import InvType from '#/cache/config/InvType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 // import ParamType from '#/cache/config/ParamType.js';
-// import SeqType from '#/cache/config/SeqType.js';
+import SeqType from '#/cache/config/SeqType.js';
 // import SpotanimType from '#/cache/config/SpotanimType.js';
 // import StructType from '#/cache/config/StructType.js';
 // import VarNpcType from '#/cache/config/VarNpcType.js';
@@ -28,7 +28,7 @@ import { NpcMode } from '#/engine/entity/NpcMode.js';
 import { NpcStat } from '#/engine/entity/NpcStat.ts';
 import { PlayerStat } from '#/engine/entity/PlayerStat.js';
 import { Inventory } from '#/engine/Inventory.js';
-import VarBitType from '#/cache/config/VarbitType.ts';
+import VarBitType from '#/cache/config/VarBitType.ts';
 
 interface ScriptValidator<T, R> {
     validate(input: T): R;
@@ -125,7 +125,7 @@ export const InvTypeValid: ScriptValidator<number, InvType> = new ScriptInputCon
 // export const IDKTypeValid: ScriptValidator<number, IdkType> = new ScriptInputConfigTypeValidator(IdkType.get, (input: number) => input >= 0 && input < IdkType.count, 'Idk');
 export const HuntVisValid: ScriptValidator<number, HuntVis> = new ScriptInputRangeValidator(HuntVis.OFF, HuntVis.LINEOFWALK, 'HuntVis');
 export const FindSquareValid: ScriptValidator<number, MapFindSquareType> = new ScriptInputRangeValidator(MapFindSquareType.LINEOFWALK, MapFindSquareType.NONE, 'FindSquare');
-// export const SeqTypeValid: ScriptValidator<number, SeqType> = new ScriptInputConfigTypeValidator(SeqType.get, (input: number) => input >= 0 && input < SeqType.count, 'Seq');
+export const SeqTypeValid: ScriptValidator<number, SeqType> = new ScriptInputConfigTypeValidator(SeqType.get, (input: number) => input >= 0 && input < SeqType.count, 'Seq');
 export const VarPlayerValid: ScriptValidator<number, VarPlayerType> = new ScriptInputConfigTypeValidator(VarPlayerType.get, (input: number) => input >= 0 && input < VarPlayerType.count, 'Varp');
 export const VarBitValid: ScriptValidator<number, VarBitType> = new ScriptInputConfigTypeValidator(VarBitType.get, (input: number) => input >= 0 && input < VarBitType.count, 'VarBit');
 // export const VarNpcValid: ScriptValidator<number, VarNpcType> = new ScriptInputConfigTypeValidator(VarNpcType.get, (input: number) => input >= 0 && input < VarNpcType.count, 'Varn');

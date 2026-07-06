@@ -19,7 +19,7 @@ import ObjType from '#/cache/config/ObjType.ts';
 import GameMap, { changeLocCollision, changeNpcCollision, changePlayerCollision } from '#/engine/GameMap.js';
 import Environment from '#/util/Environment.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.ts';
-import VarBitType from '#/cache/config/VarbitType.ts';
+import VarBitType from '#/cache/config/VarBitType.ts';
 import ScriptProvider from '#/engine/script/ScriptProvider.ts';
 import { printError, printDebug } from '#/util/Logger.js';
 

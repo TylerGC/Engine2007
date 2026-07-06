@@ -5,11 +5,14 @@ import {
     writePackFile,
     writeConfigFile,
     resolveName,
-    readFlatFile
+    readFlatFile,
+    loadPackFile
 } from '#tools/util/ConfigPackHelper.ts';
 
 function unpack() {
     ensureOutputDirs();
+
+    const nameMap = loadPackFile('varp-names.pack');
 
     try {
         const configIndex = new Js5Index(false, false);
@@ -39,10 +42,11 @@ function unpack() {
         const resolvedNames = new Map<number, string>();
         const packLines: string[] = [];
         const configBlocks: string[] = [];
+        let debugName: string | null = null;
 
         for (let i = 0; i < filesCount; i++) {
             const fileId = fileIds ? fileIds[i] : i;
-            const name = resolveName(null, 'varp', fileId);
+            const name = nameMap.get(fileId) ?? resolveName(debugName, 'varp', fileId);
             resolvedNames.set(fileId, name);
             packLines.push(`${fileId}=${name}`);
         }

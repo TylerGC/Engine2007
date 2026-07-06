@@ -28,7 +28,8 @@ import {
     GenderValid,
     SkinColourValid,
     PlayerOpStateValid,
-    PlayerOpIndexValid
+    PlayerOpIndexValid,
+    SeqTypeValid
 } from '#/engine/script/ScriptValidator.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
 import World from '#/engine/World.js';
@@ -771,27 +772,27 @@ const PlayerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.BAS_READYANIM]: state => {
-        // state.activePlayer.readyanim = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.readyanim = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_TURNONSPOT]: state => {
-        // state.activePlayer.turnanim = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.turnanim = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_F]: state => {
-        // state.activePlayer.walkanim = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.walkanim = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_B]: state => {
-        // state.activePlayer.walkanim_b = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.walkanim_b = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_L]: state => {
-        // state.activePlayer.walkanim_l = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.walkanim_l = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_WALK_R]: state => {
-        // state.activePlayer.walkanim_r = check(state.popInt(), SeqTypeValid).id;
+        state.activePlayer.walkanim_r = check(state.popInt(), SeqTypeValid).id;
     },
 
     [ScriptOpcode.BAS_RUNNING]: state => {
@@ -800,7 +801,7 @@ const PlayerOps: CommandHandlers = {
             state.activePlayer.runanim = -1;
             return;
         }
-        // state.activePlayer.runanim = check(seq, SeqTypeValid).id;
+        state.activePlayer.runanim = check(seq, SeqTypeValid).id;
     },
 
     [ScriptOpcode.GENDER]: state => {

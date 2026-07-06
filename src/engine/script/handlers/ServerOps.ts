@@ -17,7 +17,7 @@ import { ScriptOpcode } from '#/engine/script/ScriptOpcode.js';
 import { ActiveNpc, ActivePlayer } from '#/engine/script/ScriptPointer.js';
 import type { CommandHandlers } from '#/engine/script/ScriptRunner.js';
 import ScriptState from '#/engine/script/ScriptState.js';
-import { check, CoordValid, HuntVisValid, NumberNotNull, NumberPositive, FindSquareValid } from '#/engine/script/ScriptValidator.js';
+import { check, CoordValid, HuntVisValid, NumberNotNull, NumberPositive, FindSquareValid, SeqTypeValid } from '#/engine/script/ScriptValidator.js';
 import World from '#/engine/World.js';
 import Environment from '#/util/Environment.js';
 
@@ -200,7 +200,7 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.SEQLENGTH]: state => {
-        // state.pushInt(check(state.popInt(), SeqTypeValid).duration);
+        state.pushInt(check(state.popInt(), SeqTypeValid).duration);
     },
 
     [ScriptOpcode.SPLIT_INIT]: state => {

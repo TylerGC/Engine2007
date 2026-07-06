@@ -12,6 +12,7 @@ function unpack() {
     ensureOutputDirs();
 
     const varpMap = loadPackFile('varp.pack');
+    const sequentialNames = loadPackFile('varbit-names.pack'); 
 
     try {
         const configIndex = new Js5Index(false, false);
@@ -27,9 +28,6 @@ function unpack() {
         const packLines: string[] = [];
         const configBlocks: string[] = [];
 
-        // Sequential counter for clean naming — decoupled from the raw
-        // varbit ID (which jumps by 1024 per file since fileId occupies
-        // the high bits: id = (fileId << 10) | groupId).
         let nextIndex = 0;
 
         for (const groupId of configIndex.groupIds) {
@@ -47,10 +45,9 @@ function unpack() {
 
             for (let i = 0; i < filesCount; i++) {
                 const fileId = fileIds ? fileIds[i] : i;
-                // Client: getGroupId(id) = id & 0x3FF, getFileId(id) = id >>> 10
                 const varbitId = (fileId << 10) | groupId;
 
-                const name = `varbit_${nextIndex}`;
+                const name = sequentialNames.get(nextIndex) ?? `varbit_${nextIndex}`;
                 nextIndex++;
 
                 resolvedNames.set(varbitId, name);
