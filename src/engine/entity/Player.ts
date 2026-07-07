@@ -1274,6 +1274,7 @@ export default class Player extends PathingEntity {
                 this.clearInteraction();
             }
 
+            console.log("We're updating here");
             this.updateMovement();
 
             // If there's a target and p_access is available, try to interact after moving

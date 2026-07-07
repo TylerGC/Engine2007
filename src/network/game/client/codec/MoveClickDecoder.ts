@@ -11,7 +11,7 @@ export default class MoveClickDecoder extends ClientGameMessageDecoder<MoveClick
     }
 
     decode(buf: Packet, length: number) {
-        const offset = this.prot.id === 199 ? 14 : 0; // extra input data when clicking minimap
+        const offset = this.prot.id === ClientGameProt.MOVE_MINIMAPCLICK.id ? 14 : 0; // extra input data when clicking minimap
         const waypoints = (length - 3 - offset) / 2;
 
         const startZ = buf.g2();
@@ -27,7 +27,7 @@ export default class MoveClickDecoder extends ClientGameMessageDecoder<MoveClick
 
         const startX = buf.g2_alt2();
 
-        if (this.prot.id === 199) {
+        if (this.prot.id === ClientGameProt.MOVE_MINIMAPCLICK.id) {
             buf.pos += 14;
         }
 
@@ -40,6 +40,6 @@ export default class MoveClickDecoder extends ClientGameMessageDecoder<MoveClick
             }
         }
 
-        return new MoveClick(path, ctrlHeld == 1);
+        return new MoveClick(path, ctrlHeld, ctrlHeld == 1);
     }
 }

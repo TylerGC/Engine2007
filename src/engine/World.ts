@@ -23,6 +23,7 @@ import VarBitType from '#/cache/config/VarBitType.ts';
 import ScriptProvider from '#/engine/script/ScriptProvider.ts';
 import { printError, printDebug } from '#/util/Logger.js';
 import SeqType from '#/cache/config/SeqType.ts';
+import { WorldStat } from './WorldStat.ts';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -123,10 +124,14 @@ class World {
             }
         }
 
+        this.processClientsIn();
+
         // process players
         for (let i = 0; i < this.players.length; i++) {
             const player = this.players[i];
-
+            if (player) {
+                player.processInteraction();
+            }
             // todo
         }
 
@@ -326,6 +331,60 @@ class World {
         }
 
         return player;
+    }
+
+    // - calculate afk event readiness
+    // - process packets
+    // - process pathfinding/following request
+    // - client input tracking
+    private processClientsIn(): void {
+        const start: number = Date.now();
+
+        this.cycleStats[WorldStat.BANDWIDTH_IN] = 0;
+
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            if (!(player instanceof NetworkPlayer)) {
+                continue;
+            }
+
+            try {
+                player.playtime++;
+
+                // if (this.currentTick % World.AFK_EVENTRATE === 0) {
+                //     player.afkEventReady = Math.random() < (player.zonesAfk() ? World.AFK_CHANCE2 : World.AFK_CHANCE1);
+                // }
+
+                // - client input tracking
+                player.processInputTracking();
+
+                //if (/*isClientConnected(player) && */player.decodeIn()) {
+                    if (player.userPath.length > 0 || player.opcalled) {
+                        if (player.delayed) {
+                            player.unsetMapFlag();
+                            continue;
+                        }
+                        if (!player.busy() && player.opcalled) {
+                            player.moveClickRequest = false;
+                        } else {
+                            player.moveClickRequest = true;
+                        }
+                    }
+                //}
+
+                // if (player.logMessage !== null) {
+                //     this.logPublicChat(player, player.logMessage);
+                // }
+            } catch (err) {
+                console.error(err);
+                //if (isClientConnected(player)) {
+                    player.logout();
+                    player.client.close();
+                //}
+            }
+        }
+
+        this.cycleStats[WorldStat.CLIENT_IN] = Date.now() - start;
     }
 }
 

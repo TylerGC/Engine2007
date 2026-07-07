@@ -73,6 +73,7 @@ export class NetworkPlayer extends Player {
             World.cycleStats[WorldStat.BANDWIDTH_IN] += bytesRead;
         }
 
+        console.log("decode in true")
         return true;
     }
 
