@@ -144,6 +144,8 @@ class World {
                 continue;
             }
 
+            player.updateStats();
+
             const appearance = (player.masks & PlayerInfoProt.APPEARANCE)
                 ? player.generateAppearance()
                 : (player.appearanceBuf ?? player.generateAppearance());
