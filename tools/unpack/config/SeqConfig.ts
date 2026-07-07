@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import Js5Index from '#/js5/Js5Index.js';
 import Packet from '#/io/Packet.js';
 import {
@@ -5,7 +7,8 @@ import {
     writePackFile,
     writeConfigFile,
     loadPackFile,
-    readFlatFile
+    readFlatFile,
+    PACK_DIR
 } from '#tools/util/ConfigPackHelper.ts';
 
 function unpack() {
@@ -23,16 +26,17 @@ function unpack() {
         }
         configIndex.decode(indexData);
 
-        const resolvedNames = new Map<number, string>();
-        const packLines: string[] = [];
-        const configBlocks: string[] = [];
-
-        let nextIndex = 0;
-
         const groupIds = configIndex.groupIds || Array.from(
             { length: configIndex.groupSize.length },
             (_, i) => i
         ).filter(i => configIndex.groupSize[i] !== undefined && configIndex.groupSize[i] > 0);
+
+        type Entry = { groupId: number; fileId: number; seqId: number };
+        const entries: Entry[] = [];
+        const resolvedNames = new Map<number, string>();
+        const packLines: string[] = [];
+
+        let nextIndex = 0;
 
         for (const groupId of groupIds) {
             const groupData = readFlatFile(20, groupId);
@@ -49,11 +53,12 @@ function unpack() {
 
             for (let i = 0; i < filesCount; i++) {
                 const fileId = fileIds ? fileIds[i] : i;
-                const seqId = (fileId << 7) | groupId;
+                const seqId = nextIndex;
 
-                const name = sequentialNames.get(nextIndex) ?? `seq_${nextIndex}`;
+                const name = sequentialNames.get(seqId) ?? `seq_${seqId}`;
                 nextIndex++;
 
+                entries.push({ groupId, fileId, seqId });
                 resolvedNames.set(seqId, name);
                 packLines.push(`${seqId}=${name}`);
             }
@@ -61,18 +66,17 @@ function unpack() {
 
         writePackFile('seq.pack', packLines);
 
-        for (const groupId of groupIds) {
+        const locationLines = entries.map(e => `${e.seqId}=${e.groupId}:${e.fileId}`);
+        fs.writeFileSync(path.join(PACK_DIR, 'seq-locations.pack'), locationLines.join('\n') + '\n');
+
+        const configBlocks: string[] = [];
+
+        for (const { groupId, fileId, seqId } of entries) {
             if (!configIndex.unpacked[groupId]) continue;
 
-            const filesCount = configIndex.groupSize[groupId];
-            const fileIds = configIndex.fileIds[groupId];
-
-            for (let i = 0; i < filesCount; i++) {
-                const fileId = fileIds ? fileIds[i] : i;
                 const fileData = configIndex.unpacked[groupId][fileId];
                 if (!fileData) continue;
 
-                const seqId = (fileId << 7) | groupId;
                 const name = resolvedNames.get(seqId) ?? `seq_${seqId}`;
                 const buf = new Packet(fileData);
 
@@ -160,7 +164,7 @@ function unpack() {
                             scalarLines.push(`${nextKey('duplicatebehavior')}=${duplicatebehavior}`);
                         } else if (opcode === 12) {
                             const count = buf.g1();
-                            iframeCount = count;   // NEW: capture real count
+                            iframeCount = count;
                             for (let j = 0; j < count; j++) {
                                 iframes.push(buf.g2());
                             }
@@ -169,7 +173,7 @@ function unpack() {
                             }
                         } else if (opcode === 13) {
                             const count = buf.g2();
-                            soundCount = count;    // NEW: capture real count
+                            soundCount = count;
                             for (let j = 0; j < count; j++) {
                                 const len = buf.g1();
                                 if (len > 0) {
@@ -237,7 +241,6 @@ function unpack() {
                     console.error(`Parsing warning on Sequence ID ${seqId}:`, err);
                     configBlocks.push([`[${name}]`, ...scalarLines].join('\n'));
                 }
-            }
         }
 
         writeConfigFile('all.seq', configBlocks);

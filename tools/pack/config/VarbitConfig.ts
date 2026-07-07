@@ -3,21 +3,52 @@ import path from 'path';
 import Packet from '#/io/Packet.js';
 import Js5Index from '#/js5/Js5Index.js';
 import {
-    CACHE_DIR,
     CACHE_OUT_DIR,
     CONFIG_DIR,
+    PACK_DIR,
     loadNameToIdMap,
     readConfigFile,
     packGroupAuto,
+    readFlatFile,
+    assembleGroupBuffer,
     updateMasterIndex,
     updateChecksumTable,
     writeMasterIndex,
     writeChecksumTable,
 } from '#tools/util/ConfigPackHelper.ts';
 
+export function loadVarbitLocations(): Map<number, { groupId: number; fileId: number }> {
+    const result = new Map<number, { groupId: number; fileId: number }>();
+    const filePath = path.join(PACK_DIR, 'varbit-locations.pack');
+    if (!fs.existsSync(filePath)) return result;
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+
+        const seqId = parseInt(trimmed.slice(0, eqIdx), 10);
+        const [groupStr, fileStr] = trimmed.slice(eqIdx + 1).split(':');
+        const groupId = parseInt(groupStr, 10);
+        const fileId = parseInt(fileStr, 10);
+        if (!isNaN(seqId) && !isNaN(groupId) && !isNaN(fileId)) {
+            result.set(seqId, { groupId, fileId });
+        }
+    }
+
+    return result;
+}
+
+export function toVarbitArchiveId(loc: { groupId: number; fileId: number }): number {
+    return (loc.fileId << 10) | loc.groupId;
+}
+
 function encodeVarbit(
     lines: string[],
     varpNameToId: Map<string, number>,
+    debugName?: string,
 ): Uint8Array {
     const buf = new Packet(new Uint8Array(256));
 
@@ -52,53 +83,21 @@ function encodeVarbit(
         buf.p1(startbit);
         buf.p1(endbit);
     }
+
+    if (debugName) {
+        buf.p1(250);
+        buf.pjstr(debugName);
+    }
+
     buf.p1(0);
 
     return buf.data.subarray(0, buf.pos);
 }
 
-function readFlatFile(archive: number, group: number): Uint8Array {
-    const filePath = path.join(CACHE_DIR, String(archive), `${group}.dat`);
-    if (!fs.existsSync(filePath)) {
-        throw new Error(`Cache file not found: ${filePath}`);
-    }
-    return new Uint8Array(fs.readFileSync(filePath));
-}
-
-function assembleGroupBuffer(orderedFiles: Uint8Array[]): Uint8Array {
-    const filesCount = orderedFiles.length;
-
-    if (filesCount === 1) {
-        return orderedFiles[0];
-    }
-
-    const totalDataSize = orderedFiles.reduce((s, f) => s + f.length, 0);
-    const trailerSize = filesCount * 4 + 1;
-    const groupBuffer = new Uint8Array(totalDataSize + trailerSize);
-    const groupView = new DataView(groupBuffer.buffer, groupBuffer.byteOffset);
-
-    let writePos = 0;
-    for (const f of orderedFiles) {
-        groupBuffer.set(f, writePos);
-        writePos += f.length;
-    }
-
-    let trailerPos = totalDataSize;
-    let prevSize = 0;
-    for (let i = 0; i < filesCount; i++) {
-        const delta = orderedFiles[i].length - prevSize;
-        groupView.setInt32(trailerPos, delta, false);
-        prevSize = orderedFiles[i].length;
-        trailerPos += 4;
-    }
-    groupBuffer[trailerPos] = 1;
-
-    return groupBuffer;
-}
-
 function pack() {
     const varpNameToId = loadNameToIdMap('varp.pack');
-    const varbitNameToId = loadNameToIdMap('varbit.pack');
+    const varbitNameToId = loadNameToIdMap('varbit.pack'); // name -> sequential id
+    const varbitLocations = loadVarbitLocations();          // sequential id -> {groupId, fileId}
     const configBlocks = readConfigFile('all.varbit');
 
     if (configBlocks.size === 0) {
@@ -111,59 +110,75 @@ function pack() {
     const indexData = readFlatFile(255, 22);
     configIndex.decode(indexData);
 
-    const encodedGroups = new Map<number, Map<number, Uint8Array>>();
+    const serverEncodedGroups = new Map<number, Map<number, Uint8Array>>();
+    const clientEncodedGroups = new Map<number, Map<number, Uint8Array>>();
 
     for (const [name, lines] of configBlocks) {
-        const id = varbitNameToId.get(name);
-        if (id === undefined) {
+        const seqId = varbitNameToId.get(name);
+        if (seqId === undefined) {
             console.warn(`No ID for entry [${name}] — skipping.`);
             continue;
         }
 
-        const groupId = id & 0x3ff;
-        const fileId = id >>> 10;
-
-        if (!encodedGroups.has(groupId)) {
-            encodedGroups.set(groupId, new Map());
-        }
-
-        encodedGroups.get(groupId)!.set(fileId, encodeVarbit(lines, varpNameToId));
-    }
-
-    const modifiedContainers = new Map<number, Uint8Array>();
-
-    for (const groupId of configIndex.groupIds) {
-        const rawContainer = readFlatFile(22, groupId);
-        configIndex.packed[groupId] = rawContainer;
-
-        if (!configIndex.unpackGroup(groupId)) {
-            console.error(`Failed to unpack Varbit group ${groupId}.`);
+        const loc = varbitLocations.get(seqId);
+        if (!loc) {
+            console.warn(`No archive location for entry [${name}] (seqId ${seqId}) — skipping. Was varbit-locations.pack regenerated after the last unpack?`);
             continue;
         }
 
-        const filesCount = configIndex.groupSize[groupId];
-        const fileIds = configIndex.fileIds[groupId];
+        const { groupId, fileId } = loc;
 
-        const encodedMap = encodedGroups.get(groupId) ?? new Map<number, Uint8Array>();
+        if (!serverEncodedGroups.has(groupId)) {
+            serverEncodedGroups.set(groupId, new Map());
+        }
+        if (!clientEncodedGroups.has(groupId)) {
+            clientEncodedGroups.set(groupId, new Map());
+        }
 
-        const orderedIds = Array.from({ length: filesCount }, (_, i) => fileIds ? fileIds[i] : i);
-        const orderedFiles = orderedIds.map(id => {
-            const enc = encodedMap.get(id);
-            if (!enc) {
-                return configIndex.unpacked[groupId]?.[id] ?? new Uint8Array([0x00]);
+        serverEncodedGroups.get(groupId)!.set(fileId, encodeVarbit(lines, varpNameToId, name));
+        clientEncodedGroups.get(groupId)!.set(fileId, encodeVarbit(lines, varpNameToId));
+    }
+
+    const outDir = path.join(CACHE_OUT_DIR, '22');
+    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+    const modifiedContainers = new Map<number, Uint8Array>();
+
+    for (const [label, encodedGroups] of [['server', serverEncodedGroups], ['client', clientEncodedGroups]] as const) {
+        for (const groupId of configIndex.groupIds) {
+            const rawContainer = readFlatFile(22, groupId);
+            configIndex.packed[groupId] = rawContainer;
+
+            if (!configIndex.unpackGroup(groupId)) {
+                console.error(`Failed to unpack Varbit group ${groupId}.`);
+                continue;
             }
-            return enc;
-        });
 
-        const groupBuffer = assembleGroupBuffer(orderedFiles);
-        const container = packGroupAuto(groupBuffer, rawContainer);
+            const filesCount = configIndex.groupSize[groupId];
+            const fileIds = configIndex.fileIds[groupId];
 
-        const outDir = path.join(CACHE_OUT_DIR, '22');
-        const outPath = path.join(outDir, `${groupId}.dat`);
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-        fs.writeFileSync(outPath, container);
+            const encodedMap = encodedGroups.get(groupId) ?? new Map<number, Uint8Array>();
 
-        modifiedContainers.set(groupId, container);
+            const orderedIds = Array.from({ length: filesCount }, (_, i) => fileIds ? fileIds[i] : i);
+            const orderedFiles = orderedIds.map(id => {
+                const enc = encodedMap.get(id);
+                if (!enc) {
+                    return configIndex.unpacked[groupId]?.[id] ?? new Uint8Array([0x00]);
+                }
+                return enc;
+            });
+
+            const groupBuffer = assembleGroupBuffer(orderedFiles);
+            const container = packGroupAuto(groupBuffer, rawContainer);
+
+            const suffix = label === 'server' ? '' : '.client';
+            const outPath = path.join(outDir, `${groupId}${suffix}.dat`);
+            fs.writeFileSync(outPath, container);
+
+            if (label === 'server') {
+                modifiedContainers.set(groupId, container);
+            }
+        }
     }
 
     // const updatedMaster = updateMasterIndex(22, modifiedContainers);

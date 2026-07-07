@@ -34,6 +34,37 @@ export type ContainerMeta = {
     version: number | null;
 };
 
+export function assembleGroupBuffer(orderedFiles: Uint8Array[]): Uint8Array {
+    const filesCount = orderedFiles.length;
+
+    if (filesCount === 1) {
+        return orderedFiles[0];
+    }
+
+    const totalDataSize = orderedFiles.reduce((s, f) => s + f.length, 0);
+    const trailerSize = filesCount * 4 + 1;
+    const groupBuffer = new Uint8Array(totalDataSize + trailerSize);
+    const groupView = new DataView(groupBuffer.buffer, groupBuffer.byteOffset);
+
+    let writePos = 0;
+    for (const f of orderedFiles) {
+        groupBuffer.set(f, writePos);
+        writePos += f.length;
+    }
+
+    let trailerPos = totalDataSize;
+    let prevSize = 0;
+    for (let i = 0; i < filesCount; i++) {
+        const delta = orderedFiles[i].length - prevSize;
+        groupView.setInt32(trailerPos, delta, false);
+        prevSize = orderedFiles[i].length;
+        trailerPos += 4;
+    }
+    groupBuffer[trailerPos] = 1;
+
+    return groupBuffer;
+}
+
 export function readContainerMeta(raw: Uint8Array): ContainerMeta {
     const compressionType = raw[0];
 

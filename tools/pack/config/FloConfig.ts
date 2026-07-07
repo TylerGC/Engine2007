@@ -10,6 +10,7 @@ import {
     readConfigFile,
     parseColour,
     packGroupAuto,
+    readFlatFile,
     updateMasterIndex,
     updateChecksumTable,
     writeMasterIndex,
@@ -82,14 +83,6 @@ function encodeFlo(
 
     buf.p1(0);
     return buf.data.subarray(0, buf.pos);
-}
-
-function readFlatFile(archive: number, group: number): Uint8Array {
-    const filePath = path.join(CACHE_DIR, String(archive), `${group}.dat`);
-    if (!fs.existsSync(filePath)) {
-        throw new Error(`Cache file not found: ${filePath}`);
-    }
-    return new Uint8Array(fs.readFileSync(filePath));
 }
 
 function pack() {

@@ -9,6 +9,7 @@ import {
     loadNameToIdMap,
     readConfigFile,
     parseColour,
+    readFlatFile,
     packGroupAuto,
     updateMasterIndex,
     updateChecksumTable,
@@ -58,14 +59,6 @@ function encodeFlu(
     return buf.data.subarray(0, buf.pos);
 }
 
-function readFlatFile(archive: number, group: number): Uint8Array {
-    const filePath = path.join(CACHE_DIR, String(archive), `${group}.dat`);
-    if (!fs.existsSync(filePath)) {
-        throw new Error(`Cache file not found: ${filePath}`);
-    }
-    return new Uint8Array(fs.readFileSync(filePath));
-}
-
 function pack() {
     const fluNameToId     = loadNameToIdMap('flu.pack');
     const textureNameToId = loadNameToIdMap('texture.pack');
@@ -99,8 +92,6 @@ function pack() {
     const originalVersion  = trailerBytes >= 2
         ? ((rawContainer[rawContainer.length - 2] << 8) | rawContainer[rawContainer.length - 1])
         : null;
-
-    console.log(`filesCount=${filesCount}  version=${originalVersion}`);
 
     const encodedMap = new Map<number, Uint8Array>();
     let encoded = 0, skipped = 0;

@@ -6,13 +6,12 @@ import {
     CACHE_DIR,
     CACHE_OUT_DIR,
     CONFIG_DIR,
+    PACK_DIR,
+    readFlatFile,
+    assembleGroupBuffer,
     loadNameToIdMap,
     readConfigFile,
     packGroupAuto,
-    updateMasterIndex,
-    updateChecksumTable,
-    writeMasterIndex,
-    writeChecksumTable,
 } from '#tools/util/ConfigPackHelper.ts';
 
 const PRE_MOVE: Record<string, number> = { delaymove: 0, delayanim: 1, merge: 2 };
@@ -39,7 +38,36 @@ function resolveObj(val: string, objNameToId: Map<string, number>): number {
     return m ? parseInt(m[1], 10) : parseInt(val, 10) || 0;
 }
 
-function encodeSeq(lines: string[], animNameToId: Map<string, number>, objNameToId: Map<string, number>): Uint8Array {
+function loadSeqLocations(): Map<number, { groupId: number; fileId: number }> {
+    const result = new Map<number, { groupId: number; fileId: number }>();
+    const filePath = path.join(PACK_DIR, 'seq-locations.pack');
+    if (!fs.existsSync(filePath)) return result;
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx === -1) continue;
+
+        const seqId = parseInt(trimmed.slice(0, eqIdx), 10);
+        const [groupStr, fileStr] = trimmed.slice(eqIdx + 1).split(':');
+        const groupId = parseInt(groupStr, 10);
+        const fileId = parseInt(fileStr, 10);
+        if (!isNaN(seqId) && !isNaN(groupId) && !isNaN(fileId)) {
+            result.set(seqId, { groupId, fileId });
+        }
+    }
+
+    return result;
+}
+
+function encodeSeq(
+    lines: string[], 
+    animNameToId: Map<string, number>, 
+    objNameToId: Map<string, number>,
+    debugName?: string
+): Uint8Array {
     const buf = new Packet(new Uint8Array(4096));
 
     let framesCount = 0;
@@ -172,52 +200,19 @@ function encodeSeq(lines: string[], animNameToId: Map<string, number>, objNameTo
         }
     }
 
+    if (debugName) {
+        buf.p1(250);
+        buf.pjstr(debugName);
+    }
+
     buf.p1(0);
     return buf.data.subarray(0, buf.pos);
-}
-
-function readFlatFile(archive: number, group: number): Uint8Array {
-    const filePath = path.join(CACHE_DIR, String(archive), `${group}.dat`);
-    if (!fs.existsSync(filePath)) {
-        throw new Error(`Cache file not found: ${filePath}`);
-    }
-    return new Uint8Array(fs.readFileSync(filePath));
-}
-
-function assembleGroupBuffer(orderedFiles: Uint8Array[]): Uint8Array {
-    const filesCount = orderedFiles.length;
-
-    if (filesCount === 1) {
-        return orderedFiles[0];
-    }
-
-    const totalDataSize = orderedFiles.reduce((s, f) => s + f.length, 0);
-    const trailerSize = filesCount * 4 + 1;
-    const groupBuffer = new Uint8Array(totalDataSize + trailerSize);
-    const groupView = new DataView(groupBuffer.buffer, groupBuffer.byteOffset);
-
-    let writePos = 0;
-    for (const f of orderedFiles) {
-        groupBuffer.set(f, writePos);
-        writePos += f.length;
-    }
-
-    let trailerPos = totalDataSize;
-    let prevSize = 0;
-    for (let i = 0; i < filesCount; i++) {
-        const delta = orderedFiles[i].length - prevSize;
-        groupView.setInt32(trailerPos, delta, false);
-        prevSize = orderedFiles[i].length;
-        trailerPos += 4;
-    }
-    groupBuffer[trailerPos] = 1;
-
-    return groupBuffer;
 }
 
 function pack() {
     const animNameToId = loadNameToIdMap('anim.pack');
     const seqNameToId = loadNameToIdMap('seq.pack');
+    const seqLocations = loadSeqLocations();
     const configBlocks = readConfigFile('all.seq');
     const objNameToId = loadNameToIdMap('obj.pack');
 
@@ -227,70 +222,73 @@ function pack() {
     }
 
     const configIndex = new Js5Index(false, false);
-
     const indexData = readFlatFile(255, 20);
     configIndex.decode(indexData);
 
-    const encodedGroups = new Map<number, Map<number, Uint8Array>>();
+    const serverEncodedGroups = new Map<number, Map<number, Uint8Array>>();
+    const clientEncodedGroups = new Map<number, Map<number, Uint8Array>>();
 
     for (const [name, lines] of configBlocks) {
-        const id = seqNameToId.get(name);
-        if (id === undefined) {
+        const seqId = seqNameToId.get(name);
+        if (seqId === undefined) {
             console.warn(`No ID for entry [${name}] — skipping.`);
             continue;
         }
 
-        const groupId = id & 0x7f;
-        const fileId = id >>> 7;
-
-        if (!encodedGroups.has(groupId)) {
-            encodedGroups.set(groupId, new Map());
-        }
-
-        encodedGroups.get(groupId)!.set(fileId, encodeSeq(lines, animNameToId, objNameToId));
-    }
-
-    const modifiedContainers = new Map<number, Uint8Array>();
-
-    for (const groupId of configIndex.groupIds) {
-        const rawContainer = readFlatFile(20, groupId);
-        configIndex.packed[groupId] = rawContainer;
-
-        if (!configIndex.unpackGroup(groupId)) {
-            console.error(`Failed to unpack Sequence group ${groupId}.`);
+        const loc = seqLocations.get(seqId);
+        if (!loc) {
+            console.warn(`No archive location for entry [${name}] (seqId ${seqId}) — skipping.`);
             continue;
         }
 
-        const filesCount = configIndex.groupSize[groupId];
-        const fileIds = configIndex.fileIds[groupId];
+        const { groupId, fileId } = loc;
 
-        const encodedMap = encodedGroups.get(groupId) ?? new Map<number, Uint8Array>();
+        if (!serverEncodedGroups.has(groupId)) {
+            serverEncodedGroups.set(groupId, new Map());
+        }
+        if (!clientEncodedGroups.has(groupId)) {
+            clientEncodedGroups.set(groupId, new Map());
+        }
 
-        const orderedIds = Array.from({ length: filesCount }, (_, i) => fileIds ? fileIds[i] : i);
-        const orderedFiles = orderedIds.map(id => {
-            const enc = encodedMap.get(id);
-            if (!enc) {
-                return configIndex.unpacked[groupId]?.[id] ?? new Uint8Array([0x00]);
-            }
-            return enc;
-        });
-
-        const groupBuffer = assembleGroupBuffer(orderedFiles);
-        const container = packGroupAuto(groupBuffer, rawContainer);
-
-        const outDir = path.join(CACHE_OUT_DIR, '20');
-        const outPath = path.join(outDir, `${groupId}.dat`);
-        if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-        fs.writeFileSync(outPath, container);
-
-        modifiedContainers.set(groupId, container);
+        serverEncodedGroups.get(groupId)!.set(fileId, encodeSeq(lines, animNameToId, objNameToId, name));
+        clientEncodedGroups.get(groupId)!.set(fileId, encodeSeq(lines, animNameToId, objNameToId));
     }
 
-    // const updatedMaster = updateMasterIndex(20, modifiedContainers);
-    // writeMasterIndex(updatedMaster, 20);
+    const outDir = path.join(CACHE_OUT_DIR, '20');
+    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-    // const updatedChecksum = updateChecksumTable(new Map([[20, updatedMaster]]));
-    // writeChecksumTable(updatedChecksum);
+    for (const [label, encodedGroups] of [['server', serverEncodedGroups], ['client', clientEncodedGroups]] as const) {
+        for (const groupId of configIndex.groupIds) {
+            const rawContainer = readFlatFile(20, groupId);
+            configIndex.packed[groupId] = rawContainer;
+
+            if (!configIndex.unpackGroup(groupId)) {
+                console.error(`Failed to unpack Sequence group ${groupId}.`);
+                continue;
+            }
+
+            const filesCount = configIndex.groupSize[groupId];
+            const fileIds = configIndex.fileIds[groupId];
+
+            const encodedMap = encodedGroups.get(groupId) ?? new Map<number, Uint8Array>();
+
+            const orderedIds = Array.from({ length: filesCount }, (_, i) => fileIds ? fileIds[i] : i);
+            const orderedFiles = orderedIds.map(id => {
+                const enc = encodedMap.get(id);
+                if (!enc) {
+                    return configIndex.unpacked[groupId]?.[id] ?? new Uint8Array([0x00]);
+                }
+                return enc;
+            });
+
+            const groupBuffer = assembleGroupBuffer(orderedFiles);
+            const container = packGroupAuto(groupBuffer, rawContainer);
+
+            const suffix = label === 'server' ? '' : '.client';
+            const outPath = path.join(outDir, `${groupId}${suffix}.dat`);
+            fs.writeFileSync(outPath, container);
+        }
+    }
 }
 
 pack();

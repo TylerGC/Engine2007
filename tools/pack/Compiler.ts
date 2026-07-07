@@ -2,7 +2,7 @@ import fs from 'fs';
 
 import { CompileServerScript } from '@lostcityrs/runescript';
 
-// import Component from '#/cache/config/Component.js';
+import Component from '#/cache/config/Component.js';
 // import DbTableType from '#/cache/config/DbTableType.js';
 import InvType from '#/cache/config/InvType.js';
 // import ParamType from '#/cache/config/ParamType.js';
@@ -19,6 +19,7 @@ import Environment from '#/util/Environment.js';
 import VarBitType from '#/cache/config/VarBitType.ts';
 import { loadDirExtFull } from '#tools/pack/Parse.ts';
 import OpenRs2 from '#/util/OpenRs2.ts';
+import { loadVarbitLocations, toVarbitArchiveId } from './config/VarbitConfig.ts';
 
 class CompilerTypeInfo {
     max: number = -1;
@@ -179,11 +180,12 @@ export async function runServerCompiler() {
     const idkInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/idk.pack`);
     const spotanimInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/spotanim.pack`);
     const locInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/loc.pack`);
-    const componentInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/interface.pack`);
+    const componentInfo = new CompilerTypeInfo();
     const interfaceInfo = new CompilerTypeInfo();
     const overlayInfo = new CompilerTypeInfo();
     const varpInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/varp.pack`);
     const varbitInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/varbit.pack`);
+    const varbitLocations = loadVarbitLocations();
     const varnInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/varn.pack`);
     const varsInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/vars.pack`);
     const paramInfo = CompilerTypeInfo.load(`${Environment.BUILD_SRC_DIR}/pack/param.pack`);
@@ -214,21 +216,23 @@ export async function runServerCompiler() {
         writeinvInfo.protect[id] = inv.protect;
     }
 
-    // Component.load('data/pack');
-    // for (let id = 0; id <= componentInfo.max; id++) {
-    //     if (typeof componentInfo.map[id] === 'undefined') {
-    //         continue;
-    //     }
+    const ComponentIndex = await OpenRs2.RS2_500.loadLocalPackedIndex(3);
+    if (ComponentIndex) {
+        Component.load(ComponentIndex);
+    }
 
-    //     const com = Component.get(id);
-    //     const name = com.comName || componentInfo.map[id];
+    for (const [id, com] of Component.allComponents()) {
+        if (com.comName) {
+            componentInfo.add(id, com.comName);
+        }
+    }
 
-    //     interfaceInfo.add(id, name);
-
-    //     if (com.overlay) {
-    //         overlayInfo.add(id, name);
-    //     }
-    // }
+    for (const [name, id] of Component.allNames()) {
+        if (name.indexOf(':') === -1) {
+            interfaceInfo.add(id, name);
+            overlayInfo.add(id, name); // Do we need to specify specific overlay interfaces?
+        }
+    }
 
     const VarpIndex = await OpenRs2.RS2_500.loadLocalPackedIndex(2, [16]);
     if (VarpIndex) {
@@ -251,11 +255,11 @@ export async function runServerCompiler() {
     }
 
     for (let id = 0; id <= varbitInfo.max; id++) {
-        if (typeof varbitInfo.map[id] === 'undefined') {
+        const locationId = varbitLocations.get(id);
+        if( locationId === undefined) {
             continue;
         }
-
-        const varbit = VarBitType.get(id);
+        const varbit = VarBitType.get(toVarbitArchiveId(locationId));
         const basevar = VarPlayerType.get(varbit.basevar);
         varbitInfo.vartype[id] = ScriptVarType.getType(basevar.type);
         varbitInfo.protect[id] = basevar.protect;

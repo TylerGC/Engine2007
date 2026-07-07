@@ -198,6 +198,8 @@ export default class SeqType extends ConfigType {
             }
         } else if (code === 14) {
             this.field1993 = true;
+        } else if (code === 250) {
+            this.debugname = dat.gjstr();
         } else {
             throw new Error(`Unrecognized sequence config code: ${code}`);
         }

@@ -6,6 +6,7 @@ import {
     CACHE_OUT_DIR,
     CONFIG_DIR,
     loadNameToIdMap,
+    assembleGroupBuffer,
     packGroupAuto,
     readFlatFile,
 } from '#tools/util/ConfigPackHelper.ts'
@@ -599,47 +600,6 @@ export function encodeObjOps(ops: ObjOpcode[]): Uint8Array {
 
     buf.p1(0);
     return new Uint8Array(buf.data.subarray(0, buf.pos));
-}
-
-function assembleGroupBuffer(orderedFiles: Uint8Array[]): Uint8Array {
-    const filesCount = orderedFiles.length;
-
-    if (filesCount === 1) {
-        return orderedFiles[0];
-    }
-
-    const totalDataSize = orderedFiles.reduce((s, f) => s + f.length, 0);
-    const trailerSize = filesCount * 4 + 1;
-    const groupBuffer = new Uint8Array(totalDataSize + trailerSize);
-    const groupView = new DataView(groupBuffer.buffer, groupBuffer.byteOffset);
-
-    let writePos = 0;
-    for (const f of orderedFiles) {
-        groupBuffer.set(f, writePos);
-        writePos += f.length;
-    }
-    let trailerPos = totalDataSize;
-    let prevSize = 0;
-    for (let i = 0; i < filesCount; i++) {
-        const delta = orderedFiles[i].length - prevSize;
-        groupView.setInt32(trailerPos, delta, false);
-        prevSize = orderedFiles[i].length;
-        trailerPos += 4;
-    }
-    groupBuffer[trailerPos] = 1;
-
-    return groupBuffer;
-}
-
-function extractContainerVersion(rawContainer: Uint8Array): number | null {
-    const compressedSize =
-        (rawContainer[1] << 24) | (rawContainer[2] << 16) |
-        (rawContainer[3] << 8)  |  rawContainer[4];
-    const containerBodyEnd = 9 + compressedSize;
-    const trailerBytes = rawContainer.length - containerBodyEnd;
-    return trailerBytes >= 2
-        ? ((rawContainer[rawContainer.length - 2] << 8) | rawContainer[rawContainer.length - 1])
-        : null;
 }
 
 function pack() {

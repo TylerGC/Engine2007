@@ -101,6 +101,8 @@ export default class VarBitType extends ConfigType {
             this.basevar = dat.g2();
             this.startbit = dat.g1();
             this.endbit = dat.g1();
+        } else if (code === 250) {
+            this.debugname = dat.gjstr();
         } else {
             throw new Error(`Unrecognized varbit config code: ${code}`);
         }

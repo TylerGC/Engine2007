@@ -23,6 +23,7 @@ import VarBitType from '#/cache/config/VarBitType.ts';
 import ScriptProvider from '#/engine/script/ScriptProvider.ts';
 import { printError, printDebug } from '#/util/Logger.js';
 import SeqType from '#/cache/config/SeqType.ts';
+import Component from '#/cache/config/Component.ts';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -79,6 +80,11 @@ class World {
         const SeqIndex = await this.cache.loadLocalPackedIndex(20);
         if (SeqIndex) {
             SeqType.load(SeqIndex);
+        }
+
+        const ComponentIndex = await OpenRs2.RS2_500.loadLocalPackedIndex(3);
+        if (ComponentIndex) {
+            Component.load(ComponentIndex);
         }
 
         const count = ScriptProvider.load('data/pack');
@@ -251,33 +257,33 @@ class World {
             reply.p1(1);      // membersAccount
             player.client.send(reply.data.subarray(0, reply.pos));
             player.client.state = 1;
-            player.buildAppearance(0); //todo
+            //player.buildAppearance(0); //todo
             player.write(new RebuildNormal(2656, 4704));
             // runescript: mes("Welcome to RuneScape.");
             // player.write(new MessageGame('Welcome to RuneScape.'));
             // runescript: if_opentop(toplevel);
-            player.write(new IfOpenTop(548));
+            // player.write(new IfOpenTop(548));
 
-            // runescript: if_openoverlay(toplevel:x, y);
-            player.write(new IfOpenSub((548 << 16) | 115, 137, 1)); // toplevel:chat -> chat
-            player.write(new IfOpenSub((548 << 16) | 128, 92, 1)); // toplevel:stone0 -> combat-unarmed
-            player.write(new IfOpenSub((548 << 16) | 129, 320, 1)); // toplevel:stone1 -> stats
-            player.write(new IfOpenSub((548 << 16) | 130, 274, 1)); // toplevel:stone2 -> questjournal_v2
-            player.write(new IfOpenSub((548 << 16) | 131, 149, 1)); // toplevel:stone3 -> inventory
-            player.write(new IfOpenSub((548 << 16) | 132, 387, 1)); // toplevel:stone4 -> wornitems
-            player.write(new IfOpenSub((548 << 16) | 133, 271, 1)); // toplevel:stone5 -> prayer
-            player.write(new IfOpenSub((548 << 16) | 134, 192, 1)); // toplevel:stone6 -> magic
-            player.write(new IfOpenSub((548 << 16) | 135, 662, 1)); // toplevel:stone7 -> lore_stats_side
-            player.write(new IfOpenSub((548 << 16) | 136, 550, 1)); // toplevel:stone8 -> friends2
-            player.write(new IfOpenSub((548 << 16) | 137, 551, 1)); // toplevel:stone9 -> ignore2
-            player.write(new IfOpenSub((548 << 16) | 138, 589, 1)); // toplevel:stone10 -> clanjoin
-            player.write(new IfOpenSub((548 << 16) | 139, 261, 1)); // toplevel:stone11 -> options
-            player.write(new IfOpenSub((548 << 16) | 140, 464, 1)); // toplevel:stone12 -> emotes
-            player.write(new IfOpenSub((548 << 16) | 141, 187, 1)); // toplevel:stone13 -> music
-            player.write(new IfOpenSub((548 << 16) | 142, 182, 1));  // toplevel:logout -> logout
+            // // runescript: if_openoverlay(toplevel:x, y);
+            // player.write(new IfOpenSub((548 << 16) | 115, 137, 1)); // toplevel:chat -> chat
+            // player.write(new IfOpenSub((548 << 16) | 128, 92, 1)); // toplevel:stone0 -> combat-unarmed
+            // player.write(new IfOpenSub((548 << 16) | 129, 320, 1)); // toplevel:stone1 -> stats
+            // player.write(new IfOpenSub((548 << 16) | 130, 274, 1)); // toplevel:stone2 -> questjournal_v2
+            // player.write(new IfOpenSub((548 << 16) | 131, 149, 1)); // toplevel:stone3 -> inventory
+            // player.write(new IfOpenSub((548 << 16) | 132, 387, 1)); // toplevel:stone4 -> wornitems
+            // player.write(new IfOpenSub((548 << 16) | 133, 271, 1)); // toplevel:stone5 -> prayer
+            // player.write(new IfOpenSub((548 << 16) | 134, 192, 1)); // toplevel:stone6 -> magic
+            // player.write(new IfOpenSub((548 << 16) | 135, 662, 1)); // toplevel:stone7 -> lore_stats_side
+            // player.write(new IfOpenSub((548 << 16) | 136, 550, 1)); // toplevel:stone8 -> friends2
+            // player.write(new IfOpenSub((548 << 16) | 137, 551, 1)); // toplevel:stone9 -> ignore2
+            // player.write(new IfOpenSub((548 << 16) | 138, 589, 1)); // toplevel:stone10 -> clanjoin
+            // player.write(new IfOpenSub((548 << 16) | 139, 261, 1)); // toplevel:stone11 -> options
+            // player.write(new IfOpenSub((548 << 16) | 140, 464, 1)); // toplevel:stone12 -> emotes
+            // player.write(new IfOpenSub((548 << 16) | 141, 187, 1)); // toplevel:stone13 -> music
+            // player.write(new IfOpenSub((548 << 16) | 142, 182, 1));  // toplevel:logout -> logout
 
-            // Runescript inv_transmit(inv, inventory:inv);
-            player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
+            // // Runescript inv_transmit(inv, inventory:inv);
+            // player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
             player.onLogin();
         }
     }

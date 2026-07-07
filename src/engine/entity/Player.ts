@@ -4,7 +4,7 @@ import { PlayerInfoProt } from '#/network/rsbuf/prot.ts';
 import { Visibility } from '#/network/rsbuf/visibility.ts';
 import { CollisionType, CollisionFlag } from '@2004scape/rsmod-pathfinder';
 
-// import Component from '#/cache/config/Component.js';
+import Component, { IfType } from '#/cache/config/Component.js';
 // import FontType from '#/cache/config/FontType.js';
 import InvType from '#/cache/config/InvType.js';
 // import LocType from '#/cache/config/LocType.js';
@@ -759,9 +759,9 @@ export default class Player extends PathingEntity {
 
         for (let i = 0; i < this.invListeners.length; i++) {
             const { com } = this.invListeners[i];
-            // if (Component.get(com).rootLayer === root) {
-            //     this.invStopListenOnCom(com);
-            // }
+            if (Component.get(com).rootLayer === root) {
+                this.invStopListenOnCom(com);
+            }
         }
     }
 
@@ -2072,9 +2072,9 @@ export default class Player extends PathingEntity {
         // this.write(new IfSetTab(com, tab));
     }
 
-    // isComponentVisible(com: Component) {
-    //     return this.modalMain === com.rootLayer || this.modalChat === com.rootLayer || this.modalSide === com.rootLayer || this.tabs.findIndex(l => l === com.rootLayer) !== -1 || this.modalTutorial === com.rootLayer;
-    // } todo
+    isComponentVisible(com: IfType) {
+        return this.modalMain === com.rootLayer || this.modalChat === com.rootLayer || this.modalSide === com.rootLayer || this.tabs.findIndex(l => l === com.rootLayer) !== -1 || this.modalTutorial === com.rootLayer;
+    }
 
     updateAfkZones(): void {
         this.lastAfkZone = Math.min(1000, this.lastAfkZone + 1);
@@ -2269,6 +2269,6 @@ export default class Player extends PathingEntity {
     }
 
     ifOpenSub(interfaceId: number, component: number, type: number) {
-        this.write(new IfOpenSub(interfaceId, component, type));
+        this.write(new IfOpenSub(component, interfaceId, type));
     }
 }

@@ -1,18 +1,21 @@
 import Js5Index from '#/js5/Js5Index.js';
 import Packet from '#/io/Packet.js';
+import path from 'path';
+import fs from 'fs';
 import {
     ensureOutputDirs,
     writePackFile,
     writeConfigFile,
     loadPackFile,
-    readFlatFile
+    readFlatFile,
+    PACK_DIR
 } from '#tools/util/ConfigPackHelper.ts';
 
 function unpack() {
     ensureOutputDirs();
 
     const varpMap = loadPackFile('varp.pack');
-    const sequentialNames = loadPackFile('varbit-names.pack'); 
+    const sequentialNames = loadPackFile('varbit-names.pack');
 
     try {
         const configIndex = new Js5Index(false, false);
@@ -24,9 +27,10 @@ function unpack() {
         }
         configIndex.decode(indexData);
 
+        type Entry = { groupId: number; fileId: number; varbitId: number };
+        const entries: Entry[] = [];
         const resolvedNames = new Map<number, string>();
         const packLines: string[] = [];
-        const configBlocks: string[] = [];
 
         let nextIndex = 0;
 
@@ -45,11 +49,12 @@ function unpack() {
 
             for (let i = 0; i < filesCount; i++) {
                 const fileId = fileIds ? fileIds[i] : i;
-                const varbitId = (fileId << 10) | groupId;
+                const varbitId = nextIndex;
 
-                const name = sequentialNames.get(nextIndex) ?? `varbit_${nextIndex}`;
+                const name = sequentialNames.get(varbitId) ?? `varbit_${varbitId}`;
                 nextIndex++;
 
+                entries.push({ groupId, fileId, varbitId: varbitId });
                 resolvedNames.set(varbitId, name);
                 packLines.push(`${varbitId}=${name}`);
             }
@@ -57,18 +62,17 @@ function unpack() {
 
         writePackFile('varbit.pack', packLines);
 
-        for (const groupId of configIndex.groupIds) {
-            if (!configIndex.unpacked[groupId]) continue;
+        const locationLines = entries.map(e => `${e.varbitId}=${e.groupId}:${e.fileId}`);
+        fs.writeFileSync(path.join(PACK_DIR, 'varbit-locations.pack'), locationLines.join('\n') + '\n');
 
-            const filesCount = configIndex.groupSize[groupId];
-            const fileIds = configIndex.fileIds[groupId];
+        const configBlocks: string[] = [];
 
-            for (let i = 0; i < filesCount; i++) {
-                const fileId = fileIds ? fileIds[i] : i;
+            for (const { groupId, fileId, varbitId: varbitId } of entries) {
+                if (!configIndex.unpacked[groupId]) continue;
+
                 const fileData = configIndex.unpacked[groupId][fileId];
                 if (!fileData) continue;
 
-                const varbitId = (fileId << 10) | groupId;
                 const name = resolvedNames.get(varbitId) ?? `varbit_${varbitId}`;
                 const buf = new Packet(fileData);
                 const def: string[] = [`[${name}]`];
@@ -94,7 +98,6 @@ function unpack() {
                 }
 
                 configBlocks.push(def.join('\n'));
-            }
         }
 
         writeConfigFile('all.varbit', configBlocks);
