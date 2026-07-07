@@ -13,6 +13,7 @@ import ScriptVarType from '#/cache/config/ScriptVarType.ts';
 import { CoordGrid } from '#/engine/CoordGrid.ts';
 import ScriptRunner from '#/engine/script/ScriptRunner.ts';
 import SeqType from '#/cache/config/SeqType.ts';
+import Component from '#/cache/config/Component.ts';
 
 export default class ClientCheatHandler extends ClientGameMessageHandler<ClientCheat> {
     handle(message: ClientCheat, player: NetworkPlayer): boolean {
@@ -85,11 +86,11 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
                                 params[i] = CoordGrid.packCoord(level, (mx << 6) + lx, (mz << 6) + lz);
                                 break;
                             }
-                            // case ScriptVarType.INTERFACE: {
-                            //     const name = args.shift();
-                            //     params[i] = Component.getId(name ?? '');
-                            //     break;
-                            // }
+                            case ScriptVarType.INTERFACE: {
+                                const name = args.shift();
+                                params[i] = Component.getId(name ?? '');
+                                break;
+                            }
                             // case ScriptVarType.SPOTANIM: {
                             //     const name = args.shift();
                             //     params[i] = SpotanimType.getId(name ?? '');
