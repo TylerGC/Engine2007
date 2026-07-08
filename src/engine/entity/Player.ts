@@ -356,20 +356,8 @@ export default class Player extends PathingEntity {
     engineQueue: LinkList<PlayerQueueRequest> = new LinkList();
     // cameraPackets: LinkList<CameraInfo> = new LinkList();
     timers: Map<number, EntityTimer> = new Map();
-    tabs: number[] = new Array(14).fill(-1);
-    modalState = ModalState.NONE;
-    modalMain = -1;
-    lastModalMain = -1;
-    modalChat = -1;
-    lastModalChat = -1;
-    modalSide = -1;
-    lastModalSide = -1;
-    modalTutorial = -1;
-    overlay = -1;
-    lastOverlay = -1;
-    refreshModal = false;
-    refreshModalClose = false;
-    requestModalClose = false;
+    toplevelInterface: number = -1;
+    openSubInterfaces: Map<number, { interfaceId: number; type: number }> = new Map();
 
     protect: boolean = false; // whether protected access is available
     activeScript: ScriptState | null = null;
@@ -418,6 +406,26 @@ export default class Player extends PathingEntity {
     chatColour: number | null = null;
     chatEffect: number | null = null;
     chatRights: number | null = null;
+
+    private static readonly BLOCKING_SLOT_NAMES = ['toplevel:chat', 'toplevel:main'];
+    private static blockingSlotIds: number[] | null = null;
+
+    private static readonly MAIN_SLOT_NAME = 'toplevel:main';
+    private static mainSlotId: number | null = null;
+
+    private static getMainSlotId(): number {
+        if (Player.mainSlotId === null) {
+            Player.mainSlotId = Component.getId(Player.MAIN_SLOT_NAME);
+        }
+        return Player.mainSlotId;
+    }
+
+    private static getBlockingSlotIds(): number[] {
+        if (!Player.blockingSlotIds) {
+            Player.blockingSlotIds = Player.BLOCKING_SLOT_NAMES.map(name => Component.getId(name));
+        }
+        return Player.blockingSlotIds;
+    }
 
     constructor(username: string, username37: bigint, hash64: bigint) {
         super(
@@ -527,9 +535,6 @@ export default class Player extends PathingEntity {
         // this.write(new ResetAnims());
 
         const loginTrigger = ScriptProvider.getByTriggerSpecific(ServerTriggerType.LOGIN, -1, -1);
-        const logoutTrigger = ScriptProvider.getByTriggerSpecific(ServerTriggerType.LOGOUT, -1, -1);
-        console.log(logoutTrigger);
-        console.log(loginTrigger);
         if (loginTrigger) {
             this.executeScript(ScriptRunner.init(loginTrigger, this), true);
         }
@@ -740,23 +745,12 @@ export default class Player extends PathingEntity {
 
     // ----
 
-    closeTutorial() {
-        if (this.modalTutorial !== -1) {
-            const closeTrigger = ScriptProvider.getByTrigger(ServerTriggerType.IF_CLOSE, this.modalTutorial);
-            if (closeTrigger) {
-                this.executeScript(ScriptRunner.init(closeTrigger, this), false);
-            }
-
-            this.modalTutorial = -1;
-            // this.write(new TutOpen(-1));
-        }
-    }
-
-    clearComListeners(root: number) {
-        if (root == -1) {
+    clearComListeners(interfaceId: number) {
+        if (interfaceId === -1) {
             return;
         }
 
+        const root = interfaceId << 16;
         for (let i = 0; i < this.invListeners.length; i++) {
             const { com } = this.invListeners[i];
             if (Component.get(com).rootLayer === root) {
@@ -773,56 +767,23 @@ export default class Player extends PathingEntity {
             this.protect = false;
         }
 
-        if (this.modalState === ModalState.NONE) {
-            return;
-        }
-
-        this.modalState = ModalState.NONE;
-
         // close any input dialogue suspended scripts.
         if (this.activeScript?.execution === ScriptState.COUNTDIALOG || this.activeScript?.execution === ScriptState.PAUSEBUTTON) {
             this.activeScript = null;
         }
 
-        // close any main viewport interface
-        if (this.modalMain !== -1) {
-            const closeTrigger = ScriptProvider.getByTrigger(ServerTriggerType.IF_CLOSE, this.modalMain);
-            if (closeTrigger) {
-                this.executeScript(ScriptRunner.init(closeTrigger, this), false);
-            }
-
-            this.clearComListeners(this.modalMain);
-            this.modalMain = -1;
+        for (const slot of Player.getBlockingSlotIds()) {
+            //this.ifCloseSub(slot);
         }
-
-        // close any chatbox interface
-        if (this.modalChat !== -1) {
-            const closeTrigger = ScriptProvider.getByTrigger(ServerTriggerType.IF_CLOSE, this.modalChat);
-            if (closeTrigger) {
-                this.executeScript(ScriptRunner.init(closeTrigger, this), false);
-            }
-
-            this.clearComListeners(this.modalChat);
-            this.modalChat = -1;
-        }
-
-        // close any sidebar tabs interface
-        if (this.modalSide !== -1) {
-            const closeTrigger = ScriptProvider.getByTrigger(ServerTriggerType.IF_CLOSE, this.modalSide);
-            if (closeTrigger) {
-                this.executeScript(ScriptRunner.init(closeTrigger, this), false);
-            }
-
-            this.clearComListeners(this.modalSide);
-            this.modalSide = -1;
-        }
-
-        this.refreshModalClose = true;
     }
 
-    containsModalInterface() {
-        // main or chat is open
-        return (this.modalState & (ModalState.MAIN | ModalState.CHAT)) !== ModalState.NONE;
+    containsModalInterface(): boolean {
+        for (const slot of Player.getBlockingSlotIds()) {
+            if (this.openSubInterfaces.has(slot)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     busy() {
@@ -880,14 +841,14 @@ export default class Player extends PathingEntity {
 
     processQueues() {
         // the presence of a strong script closes modals before queue runs
+        let hasStrongRequest = false;
         for (let request = this.queue.head(); request !== null; request = this.queue.next()) {
             if (request.type === PlayerQueueType.STRONG) {
-                this.requestModalClose = true;
+                hasStrongRequest = true;
                 break;
             }
         }
-        if (this.requestModalClose) {
-            this.requestModalClose = false;
+        if (hasStrongRequest) {
             this.closeModal();
         }
 
@@ -1961,94 +1922,6 @@ export default class Player extends PathingEntity {
         // }
     }
 
-    openMainModal(com: number) {
-        if ((this.modalState & ModalState.CHAT) !== ModalState.NONE) {
-            // close chat modal if we're opening a new main modal
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.CHAT;
-            this.modalChat = -1;
-        }
-
-        if ((this.modalState & ModalState.SIDE) !== ModalState.NONE) {
-            // close side modal if we're opening a new main modal
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.SIDE;
-            this.modalSide = -1;
-        }
-
-        this.modalState |= ModalState.MAIN;
-        this.modalMain = com;
-        this.refreshModal = true;
-    }
-
-    openOverlay(com: number) {
-        if (this.overlay === com) {
-            return;
-        }
-
-        if (com === -1) {
-            this.clearComListeners(this.overlay);
-        }
-
-        this.overlay = com;
-    }
-
-    openChat(com: number) {
-        if ((this.modalState & ModalState.MAIN) !== ModalState.NONE) {
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.MAIN;
-            this.modalChat = -1;
-        }
-
-        if ((this.modalState & ModalState.SIDE) !== ModalState.NONE) {
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.SIDE;
-            this.modalChat = -1;
-        }
-
-        this.modalState |= ModalState.CHAT;
-        this.modalChat = com;
-        this.refreshModal = true;
-    }
-
-    openSideModal(com: number) {
-        if ((this.modalState & ModalState.MAIN) !== ModalState.NONE) {
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.MAIN;
-            this.modalChat = -1;
-        }
-
-        if ((this.modalState & ModalState.CHAT) !== ModalState.NONE) {
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.CHAT;
-            this.modalSide = -1;
-        }
-
-        this.modalState |= ModalState.SIDE;
-        this.modalSide = com;
-        this.refreshModal = true;
-    }
-
-    openTutorial(com: number) {
-        // this.write(new TutOpen(com));
-        this.modalState |= ModalState.TUT;
-        this.modalTutorial = com;
-    }
-
-    openMainModalSide(top: number, side: number) {
-        if ((this.modalState & ModalState.CHAT) !== ModalState.NONE) {
-            // this.write(new IfClose());
-            this.modalState &= ~ModalState.CHAT;
-            this.modalChat = -1;
-        }
-
-        this.modalState |= ModalState.MAIN;
-        this.modalMain = top;
-        this.modalState |= ModalState.SIDE;
-        this.modalSide = side;
-        this.refreshModal = true;
-    }
-
     exactMove(startX: number, startZ: number, endX: number, endZ: number, startCycle: number, endCycle: number, direction: number) {
         this.exactStartX = startX;
         this.exactStartZ = startZ;
@@ -2067,13 +1940,19 @@ export default class Player extends PathingEntity {
         this.tele = true;
     }
 
-    setTab(com: number, tab: number) {
-        this.tabs[tab] = com;
-        // this.write(new IfSetTab(com, tab));
-    }
+    isComponentVisible(com: IfType): boolean {
+        const root = com.rootLayer;
+        if (this.toplevelInterface !== -1 && (this.toplevelInterface << 16) === root) {
+            return true;
+        }
 
-    isComponentVisible(com: IfType) {
-        return this.modalMain === com.rootLayer || this.modalChat === com.rootLayer || this.modalSide === com.rootLayer || this.tabs.findIndex(l => l === com.rootLayer) !== -1 || this.modalTutorial === com.rootLayer;
+        for (const sub of this.openSubInterfaces.values()) {
+            if ((sub.interfaceId << 16) === root) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     updateAfkZones(): void {
@@ -2171,8 +2050,7 @@ export default class Player extends PathingEntity {
         } else if (script === this.activeScript) {
             this.activeScript = null;
 
-            if ((this.modalState & ModalState.MAIN) === ModalState.NONE) {
-                // close chat dialogues automatically and leave main modals alone
+            if (!this.openSubInterfaces.has(Player.getMainSlotId())) {
                 this.closeModal(false);
             }
         }
@@ -2265,10 +2143,17 @@ export default class Player extends PathingEntity {
     }
 
     ifOpenTop(interfaceId: number) {
+        this.toplevelInterface = interfaceId;
         this.write(new IfOpenTop(interfaceId));
     }
 
     ifOpenSub(interfaceId: number, component: number, type: number) {
+        this.openSubInterfaces.set(component, { interfaceId, type });
         this.write(new IfOpenSub(component, interfaceId, type));
+    }
+
+    getTab(index: number): number {
+        const slot = Component.getId(`toplevel:stone${index}`);
+        return this.openSubInterfaces.get(slot)?.interfaceId ?? -1;
     }
 }

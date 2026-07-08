@@ -1007,8 +1007,6 @@ function pack() {
 
         modifiedContainers.set(groupId, container);
     }
-
-    console.log(`Interface pack complete: ${modifiedContainers.size} group(s) written to ${path.join(CACHE_OUT_DIR, '3')}`);
 }
 
 pack();

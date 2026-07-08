@@ -155,36 +155,6 @@ export class NetworkPlayer extends Player {
             return;
         }
 
-        if (this.modalMain !== this.lastModalMain || this.modalChat !== this.lastModalChat || this.modalSide !== this.lastModalSide || this.refreshModalClose) {
-            if (this.refreshModalClose) {
-                // this.write(new IfClose());
-            }
-            this.refreshModalClose = false;
-
-            this.lastModalMain = this.modalMain;
-            this.lastModalChat = this.modalChat;
-            this.lastModalSide = this.modalSide;
-        }
-
-        if (this.refreshModal) {
-            // if ((this.modalState & ModalState.MAIN) !== ModalState.NONE && (this.modalState & ModalState.SIDE) !== ModalState.NONE) {
-            //     this.write(new IfOpenMainSide(this.modalMain, this.modalSide));
-            // } else if ((this.modalState & ModalState.MAIN) !== ModalState.NONE) {
-            //     this.write(new IfOpenMain(this.modalMain));
-            // } else if ((this.modalState & ModalState.CHAT) !== ModalState.NONE) {
-            //     this.write(new IfOpenChat(this.modalChat));
-            // } else if ((this.modalState & ModalState.SIDE) !== ModalState.NONE) {
-            //     this.write(new IfOpenSide(this.modalSide));
-            // }
-
-            this.refreshModal = false;
-        }
-
-        if (this.overlay !== this.lastOverlay) {
-            //this.write(new IfOpenOverlay(this.overlay));
-            this.lastOverlay = this.overlay;
-        }
-
         for (const message of this.buffer) {
             this.writeInner(message);
         }

@@ -123,11 +123,10 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
             let interfaceId = 548;
             let child = 77;
             if (args.length > 2) {
-                interfaceId = parseInt(args[0]) & 0xFFFF;
-                child = parseInt(args[1]) & 0xFFFF;
+                interfaceId = parseInt(args[1]) & 0xFFFF;
+                child = parseInt(args[2]) & 0xFFFF;
             }
-
-            player.write(new IfOpenSub((interfaceId << 16) | child, subInterfaceId, 0));
+            player.ifOpenSub(subInterfaceId, (interfaceId << 16) | child, 0);
         } else if (command === 'tele') {
             if (args.length < 1) {
                 player.messageGame('usage: tele (x) (z)');

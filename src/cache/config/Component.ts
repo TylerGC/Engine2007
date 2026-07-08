@@ -541,6 +541,8 @@ export default class Component {
     private static components: Map<number, IfType> = new Map();
     private static nameToId: Map<string, number> = new Map();
  
+    static NO_BUTTON: number = 0;
+
     static load(index: Js5Index): void {
         this.components = new Map();
         this.nameToId = new Map();
@@ -630,4 +632,11 @@ export default class Component {
     static allNames(): ReadonlyMap<string, number> {
         return this.nameToId;
     }
+}
+
+export function hasOp(com: IfType, opIndex: number): boolean {
+    if (opIndex < 1 || opIndex > 10) {
+        return false;
+    }
+    return ((com.eventCode >> opIndex) & 0x1) !== 0;
 }

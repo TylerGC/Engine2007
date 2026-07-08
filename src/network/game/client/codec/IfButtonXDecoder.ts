@@ -14,6 +14,6 @@ export default class IfButtonXDecoder extends ClientGameMessageDecoder<IfButtonX
     decode(buf: Packet) {
         const com = buf.g4();
         const sub = buf.g2();
-        return new IfButtonX(this.op, (com * 65536) + sub)
+        return new IfButtonX(this.op, com, sub === 65535 ? -1 : sub);
     }
 }
