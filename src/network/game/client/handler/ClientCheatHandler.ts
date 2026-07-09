@@ -127,19 +127,51 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
                 child = parseInt(args[2]) & 0xFFFF;
             }
             player.ifOpenSub(subInterfaceId, (interfaceId << 16) | child, 0);
+        } else if (command === 'getcoord') {
+            // authentic
+
+            // Displays current coordinate
+            player.messageGame(CoordGrid.formatString(player.level, player.x, player.z, ','));
         } else if (command === 'tele') {
+            // authentic - https://youtu.be/60Y3y375VYA?t=980
             if (args.length < 1) {
-                player.messageGame('usage: tele (x) (z)');
-                player.messageGame('example: tele 3222 3222');
-                return true;
+                // ::tele x,xx,xx[,xx,xx]
+                // Teleports you to the coordinate. In order, the parts are level, horizontal map square, vertical map square, horizontal tile, vertical tile.
+                return false;
             }
-            const missingKeys = OpenRs2.RS2_500.getMissingKeysForRebuild(parseInt(args[0]),parseInt(args[1]));
+
+            const coord = args[0].split(',');
+            if (coord.length < 3) {
+                return false;
+            }
+
+            player.closeModal();
+
+            // if (!player.canAccess()) {
+            //     player.messageGame('Please finish what you are doing first.');
+            //     return false;
+            // } todo
+
+            player.clearInteraction();
+            player.unsetMapFlag();
+
+            const level = tryParseInt(coord[0], 0);
+            const mx = tryParseInt(coord[1], 50);
+            const mz = tryParseInt(coord[2], 50);
+            const lx = tryParseInt(coord[3], 32);
+            const lz = tryParseInt(coord[4], 32);
+
+            if (level < 0 || level > 3 || mx < 0 || mx > 255 || mz < 0 || mz > 255 || lx < 0 || lx > 63 || lz < 0 || lz > 63) {
+                return false;
+            }
+
+            const missingKeys = OpenRs2.RS2_500.getMissingKeysForRebuild((mx * 64 + lx),(mz * 64 + lz));
             if (missingKeys.length > 0) {
                 const keyList = missingKeys.map(key => `${key.x}_${key.z}`).join(', ');
                 player.messageGame(`Blocked movement rebuild; missing XTEA keys for ${keyList}`);
                 return true;
             }
-            player.write(new RebuildNormal(parseInt(args[0]), parseInt(args[1])));
+            player.teleJump((mx << 6) + lx, (mz << 6) + lz, level);
         } else if (command === 'givecrap') {
                 // authentic (we don't know the exact specifics of this...)
 

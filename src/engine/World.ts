@@ -24,6 +24,7 @@ import ScriptProvider from '#/engine/script/ScriptProvider.ts';
 import { printError, printDebug } from '#/util/Logger.js';
 import SeqType from '#/cache/config/SeqType.ts';
 import Component from '#/cache/config/Component.ts';
+import { WorldStat } from './WorldStat.ts';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -50,6 +51,7 @@ class World {
         await this.cache.predownload();
         await this.cache.loadKeys();
         await this.cache.loadMapIndex();
+        this.gameMap.init();
 
         const huffmanBytes = await this.cache.getFile(10, 'huffman', '');
         if (!huffmanBytes) {
@@ -115,6 +117,7 @@ class World {
 
             if (player.client.state === -1) {
                 rsbuf.removePlayer(player.pid);
+                this.gameMap.getZone(player.x, player.z, player.level).leave(player);
                 delete this.players[i];
                 continue;
             }
@@ -129,10 +132,14 @@ class World {
             }
         }
 
+        this.processClientsIn();
+
         // process players
         for (let i = 0; i < this.players.length; i++) {
             const player = this.players[i];
-
+            if (player) {
+                player.processInteraction();
+            }
             // todo
         }
 
@@ -146,11 +153,14 @@ class World {
 
             if (player.client.state === -1) {
                 rsbuf.removePlayer(player.pid);
+                this.gameMap.getZone(player.x, player.z, player.level).leave(player);
                 delete this.players[i];
                 continue;
             }
 
             player.updateStats();
+
+            player.buildArea.rebuildNormal(); // set origin before compute player is why this is above.
 
             const appearance = (player.masks & PlayerInfoProt.APPEARANCE)
                 ? player.generateAppearance()
@@ -286,6 +296,7 @@ class World {
 
             // // Runescript inv_transmit(inv, inventory:inv);
             // player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
+            this.gameMap.getZone(player.x, player.z, player.level).enter(player);
             player.onLogin();
         }
     }
@@ -332,6 +343,60 @@ class World {
         }
 
         return player;
+    }
+
+    // - calculate afk event readiness
+    // - process packets
+    // - process pathfinding/following request
+    // - client input tracking
+    private processClientsIn(): void {
+        const start: number = Date.now();
+
+        this.cycleStats[WorldStat.BANDWIDTH_IN] = 0;
+
+        for (let i = 0; i < this.players.length; i++) {
+            const player = this.players[i];
+            if (!(player instanceof NetworkPlayer)) {
+                continue;
+            }
+
+            try {
+                player.playtime++;
+
+                // if (this.currentTick % World.AFK_EVENTRATE === 0) {
+                //     player.afkEventReady = Math.random() < (player.zonesAfk() ? World.AFK_CHANCE2 : World.AFK_CHANCE1);
+                // }
+
+                // - client input tracking
+                player.processInputTracking();
+
+                //if (/*isClientConnected(player) && */player.decodeIn()) {
+                    if (player.userPath.length > 0 || player.opcalled) {
+                        if (player.delayed) {
+                            player.unsetMapFlag();
+                            continue;
+                        }
+                        if (!player.busy() && player.opcalled) {
+                            player.moveClickRequest = false;
+                        } else {
+                            player.moveClickRequest = true;
+                        }
+                    }
+                //}
+
+                // if (player.logMessage !== null) {
+                //     this.logPublicChat(player, player.logMessage);
+                // }
+            } catch (err) {
+                console.error(err);
+                //if (isClientConnected(player)) {
+                    player.logout();
+                    player.client.close();
+                //}
+            }
+        }
+
+        this.cycleStats[WorldStat.CLIENT_IN] = Date.now() - start;
     }
 }
 

@@ -79,7 +79,7 @@ export default class Zone {
         if (entity instanceof Player) {
             this.players.addTail(entity);
             this.playersCount++;
-        //     World.gameMap.getZoneGrid(this.level).flag(this.x, this.z);
+            World.gameMap.getZoneGrid(this.level).flag(this.x, this.z);
         // } else if (entity instanceof Npc) {
         //     this.npcs.addTail(entity);
         //     this.npcsCount++;
@@ -91,9 +91,9 @@ export default class Zone {
         entity.unlink();
         if (entity instanceof Player) {
             this.playersCount--;
-        //     if (this.playersCount === 0) {
-        //         World.gameMap.getZoneGrid(this.level).unflag(this.x, this.z);
-        //     }
+            if (this.playersCount === 0) {
+                World.gameMap.getZoneGrid(this.level).unflag(this.x, this.z);
+            }
         // } else if (entity instanceof Npc) {
         //     this.npcsCount--;
         // }

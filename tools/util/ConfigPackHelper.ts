@@ -324,8 +324,9 @@ export function readConfigFile(configFileName: string): Map<string, string[]> {
 export function updateMasterIndex(
     archiveId: number,
     updatedContainers: Map<number, Uint8Array>,
+    sourceDir: string = CACHE_DIR,
 ): Uint8Array {
-    const masterPath = path.join(CACHE_DIR, '255', `${archiveId}.dat`);
+    const masterPath = path.join(sourceDir, '255', `${archiveId}.dat`);
 
     if (!fs.existsSync(masterPath)) {
         throw new Error(`Master index not found at ${masterPath}`);
@@ -391,8 +392,9 @@ export function updateMasterIndex(
 
 export function updateChecksumTable(
     updatedMasterIndexes: Map<number, Uint8Array>,
+    sourceDir: string = CACHE_DIR,
 ): Uint8Array {
-    const tablePath = path.join(CACHE_DIR, '255', '255.dat');
+    const tablePath = path.join(sourceDir, '255', '255.dat');
     if (!fs.existsSync(tablePath)) {
         throw new Error(`Checksum table not found at ${tablePath}`);
     }
@@ -434,21 +436,22 @@ export function updateChecksumTable(
     }
     return packGroupUncompressed(patched, containerVersion);
 }
-
+ 
 export function writeMasterIndex(
     updatedMaster: Uint8Array,
     archiveId: number,
+    outDir: string = CACHE_OUT_DIR,
 ): void {
-    const outDir  = path.join(CACHE_OUT_DIR, '255');
-    const outPath = path.join(outDir, `${archiveId}.dat`);
-    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+    const dir  = path.join(outDir, '255');
+    const outPath = path.join(dir, `${archiveId}.dat`);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(outPath, updatedMaster);
 }
 
-export function writeChecksumTable(updatedChecksum: Uint8Array): void {
-    const outDir  = path.join(CACHE_OUT_DIR, '255');
-    const outPath = path.join(outDir, '255.dat');
-    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+export function writeChecksumTable(updatedChecksum: Uint8Array, outDir: string = CACHE_OUT_DIR): void {
+    const dir  = path.join(outDir, '255');
+    const outPath = path.join(dir, '255.dat');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(outPath, updatedChecksum);
 }
 

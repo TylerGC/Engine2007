@@ -188,17 +188,32 @@
 
             canvas.focus();
 
+            function isTypingTarget(el) {
+                if (!el) return false;
+                const tag = el.tagName;
+                return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
+            }
+
             canvas.addEventListener('click', function() {
                 canvas.focus();
             });
-            window.addEventListener('keydown', function(e) {
-                if (document.activeElement === canvas) {
-                    const keysToPrevent = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-                    if (keysToPrevent.includes(e.code) || [32, 37, 38, 39, 40].includes(e.keyCode)) {
-                        e.preventDefault();
+
+            canvas.addEventListener('blur', function() {
+                setTimeout(function() {
+                    if (document.activeElement !== canvas && !isTypingTarget(document.activeElement)) {
+                        canvas.focus();
                     }
+                }, 0);
+            });
+
+            const gameKeys = new Set([
+                'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'
+            ]);
+            window.addEventListener('keydown', function(e) {
+                if (document.activeElement === canvas && gameKeys.has(e.key)) {
+                    e.preventDefault();
                 }
-            }, { passive: false });
+            }, { capture: true });
         }
     </script>
 
