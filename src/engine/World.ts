@@ -50,6 +50,7 @@ class World {
         await this.cache.predownload();
         await this.cache.loadKeys();
         await this.cache.loadMapIndex();
+        this.gameMap.init();
 
         const huffmanBytes = await this.cache.getFile(10, 'huffman', '');
         if (!huffmanBytes) {
@@ -110,6 +111,7 @@ class World {
 
             if (player.client.state === -1) {
                 rsbuf.removePlayer(player.pid);
+                this.gameMap.getZone(player.x, player.z, player.level).leave(player);
                 delete this.players[i];
                 continue;
             }
@@ -145,11 +147,14 @@ class World {
 
             if (player.client.state === -1) {
                 rsbuf.removePlayer(player.pid);
+                this.gameMap.getZone(player.x, player.z, player.level).leave(player);
                 delete this.players[i];
                 continue;
             }
 
             player.updateStats();
+
+            player.buildArea.rebuildNormal(); // set origin before compute player is why this is above.
 
             const appearance = (player.masks & PlayerInfoProt.APPEARANCE)
                 ? player.generateAppearance()
@@ -285,6 +290,7 @@ class World {
 
             // Runescript inv_transmit(inv, inventory:inv);
             player.invListenOnCom(InvType.INV, (149 << 16) | 0, player.uid);
+            this.gameMap.getZone(player.x, player.z, player.level).enter(player);
             player.onLogin();
         }
     }

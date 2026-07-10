@@ -15,7 +15,7 @@ import NonPathingEntity from '#/engine/entity/NonPathingEntity.js';
 import { NpcMode } from '#/engine/entity/NpcMode.ts';
 import Obj from '#/engine/entity/Obj.ts';
 import Player from '#/engine/entity/Player.js';
-// import { canTravel, changeNpcCollision, changePlayerCollision, findNaivePath, findPath, findPathToEntity, findPathToLoc, isApproached, isZoneAllocated, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
+import { canTravel, changeNpcCollision, changePlayerCollision, findNaivePath, findPath, findPathToEntity, findPathToLoc, isApproached, isZoneAllocated, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.ts';
 import World from '#/engine/World.js';
 import Environment from '#/util/Environment.js';
@@ -173,8 +173,8 @@ export default abstract class PathingEntity extends Entity {
                 case BlockWalk.ALL:
                     // changeNpcCollision(this.width, previousX, previousZ, previousLevel, false); todo
                     // changeNpcCollision(this.width, this.x, this.z, this.level, true);
-                    // changePlayerCollision(this.width, previousX, previousZ, previousLevel, false);
-                    // changePlayerCollision(this.width, this.x, this.z, this.level, true);
+                    changePlayerCollision(this.width, previousX, previousZ, previousLevel, false);
+                    changePlayerCollision(this.width, this.x, this.z, this.level, true);
                     break;
             }
             this.lastStepX = previousX;
@@ -182,8 +182,8 @@ export default abstract class PathingEntity extends Entity {
         }
 
         if (CoordGrid.zone(previousX) !== CoordGrid.zone(this.x) || CoordGrid.zone(previousZ) !== CoordGrid.zone(this.z) || previousLevel != this.level) {
-            // World.gameMap.getZone(previousX, previousZ, previousLevel).leave(this);
-            // World.gameMap.getZone(this.x, this.z, this.level).enter(this); todo
+            World.gameMap.getZone(previousX, previousZ, previousLevel).leave(this);
+            World.gameMap.getZone(this.x, this.z, this.level).enter(this);
         }
     }
 
@@ -273,12 +273,12 @@ export default abstract class PathingEntity extends Entity {
         }
         level = Math.max(0, Math.min(level, 3));
 
-        // if (!isZoneAllocated(level, x, z) && (!(this instanceof Player) || this.staffModLevel < 3)) {
-        //     if (this instanceof Player) {
-        //         this.messageGame('Invalid teleport!');
-        //     }
-        //     return;
-        // } todo
+        if (!isZoneAllocated(level, x, z) && (!(this instanceof Player) || this.staffModLevel < 3)) {
+            if (this instanceof Player) {
+                this.messageGame('Invalid teleport!');
+            }
+            return;
+        }
 
         const previousX: number = this.x;
         const previousZ: number = this.z;
@@ -413,8 +413,8 @@ export default abstract class PathingEntity extends Entity {
     pathToMoveClick(input: number[], needsfinding: boolean): void {
         if (this.moveStrategy === MoveStrategy.SMART) {
             if (needsfinding) {
-                // const { x, z } = CoordGrid.unpackCoord(input[0]);
-                // this.queueWaypoints(findPath(this.level, this.x, this.z, x, z)); todo
+                const { x, z } = CoordGrid.unpackCoord(input[0]);
+                this.queueWaypoints(findPath(this.level, this.x, this.z, x, z));
             } else {
                 this.queueWaypoints(input);
             }
@@ -439,7 +439,7 @@ export default abstract class PathingEntity extends Entity {
             Environment.NODE_CLIENT_ROUTEFINDER &&
             CoordGrid.intersects(this.x, this.z, this.width, this.length, this.target.x, this.target.z, this.target.width, this.target.length)
         ) {
-            // this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL)); todo
+            this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL));
             return;
         }
 
@@ -477,7 +477,7 @@ export default abstract class PathingEntity extends Entity {
             // } else if (this.target instanceof Obj && this.x === this.target.x && this.z === this.target.z) {
             //     this.queueWaypoint(this.target.x, this.target.z); // work around because our findpath() returns 0, 0 if coord and target coord are the same
             // } else {
-            //     this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z));
+                this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z));
             // } todo
         } else if (this.moveStrategy === MoveStrategy.NAIVE) {
             const collisionStrategy: CollisionType | null = this.getCollisionStrategy();
@@ -492,7 +492,7 @@ export default abstract class PathingEntity extends Entity {
                 return;
             }
             if (this.target instanceof PathingEntity) {
-                // this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, extraFlag, collisionStrategy)); todo
+                this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, extraFlag, collisionStrategy));
             } else {
                 this.queueWaypoint(this.target.x, this.target.z);
             }
@@ -649,13 +649,13 @@ export default abstract class PathingEntity extends Entity {
 
         if (this.width > 1) {
             const tryDirX = CoordGrid.face(srcX, 0, x, 0);
-            // if (canTravel(this.level, srcX, srcZ, CoordGrid.deltaX(tryDirX), 0, this.width, extraFlag, collisionStrategy)) {
-            //     return tryDirX;
-            // }
-            // const tryDirZ = CoordGrid.face(0, srcZ, 0, z);
-            // if (canTravel(this.level, srcX, srcZ, 0, CoordGrid.deltaZ(tryDirZ), this.width, extraFlag, collisionStrategy)) {
-            //     return tryDirZ;
-            // } todo
+            if (canTravel(this.level, srcX, srcZ, CoordGrid.deltaX(tryDirX), 0, this.width, extraFlag, collisionStrategy)) {
+                return tryDirX;
+            }
+            const tryDirZ = CoordGrid.face(0, srcZ, 0, z);
+            if (canTravel(this.level, srcX, srcZ, 0, CoordGrid.deltaZ(tryDirZ), this.width, extraFlag, collisionStrategy)) {
+                return tryDirZ;
+            }
             return -1;
         }
 
@@ -672,20 +672,20 @@ export default abstract class PathingEntity extends Entity {
             return dir;
         }
 
-        // // check current direction if can travel to chosen dest.
-        // if (canTravel(this.level, this.x, this.z, dx, dz, this.width, extraFlag, collisionStrategy)) {
-        //     return dir;
-        // }
+        // check current direction if can travel to chosen dest.
+        if (canTravel(this.level, this.x, this.z, dx, dz, this.width, extraFlag, collisionStrategy)) {
+            return dir;
+        }
 
-        // // check another direction if can travel to chosen dest on current z-axis.
-        // if (dx != 0 && canTravel(this.level, this.x, this.z, dx, 0, this.width, extraFlag, collisionStrategy)) {
-        //     return CoordGrid.face(srcX, srcZ, x, srcZ);
-        // }
+        // check another direction if can travel to chosen dest on current z-axis.
+        if (dx != 0 && canTravel(this.level, this.x, this.z, dx, 0, this.width, extraFlag, collisionStrategy)) {
+            return CoordGrid.face(srcX, srcZ, x, srcZ);
+        }
 
-        // // check another direction if can travel to chosen dest on current x-axis.
-        // if (dz != 0 && canTravel(this.level, this.x, this.z, 0, dz, this.width, extraFlag, collisionStrategy)) {
-        //     return CoordGrid.face(srcX, srcZ, srcX, z);
-        // } todo
+        // check another direction if can travel to chosen dest on current x-axis.
+        if (dz != 0 && canTravel(this.level, this.x, this.z, 0, dz, this.width, extraFlag, collisionStrategy)) {
+            return CoordGrid.face(srcX, srcZ, srcX, z);
+        }
         // https://x.com/JagexAsh/status/1727609489954664502
         return null;
     }

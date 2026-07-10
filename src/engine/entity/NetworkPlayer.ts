@@ -322,18 +322,18 @@ export class NetworkPlayer extends Player {
             if (!activeZones.has(zoneIndex)) {
                 loadedZones.delete(zoneIndex);
             }
-        }
+        }   
 
         // update active zones
-        // for (const zoneIndex of activeZones) {
-        //     const zone: Zone = World.gameMap.getZoneIndex(zoneIndex);
-        //     if (!loadedZones.has(zone.index)) {
-        //         zone.writeFullFollows(this);
-        //     }
-        //     zone.writePartialEncloses(this);
-        //     zone.writePartialFollows(this);
-        //     loadedZones.add(zone.index);
-        // }
+        for (const zoneIndex of activeZones) {
+            const zone: Zone = World.gameMap.getZoneIndex(zoneIndex);
+            if (!loadedZones.has(zone.index)) {
+                zone.writeFullFollows(this);
+            }
+            zone.writePartialEncloses(this);
+            zone.writePartialFollows(this);
+            loadedZones.add(zone.index);
+        }
     }
 
     updateStats() {

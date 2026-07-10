@@ -237,7 +237,7 @@ export default class Js5Index {
 
         if (key.length > 0 && !(key[0] === 0 && key[1] === 0 && key[2] === 0 && key[3] === 0)) {
             const buf = new Packet(compressed);
-            buf.tinydec(key, 5, compressed.length);
+            buf.tinydec(key, 5, compressed.length - 2);
         }
 
         let uncompressed = new Uint8Array();

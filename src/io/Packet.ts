@@ -279,6 +279,14 @@ export default class Packet {
         }
     }
 
+    pVarSmart(value: number): void {
+        while (value >= 32767) {
+            this.psmart(32767);
+            value -= 32767;
+        }
+        this.psmart(value);
+    }
+
     pisaac(value: number): void {
         this.p1(value);
     }
@@ -457,6 +465,15 @@ export default class Packet {
             // 4-byte value with high bit set
             return this.g4() & 0x7fffffff;
         }
+    }
+
+    gVarSmart(): number {
+        let var1 = 0;
+        let var2;
+        for (var2 = this.gsmart(); var2 === 32767; var2 = this.gsmart()) {
+            var1 += 32767;
+        }
+        return var1 + var2;
     }
 
     bits(): void {

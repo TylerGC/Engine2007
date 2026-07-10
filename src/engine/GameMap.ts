@@ -217,7 +217,7 @@ export default class GameMap {
 
     private loadLocations(lands: Int8Array, packet: Packet, mapsquareX: number, mapsquareZ: number): void {
         let locId: number = -1;
-        let locIdOffset: number = packet.gsmarts();
+        let locIdOffset: number = packet.g4();
         while (locIdOffset !== 0) {
             locId += locIdOffset;
 
@@ -260,7 +260,7 @@ export default class GameMap {
 
                 // this.getZone(absoluteX, absoluteZ, actualLevel).addStaticLoc(new Loc(actualLevel, absoluteX, absoluteZ, width, length, EntityLifeCycle.RESPAWN, locId, shape, angle)); todo
             }
-            locIdOffset = packet.gsmarts();
+            locIdOffset = packet.g4();
         }
     }
 
