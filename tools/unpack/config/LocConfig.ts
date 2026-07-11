@@ -61,6 +61,8 @@ function unpack() {
             return possible.length > 0 ? String(possible[0]) : `hsl:${hsl}`;
         };
 
+        const seenNames = new Set<string>();
+
         for (let g = 0; g < groupCount; g++) {
             const groupSize = locIndex.groupSize[g];
             if (groupSize === 0) continue;
@@ -72,7 +74,18 @@ function unpack() {
                 if (!locIndex.unpacked[g]?.[fileId]) continue;
 
                 const locId = (g << 8) | fileId;
-                const debugName = locNamesPack.get(locId) ?? `loc_${locId}`;
+                const defaultName = `loc_${locId}`;
+                let debugName = locNamesPack.get(locId) ?? defaultName;
+
+                if (debugName !== defaultName) {
+                    if (seenNames.has(debugName)) {
+                        console.warn(`Duplicate loc-name "${debugName}" at loc ID ${locId} — using default name instead.`);
+                        debugName = defaultName;
+                    } else {
+                        seenNames.add(debugName);
+                    }
+                }
+
                 resolvedNames.set(locId, debugName);
             }
         }

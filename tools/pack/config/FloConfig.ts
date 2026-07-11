@@ -85,7 +85,7 @@ function encodeFlo(
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const floNameToId     = loadNameToIdMap('flo.pack');
     const textureNameToId = loadNameToIdMap('texture.pack');
     const configBlocks    = readConfigFile('all.flo');

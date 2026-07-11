@@ -829,7 +829,7 @@ function encodeComponentOld(c: ParsedComponent, ctx: EncodeCtx): Uint8Array {
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const interfaceNameToId = loadNameToIdMap('interface-names.pack');
 
     const componentFullNameToLoc = new Map<string, { group: number; file: number }>();

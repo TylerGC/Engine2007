@@ -209,7 +209,7 @@ function encodeSeq(
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const animNameToId = loadNameToIdMap('anim.pack');
     const seqNameToId = loadNameToIdMap('seq.pack');
     const seqLocations = loadSeqLocations();

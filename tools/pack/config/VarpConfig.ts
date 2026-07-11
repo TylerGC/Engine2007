@@ -128,7 +128,7 @@ export function encodeVarpOps(ops: VarpOpcode[]): Uint8Array {
     return new Uint8Array(buf.data.subarray(0, buf.pos));
 }
 
-function pack() {
+export function pack() {
     const varpNameToId = loadNameToIdMap('varp.pack');
     const configBlocks = readConfigFile('all.varp');
 

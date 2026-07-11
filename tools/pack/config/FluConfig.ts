@@ -59,7 +59,7 @@ function encodeFlu(
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const fluNameToId     = loadNameToIdMap('flu.pack');
     const textureNameToId = loadNameToIdMap('texture.pack');
     const configBlocks    = readConfigFile('all.flu');

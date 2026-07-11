@@ -242,7 +242,7 @@ export function encodeInvOps(ops: InvOpcode[]): Uint8Array {
     return new Uint8Array(buf.data.subarray(0, buf.pos));
 }
 
-function pack() {
+export function pack() {
     const invNameToId = loadNameToIdMap('inv.pack');
     const objNameToId = loadNameToIdMap('obj.pack');
     const sourceContent = fs.readFileSync(path.join(CONFIG_DIR, 'all.inv'), 'utf-8');

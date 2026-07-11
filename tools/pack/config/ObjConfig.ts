@@ -602,7 +602,7 @@ export function encodeObjOps(ops: ObjOpcode[]): Uint8Array {
     return new Uint8Array(buf.data.subarray(0, buf.pos));
 }
 
-function pack() {
+export function pack() {
     const objNameToId    = loadNameToIdMap('obj.pack');
     const paramNameToId  = loadNameToIdMap('param.pack');
     const sourceContent  = fs.readFileSync(path.join(CONFIG_DIR, 'all.obj'), 'utf-8');

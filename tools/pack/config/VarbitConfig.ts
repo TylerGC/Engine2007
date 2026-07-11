@@ -94,7 +94,7 @@ function encodeVarbit(
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const varpNameToId = loadNameToIdMap('varp.pack');
     const varbitNameToId = loadNameToIdMap('varbit.pack'); // name -> sequential id
     const varbitLocations = loadVarbitLocations();          // sequential id -> {groupId, fileId}

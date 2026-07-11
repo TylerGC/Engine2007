@@ -21,6 +21,15 @@ import { runServerCompiler } from '#tools/pack/Compiler.ts';
 // import { packClientVersionList } from '#tools/pack/versionlist/pack.js';
 import { clearFsCache } from '#tools/pack/FsCache.ts';
 import { regenScriptPack } from '#tools/pack/ScriptPack.ts';
+import { pack as packVarps } from './config/VarpConfig.ts';
+import { pack as packVarbits } from './config/VarbitConfig.ts';
+import { pack as packFlu } from './config/FluConfig.ts';
+import { pack as packFlo } from './config/FloConfig.ts';
+import { pack as packInv } from './config/InvConfig.ts';
+import { pack as packSeq } from './config/SeqConfig.ts';
+import { pack as packObj } from './config/ObjConfig.ts';
+import { pack as packLoc } from './config/LocConfig.ts';
+import { pack as packIf } from './interface/pack.ts';
 
 export async function packAll(modelFlags: number[]) {
     if (parentPort) {
@@ -31,6 +40,18 @@ export async function packAll(modelFlags: number[]) {
     }
 
     clearFsCache();
+    console.error('(First run only) Delete entire data/cache and let it redownload... and then empty keys.json and run map packer !');
+    console.warn('Inefficiently packing configs every time...');
+    await packVarps();
+    await packVarbits();
+    await packFlu();
+    await packFlo();
+    await packObj();
+    await packInv();
+    await packSeq();
+    await packLoc();
+    await packIf();
+    
     // revalidatePack();
 
     // for (let i = 0; i < ModelPack.max; i++) {
@@ -44,6 +65,7 @@ export async function packAll(modelFlags: number[]) {
     // packClientInterface(cache, modelFlags);
 
     // // relies on reading configs/interfaces for compile-time context
+    console.warn('Packing scripts (also inefficiently)');
     regenScriptPack();
     runServerCompiler();
 
@@ -87,4 +109,3 @@ export async function packAll(modelFlags: number[]) {
         });
     }
 }
-packAll([]);

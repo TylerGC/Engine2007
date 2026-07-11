@@ -671,7 +671,7 @@ function encodeLocOps(ops: LocOpcode[]): Uint8Array {
     return buf.data.subarray(0, buf.pos);
 }
 
-function pack() {
+export function pack() {
     const maps = {
         seq: loadNameToIdMap('seq.pack'),
         texture: loadNameToIdMap('texture.pack'),
