@@ -1,6 +1,6 @@
 import { CollisionFlag, CollisionType } from '@2004scape/rsmod-pathfinder';
 
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
 import { BlockWalk } from '#/engine/entity/BlockWalk.js';
 import Entity from '#/engine/entity/Entity.js';
@@ -382,15 +382,14 @@ export default abstract class PathingEntity extends Entity {
         if (target.level !== this.level) {
             return false;
         }
-        return false; // todo
-        // if (target instanceof PathingEntity) {
-        //     return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
-        // } else if (target instanceof Loc) {
-        //     const forceapproach = LocType.get(target.type).forceapproach;
-        //     return reachedLoc(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.angle, target.shape, forceapproach);
-        // }
-        // // instanceof Obj
-        // return reachedObj(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
+        if (target instanceof PathingEntity) {
+            return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
+        } else if (target instanceof Loc) {
+            const forceapproach = LocType.get(target.type).forceapproach;
+            return reachedLoc(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.angle, target.shape, forceapproach);
+        }
+        // instanceof Obj
+        return reachedObj(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
     }
 
     protected inApproachDistance(range: number, target: Entity): boolean {
@@ -465,20 +464,20 @@ export default abstract class PathingEntity extends Entity {
         }
 
         if (this.moveStrategy === MoveStrategy.SMART) {
-            // if (this.target instanceof PathingEntity) {
-            //     if (Environment.NODE_CLIENT_ROUTEFINDER && CoordGrid.intersects(this.x, this.z, this.width, this.length, this.target.x, this.target.z, this.target.width, this.target.length)) {
-            //         this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL));
-            //     } else {
-            //         this.queueWaypoints(findPathToEntity(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length));
-            //     }
-            // } else if (this.target instanceof Loc) {
-            //     const forceapproach = LocType.get(this.target.type).forceapproach;
-            //     this.queueWaypoints(findPathToLoc(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length, this.target.angle, this.target.shape, forceapproach));
-            // } else if (this.target instanceof Obj && this.x === this.target.x && this.z === this.target.z) {
-            //     this.queueWaypoint(this.target.x, this.target.z); // work around because our findpath() returns 0, 0 if coord and target coord are the same
-            // } else {
+            if (this.target instanceof PathingEntity) {
+                if (Environment.NODE_CLIENT_ROUTEFINDER && CoordGrid.intersects(this.x, this.z, this.width, this.length, this.target.x, this.target.z, this.target.width, this.target.length)) {
+                    this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL));
+                } else {
+                    this.queueWaypoints(findPathToEntity(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length));
+                }
+            } else if (this.target instanceof Loc) {
+                const forceapproach = LocType.get(this.target.type).forceapproach;
+                this.queueWaypoints(findPathToLoc(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.target.width, this.target.length, this.target.angle, this.target.shape, forceapproach));
+            } else if (this.target instanceof Obj && this.x === this.target.x && this.z === this.target.z) {
+                this.queueWaypoint(this.target.x, this.target.z); // work around because our findpath() returns 0, 0 if coord and target coord are the same
+            } else {
                 this.queueWaypoints(findPath(this.level, this.x, this.z, this.target.x, this.target.z));
-            // } todo
+            }
         } else if (this.moveStrategy === MoveStrategy.NAIVE) {
             const collisionStrategy: CollisionType | null = this.getCollisionStrategy();
             if (collisionStrategy === null) {

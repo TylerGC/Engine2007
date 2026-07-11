@@ -1,5 +1,5 @@
 // import IdkType from '#/cache/config/IdkType.js';
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.js';
@@ -329,10 +329,10 @@ const PlayerOps: CommandHandlers = {
         if (type < 0 || type >= 5) {
             throw new Error(`Invalid oploc: ${type + 1}`);
         }
-        // const locType: LocType = LocType.get(state.activeLoc.type);
-        // if (!locType.op || !locType.op[type]) {
-        //     return;
-        // }
+        const locType: LocType = LocType.get(state.activeLoc.type);
+        if (!locType.op || !locType.op[type]) {
+            return;
+        }
         state.activePlayer.stopAction();
         if (!state.activePlayer.inOperableDistance(state.activeLoc)) {
             state.activePlayer.queueWaypoint(state.activeLoc.x, state.activeLoc.z);

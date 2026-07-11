@@ -1,4 +1,4 @@
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
@@ -142,28 +142,28 @@ export class HuntIterator extends ScriptIterator<Entity> {
                         yield obj;
                     }
                 } else if (this.type === HuntModeType.SCENERY) {
-                    // for (const loc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllLocsSafe(true)) {
-                    //     if (World.currentTick > this.tick) {
-                    //         throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
-                    //     }
-                    //     if (this.checkType !== -1 && loc.type !== this.checkType) {
-                    //         continue;
-                    //     }
-                    //     const locType: LocType = LocType.get(loc.type);
-                    //     if (this.checkCategory !== -1 && locType.category !== this.checkCategory) {
-                    //         continue;
-                    //     }
-                    //     if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, loc) > this.distance) {
-                    //         continue;
-                    //     }
-                    //     if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, loc.x, loc.z)) {
-                    //         continue;
-                    //     }
-                    //     if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, loc.x, loc.z)) {
-                    //         continue;
-                    //     }
-                    //     yield loc;
-                    // }
+                    for (const loc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllLocsSafe(true)) {
+                        if (World.currentTick > this.tick) {
+                            throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
+                        }
+                        if (this.checkType !== -1 && loc.type !== this.checkType) {
+                            continue;
+                        }
+                        const locType: LocType = LocType.get(loc.type);
+                        if (this.checkCategory !== -1 && locType.category !== this.checkCategory) {
+                            continue;
+                        }
+                        if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, loc) > this.distance) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, loc.x, loc.z)) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, loc.x, loc.z)) {
+                            continue;
+                        }
+                        yield loc;
+                    }
                 }
             }
         }

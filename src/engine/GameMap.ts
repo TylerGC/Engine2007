@@ -3,7 +3,7 @@ import fs from 'fs';
 import { CollisionFlag, CollisionType, LocAngle, LocLayer } from '@2004scape/rsmod-pathfinder';
 import * as rsmod from '@2004scape/rsmod-pathfinder';
 
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
@@ -217,18 +217,18 @@ export default class GameMap {
 
     private loadLocations(lands: Int8Array, packet: Packet, mapsquareX: number, mapsquareZ: number): void {
         let locId: number = -1;
-        let locIdOffset: number = packet.g4(); // Some big boy loc ids now
+        let locIdOffset: number = packet.gVarSmart();
         while (locIdOffset !== 0) {
             locId += locIdOffset;
 
             let coord: number = 0;
-            let coordOffset: number = packet.gsmarts();
+            let coordOffset: number = packet.gsmart();
 
             while (coordOffset !== 0) {
                 const { x, z, level } = this.unpackCoord((coord += coordOffset - 1));
 
                 const info: number = packet.g1();
-                coordOffset = packet.gsmarts();
+                coordOffset = packet.gsmart();
 
                 const absoluteX: number = x + mapsquareX;
                 const absoluteZ: number = z + mapsquareZ;
@@ -243,24 +243,24 @@ export default class GameMap {
                     continue;
                 }
 
-                // const type: LocType = LocType.get(locId);
-                // if (!type) {
-                //     printFatalError(`Invalid loc type ${locId} in map m${mapsquareX >> 6}_${mapsquareZ >> 6}.jm2`);
-                //     continue;
-                // }
+                const type: LocType = LocType.get(locId);
+                if (!type) {
+                    printFatalError(`Invalid loc type ${locId} in map m${mapsquareX >> 6}_${mapsquareZ >> 6}.jm2`);
+                    continue;
+                }
 
-                // const width: number = type.width;
-                // const length: number = type.length;
-                // const shape: number = info >> 2;
-                // const angle: number = info & 0x3;
+                const width: number = type.width;
+                const length: number = type.length;
+                const shape: number = info >> 2;
+                const angle: number = info & 0x3;
 
-                // if (type.blockwalk) {
-                //     changeLocCollision(shape, angle, type.blockrange, length, width, type.active, absoluteX, absoluteZ, actualLevel, true);
-                // }
+                if (type.blockwalk) {
+                    changeLocCollision(shape, angle, type.blockrange, length, width, type.active, absoluteX, absoluteZ, actualLevel, true);
+                }
 
-                // this.getZone(absoluteX, absoluteZ, actualLevel).addStaticLoc(new Loc(actualLevel, absoluteX, absoluteZ, width, length, EntityLifeCycle.RESPAWN, locId, shape, angle)); todo
+                this.getZone(absoluteX, absoluteZ, actualLevel).addStaticLoc(new Loc(actualLevel, absoluteX, absoluteZ, width, length, EntityLifeCycle.RESPAWN, locId, shape, angle));
             }
-            locIdOffset = packet.g4();
+            locIdOffset = packet.gVarSmart();
         }
     }
 

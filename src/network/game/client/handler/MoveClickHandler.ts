@@ -5,6 +5,7 @@ import ClientGameMessageHandler from '#/network/game/client/ClientGameMessageHan
 import RebuildNormal from '#/network/game/server/model/RebuildNormal.ts';
 import { CoordGrid } from '#/engine/CoordGrid.ts';
 import Environment from '#/util/Environment.ts';
+import { findPath } from '#/engine/GameMap.js';
 
 export default class MoveClickHandler extends ClientGameMessageHandler<MoveClick> {
     handle(message: MoveClick, player: NetworkPlayer): boolean {
@@ -57,7 +58,7 @@ export default class MoveClickHandler extends ClientGameMessageHandler<MoveClick
         }
 
         // Set new path
-        //if (Environment.node.clientRoutefinder) {
+        if (Environment.NODE_CLIENT_ROUTEFINDER) {
             player.userPath = [];
 
             for (let i = 0; i < message.path.length; i++) {
@@ -66,10 +67,10 @@ export default class MoveClickHandler extends ClientGameMessageHandler<MoveClick
             player.queueWaypoints(player.userPath);
 
             player.processWalktrigger();
-        //} else {
-        //     const dest = message.path[message.path.length - 1];
-        //     player.queueWaypoints(findPath(player.level, player.x, player.z, dest.x, dest.z));
-        // }
+        } else {
+            const dest = message.path[message.path.length - 1];
+            player.queueWaypoints(findPath(player.level, player.x, player.z, dest.x, dest.z));
+        }
 
         return true;
     }

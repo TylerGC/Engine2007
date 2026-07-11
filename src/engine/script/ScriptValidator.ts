@@ -9,7 +9,7 @@ import { ConfigType } from '#/cache/config/ConfigType.js';
 // import HuntType from '#/cache/config/HuntType.js';
 // import IdkType from '#/cache/config/IdkType.js';
 import InvType from '#/cache/config/InvType.js';
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 // import MesanimType from '#/cache/config/MesanimType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
@@ -103,7 +103,7 @@ class ScriptInputCoordValidator extends ScriptInputRangeValidator<CoordGrid> {
 export const NumberNotNull: ScriptValidator<number, number> = new ScriptInputNumberNotNullValidator();
 export const NumberPositive: ScriptValidator<number, number> = new ScriptInputNumberPositiveValidator();
 export const StringNotNull: ScriptValidator<string, string> = new ScriptInputStringNotNullValidator();
-// export const LocTypeValid: ScriptValidator<number, LocType> = new ScriptInputConfigTypeValidator(LocType.get, (input: number) => input >= 0 && input < LocType.count, 'Loc');
+export const LocTypeValid: ScriptValidator<number, LocType> = new ScriptInputConfigTypeValidator(LocType.get, (input: number) => input >= 0 && input < LocType.count, 'Loc');
 export const LocAngleValid: ScriptValidator<number, LocAngle> = new ScriptInputRangeValidator(LocAngle.WEST, LocAngle.SOUTH, 'LocAngle');
 export const LocShapeValid: ScriptValidator<number, LocShape> = new ScriptInputRangeValidator(LocShape.WALL_STRAIGHT, LocShape.GROUND_DECOR, 'LocShape');
 export const DurationValid: ScriptValidator<number, number> = new ScriptInputRangeValidator(1, 2147483647, 'Duration');

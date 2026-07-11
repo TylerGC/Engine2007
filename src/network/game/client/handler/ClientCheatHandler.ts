@@ -14,6 +14,7 @@ import { CoordGrid } from '#/engine/CoordGrid.ts';
 import ScriptRunner from '#/engine/script/ScriptRunner.ts';
 import SeqType from '#/cache/config/SeqType.ts';
 import Component from '#/cache/config/Component.ts';
+import LocType from '#/cache/config/LocType.ts';
 
 export default class ClientCheatHandler extends ClientGameMessageHandler<ClientCheat> {
     handle(message: ClientCheat, player: NetworkPlayer): boolean {
@@ -54,11 +55,11 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
                             //     params[i] = NpcType.getId(name ?? '');
                             //     break;
                             // }
-                            // case ScriptVarType.LOC: {
-                            //     const name = args.shift();
-                            //     params[i] = LocType.getId(name ?? '');
-                            //     break;
-                            // }
+                            case ScriptVarType.LOC: {
+                                const name = args.shift();
+                                params[i] = LocType.getId(name ?? '');
+                                break;
+                            }
                             case ScriptVarType.SEQ: {
                                 const name = args.shift();
                                 params[i] = SeqType.getId(name ?? '');

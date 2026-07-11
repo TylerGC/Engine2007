@@ -17,7 +17,7 @@ import { ScriptOpcode } from '#/engine/script/ScriptOpcode.js';
 import { ActiveNpc, ActivePlayer } from '#/engine/script/ScriptPointer.js';
 import type { CommandHandlers } from '#/engine/script/ScriptRunner.js';
 import ScriptState from '#/engine/script/ScriptState.js';
-import { check, CoordValid, HuntVisValid, NumberNotNull, NumberPositive, FindSquareValid, SeqTypeValid } from '#/engine/script/ScriptValidator.js';
+import { check, CoordValid, HuntVisValid, NumberNotNull, NumberPositive, FindSquareValid, SeqTypeValid, LocTypeValid } from '#/engine/script/ScriptValidator.js';
 import World from '#/engine/World.js';
 import Environment from '#/util/Environment.js';
 
@@ -359,45 +359,45 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.MAP_LOCADDUNSAFE]: state => {
-        // const coord: CoordGrid = check(state.popInt(), CoordValid);
+        const coord: CoordGrid = check(state.popInt(), CoordValid);
 
-        // for (const loc of World.gameMap.getZone(coord.x, coord.z, coord.level).getAllLocsUnsafe()) {
-        //     const type = check(loc.type, LocTypeValid);
+        for (const loc of World.gameMap.getZone(coord.x, coord.z, coord.level).getAllLocsUnsafe()) {
+            const type = check(loc.type, LocTypeValid);
 
-        //     if (type.active !== 1) {
-        //         continue;
-        //     }
+            if (type.active !== 1) {
+                continue;
+            }
 
-        //     const layer = loc.layer;
+            const layer = loc.layer;
 
-        //     if (!loc.isActive && layer === LocLayer.WALL) {
-        //         continue;
-        //     }
+            if (!loc.isActive && layer === LocLayer.WALL) {
+                continue;
+            }
 
-        //     if (layer === LocLayer.WALL) {
-        //         if (loc.x === coord.x && loc.z === coord.z) {
-        //             state.pushInt(1);
-        //             return;
-        //         }
-        //     } else if (layer === LocLayer.GROUND) {
-        //         const width = loc.angle === LocAngle.NORTH || loc.angle === LocAngle.SOUTH ? loc.length : loc.width;
-        //         const length = loc.angle === LocAngle.NORTH || loc.angle === LocAngle.SOUTH ? loc.width : loc.length;
-        //         for (let index = 0; index < width * length; index++) {
-        //             const deltaX = loc.x + (index % width);
-        //             const deltaZ = loc.z + ((index / width) | 0);
-        //             if (deltaX === coord.x && deltaZ === coord.z) {
-        //                 state.pushInt(1);
-        //                 return;
-        //             }
-        //         }
-        //     } else if (layer === LocLayer.GROUND_DECOR) {
-        //         if (loc.x === coord.x && loc.z === coord.z) {
-        //             state.pushInt(1);
-        //             return;
-        //         }
-        //     }
-        // }
-        // state.pushInt(0);
+            if (layer === LocLayer.WALL) {
+                if (loc.x === coord.x && loc.z === coord.z) {
+                    state.pushInt(1);
+                    return;
+                }
+            } else if (layer === LocLayer.GROUND) {
+                const width = loc.angle === LocAngle.NORTH || loc.angle === LocAngle.SOUTH ? loc.length : loc.width;
+                const length = loc.angle === LocAngle.NORTH || loc.angle === LocAngle.SOUTH ? loc.width : loc.length;
+                for (let index = 0; index < width * length; index++) {
+                    const deltaX = loc.x + (index % width);
+                    const deltaZ = loc.z + ((index / width) | 0);
+                    if (deltaX === coord.x && deltaZ === coord.z) {
+                        state.pushInt(1);
+                        return;
+                    }
+                }
+            } else if (layer === LocLayer.GROUND_DECOR) {
+                if (loc.x === coord.x && loc.z === coord.z) {
+                    state.pushInt(1);
+                    return;
+                }
+            }
+        }
+        state.pushInt(0);
     },
 
     [ScriptOpcode.NPCCOUNT]: state => {

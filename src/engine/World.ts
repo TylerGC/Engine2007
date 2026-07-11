@@ -25,6 +25,7 @@ import { printError, printDebug } from '#/util/Logger.js';
 import SeqType from '#/cache/config/SeqType.ts';
 import Component from '#/cache/config/Component.ts';
 import { WorldStat } from './WorldStat.ts';
+import LocType from '#/cache/config/LocType.ts';
 
 class World {
     cache = OpenRs2.RS2_500;
@@ -51,7 +52,6 @@ class World {
         await this.cache.predownload();
         await this.cache.loadKeys();
         await this.cache.loadMapIndex();
-        this.gameMap.init();
 
         const huffmanBytes = await this.cache.getFile(10, 'huffman', '');
         if (!huffmanBytes) {
@@ -89,12 +89,20 @@ class World {
             Component.load(ComponentIndex);
         }
 
+        const LocIndex = await OpenRs2.RS2_500.loadLocalPackedIndex(16);
+        if (LocIndex) {
+            LocType.load(LocIndex);
+        }
+
         const count = ScriptProvider.load('data/pack');
         if (count === -1) {
             printError('There was an issue while reloading scripts.');
         } else {
             printDebug(`Loaded ${count} scripts.`);
         }
+
+        this.gameMap.init();
+        
         this.cycle();
     }
 

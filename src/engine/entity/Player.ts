@@ -7,7 +7,7 @@ import { CollisionType, CollisionFlag } from '@2004scape/rsmod-pathfinder';
 import Component, { IfType } from '#/cache/config/Component.js';
 // import FontType from '#/cache/config/FontType.js';
 import InvType from '#/cache/config/InvType.js';
-// import LocType from '#/cache/config/LocType.js';
+import LocType from '#/cache/config/LocType.js';
 // import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 // import { ParamHelper } from '#/cache/config/ParamHelper.js';
@@ -39,7 +39,7 @@ import type { QueueType, ScriptArgument } from '#/engine/entity/PlayerQueueReque
 import { PlayerStat, PlayerStatEnabled, PlayerStatFree, PlayerStatNameMap } from '#/engine/entity/PlayerStat.ts';
 import InputTracking from '#/engine/entity/tracking/InputTracking.js';
 import type { WealthEventParams } from '#/engine/entity/tracking/WealthEvent.ts';
-// import { changeNpcCollision, changePlayerCollision, findNaivePath, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
+import { changeNpcCollision, changePlayerCollision, findNaivePath, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
 import { Inventory } from '#/engine/Inventory.ts';
 import type {InventoryListener } from '#/engine/Inventory.ts';
 import ScriptFile from '#/engine/script/ScriptFile.js';
@@ -968,24 +968,25 @@ export default class Player extends PathingEntity {
         let categoryId = -1;
 
         // prio trigger details by target<type<com
-        // if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
-        //     let type: NpcType | LocType | ObjType | null = null;
+        if (this.target instanceof Loc || this.target instanceof Obj) {
+            let type: LocType | ObjType | null = null;
 
-        //     if (this.target instanceof Npc) {
-        //         type = NpcType.get(this.target.type);
-        //     } else if (this.target instanceof Loc) {
-        //         type = LocType.get(this.target.type);
-        //     } else if (this.target instanceof Obj) {
-        //         type = ObjType.get(this.target.type);
-        //     }
+            // if (this.target instanceof Npc) {
+            //     type = NpcType.get(this.target.type);
+            // } else 
+                if (this.target instanceof Loc) {
+                type = LocType.get(this.target.type);
+            } else if (this.target instanceof Obj) {
+                type = ObjType.get(this.target.type);
+            }
 
-        //     if (!type) {
-        //         return null;
-        //     }
+            if (!type) {
+                return null;
+            }
 
-        //     typeId = type.id;
-        //     categoryId = type.category;
-        // } todo
+            typeId = type.id;
+            categoryId = type.category;
+        }
         if (this.targetSubject.com !== -1) {
             typeId = this.targetSubject.com;
         }
@@ -1002,24 +1003,25 @@ export default class Player extends PathingEntity {
         let categoryId = -1;
 
         // prio trigger details by target<type<com
-        // if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
-        //     let type: NpcType | LocType | ObjType | null = null;
+        if (this.target instanceof Loc || this.target instanceof Obj) {
+            let type: LocType | ObjType | null = null;
 
-        //     if (this.target instanceof Npc) {
-        //         type = NpcType.get(this.target.type);
-        //     } else if (this.target instanceof Loc) {
-        //         type = LocType.get(this.target.type);
-        //     } else if (this.target instanceof Obj) {
-        //         type = ObjType.get(this.target.type);
-        //     }
+            // if (this.target instanceof Npc) {
+            //     type = NpcType.get(this.target.type);
+            // } else
+                 if (this.target instanceof Loc) {
+                type = LocType.get(this.target.type);
+            } else if (this.target instanceof Obj) {
+                type = ObjType.get(this.target.type);
+            }
 
-        //     if (!type) {
-        //         return null;
-        //     }
+            if (!type) {
+                return null;
+            }
 
-        //     typeId = type.id;
-        //     categoryId = type.category;
-        // } todo
+            typeId = type.id;
+            categoryId = type.category;
+        }
         if (this.targetSubject.com !== -1) {
             typeId = this.targetSubject.com;
         }
@@ -1069,24 +1071,25 @@ export default class Player extends PathingEntity {
         const opTrigger = this.getOpTrigger();
         const apTrigger = this.getApTrigger();
 
-        // if (!Environment.NODE_PRODUCTION && !opTrigger && !apTrigger) {
-        //     let debugname = '_';
-        //     if (this.target instanceof Npc) {
-        //         const type = NpcType.get(this.target.type);
-        //         debugname = type.debugname ?? this.target.type.toString();
-        //     } else if (this.target instanceof Loc) {
-        //         const type = LocType.get(this.target.type);
-        //         debugname = type.debugname ?? this.target.type.toString();
-        //     } else if (this.target instanceof Obj) {
-        //         debugname = ObjType.get(this.target.type)?.debugname ?? this.target.type.toString();
-        //     } else if ((this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT) || this.targetOp === ServerTriggerType.APPLAYERT || this.targetOp === ServerTriggerType.APLOCT || this.targetOp === ServerTriggerType.APOBJT) {
-        //         debugname = Component.get(this.targetSubject.com)?.comName ?? this.targetSubject.toString();
-        //     } else if (this.targetSubject.type !== -1) {
-        //         debugname = ObjType.get(this.targetSubject.type)?.debugname ?? this.targetSubject.toString();
-        //     }
+        if (!Environment.NODE_PRODUCTION && !opTrigger && !apTrigger) {
+            let debugname = '_';
+            // if (this.target instanceof Npc) {
+            //     const type = NpcType.get(this.target.type);
+            //     debugname = type.debugname ?? this.target.type.toString();
+            // } else 
+                if (this.target instanceof Loc) {
+                const type = LocType.get(this.target.type);
+                debugname = type.debugname ?? this.target.type.toString();
+            } else if (this.target instanceof Obj) {
+                debugname = ObjType.get(this.target.type)?.debugname ?? this.target.type.toString();
+            } else if ((this.targetSubject.com !== -1 && this.targetOp === ServerTriggerType.APNPCT) || this.targetOp === ServerTriggerType.APPLAYERT || this.targetOp === ServerTriggerType.APLOCT || this.targetOp === ServerTriggerType.APOBJT) {
+                debugname = Component.get(this.targetSubject.com)?.comName ?? this.targetSubject.toString();
+            } else if (this.targetSubject.type !== -1) {
+                debugname = ObjType.get(this.targetSubject.type)?.debugname ?? this.targetSubject.toString();
+            }
 
-        //     this.messageGame(`No trigger for [${ServerTriggerType[this.targetOp + 7].toLowerCase()},${debugname}]`);
-        // } todo
+            this.messageGame(`No trigger for [${ServerTriggerType[this.targetOp + 7].toLowerCase()},${debugname}]`);
+        }
 
         this.messageGame('Nothing interesting happens.');
         this.clearWaypoints();
@@ -1096,15 +1099,14 @@ export default class Player extends PathingEntity {
         if (target.level !== this.level) {
             return false;
         }
-        return false; // todo
-        // if (target instanceof PathingEntity) {
-        //     return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
-        // } else if (target instanceof Loc) {
-        //     const forceapproach = LocType.get(target.type).forceapproach;
-        //     return reachedLoc(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.angle, target.shape, forceapproach);
-        // }
-        // // instanceof Obj
-        // return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width) || reachedObj(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width); todo
+        if (target instanceof PathingEntity) {
+            return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
+        } else if (target instanceof Loc) {
+            const forceapproach = LocType.get(target.type).forceapproach;
+            return reachedLoc(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width, target.angle, target.shape, forceapproach);
+        }
+        // instanceof Obj
+        return reachedEntity(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width) || reachedObj(this.level, this.x, this.z, target.x, target.z, target.width, target.length, this.width);
     }
 
     tryInteract(allowOpScenery: boolean): boolean {

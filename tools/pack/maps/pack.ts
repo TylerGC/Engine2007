@@ -31,10 +31,14 @@ type LandTile = {
 };
 
 type LocEntry = { id: number; shape: number; angle: number };
+type NpcEntry = { id: number };
+type ObjEntry = { id: number; count: number };
 
 function readJm2(lines: string[]) {
     const land = new Map<number, LandTile>();
     const loc = new Map<number, LocEntry[]>();
+    const npc = new Map<number, NpcEntry[]>();
+    const obj = new Map<number, ObjEntry[]>();
 
     let section: string | null = null;
 
@@ -98,10 +102,57 @@ function readJm2(lines: string[]) {
             } else {
                 loc.set(key, [{ id, shape, angle }]);
             }
+        } else if (section === 'NPC') {
+            const id = parseInt(data);
+            const entry = npc.get(key);
+            if (entry) {
+                entry.push({ id });
+            } else {
+                npc.set(key, [{ id }]);
+            }
+        } else if (section === 'OBJ') {
+            const sp = data.indexOf(' ');
+            const id = parseInt(data.slice(0, sp));
+            const count = parseInt(data.slice(sp + 1));
+            const entry = obj.get(key);
+            if (entry) {
+                entry.push({ id, count });
+            } else {
+                obj.set(key, [{ id, count }]);
+            }
         }
     }
 
-    return { land, loc };
+    return { land, loc, npc, obj };
+}
+
+function encodeNpcs(npc: Map<number, NpcEntry[]>): Uint8Array {
+    const out = Packet.alloc(10_000);
+    for (const [key, entries] of npc) {
+        out.p2(key);
+        out.p1(entries.length);
+        for (const { id } of entries) {
+            out.p2(id);
+        }
+    }
+    const result = out.data.subarray(0, out.pos);
+    out.release();
+    return result;
+}
+
+function encodeObjs(obj: Map<number, ObjEntry[]>): Uint8Array {
+    const out = Packet.alloc(10_000);
+    for (const [key, entries] of obj) {
+        out.p2(key);
+        out.p1(entries.length);
+        for (const { id, count } of entries) {
+            out.p2(id);
+            out.p1(count);
+        }
+    }
+    const result = out.data.subarray(0, out.pos);
+    out.release();
+    return result;
 }
 
 function encodeLand(land: Map<number, LandTile>, mapX: number, mapZ: number): Uint8Array {
@@ -198,6 +249,9 @@ function main() {
     const files = fs.readdirSync(SRC_DIR).filter(f => f.startsWith('m') && f.endsWith('.jm2'));
     const updatedContainers = new Map<number, Uint8Array>();
 
+    const SERVER_MAPS_DIR = 'data/pack/server/maps';
+    fs.mkdirSync(SERVER_MAPS_DIR, { recursive: true });
+
     for (const file of files) {
         const mapXZ = file.slice(1, -4);
         const [mapX, mapZ] = mapXZ.split('_').map(Number);
@@ -208,14 +262,17 @@ function main() {
             .split('\n')
             .filter(x => x.length);
 
-        const { land, loc } = readJm2(lines);
+        const { land, loc, npc, obj } = readJm2(lines);
 
         const landGroupId = mapIndex.getGroupId(`m${mapXZ}`);
         const locGroupId = mapIndex.getGroupId(`l${mapXZ}`);
 
+        let landBytes: Uint8Array | null = null;
+        let locBytes: Uint8Array | null = null;
+
         if (landGroupId !== -1) {
-            const uncompressed = encodeLand(land, mapX, mapZ);
-            const container = packGroup(uncompressed, 0);
+            landBytes = encodeLand(land, mapX, mapZ);
+            const container = packGroup(landBytes, 0);
 
             updatedContainers.set(landGroupId, container);
             fs.mkdirSync(path.join(CACHE_DIR, String(MAPS_ARCHIVE)), { recursive: true });
@@ -225,8 +282,8 @@ function main() {
         }
 
         if (locGroupId !== -1) {
-            const uncompressed = encodeLocs(loc);
-            const container = packGroup(uncompressed, 0);
+            locBytes = encodeLocs(loc);
+            const container = packGroup(locBytes, 0);
 
             updatedContainers.set(locGroupId, container);
             fs.mkdirSync(path.join(CACHE_DIR, String(MAPS_ARCHIVE)), { recursive: true });
@@ -234,6 +291,16 @@ function main() {
         } else {
             console.warn(`No existing loc group for l${mapXZ} in the current master index - new map squares aren't supported by this script`);
         }
+
+        // server-side flat files (uncompressed, read directly by GameMap.init())
+        if (landBytes) {
+            fs.writeFileSync(path.join(SERVER_MAPS_DIR, `m${mapXZ}`), landBytes);
+        }
+        if (locBytes) {
+            fs.writeFileSync(path.join(SERVER_MAPS_DIR, `l${mapXZ}`), locBytes);
+        }
+        fs.writeFileSync(path.join(SERVER_MAPS_DIR, `n${mapXZ}`), encodeNpcs(npc));
+        fs.writeFileSync(path.join(SERVER_MAPS_DIR, `o${mapXZ}`), encodeObjs(obj));
     }
 
     const patchedMasterIndex = updateMasterIndex(MAPS_ARCHIVE, updatedContainers, CACHE_DIR);
