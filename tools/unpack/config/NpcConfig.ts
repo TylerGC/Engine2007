@@ -61,7 +61,7 @@ function unpack() {
         const resolvedNames = new Map<number, string>();
         const seenNames = new Set<string>();
 
-        let nextId = 1;
+        let nextId = 0;
 
         for (let g = 0; g < groupCount; g++) {
             const groupSize = npcIndex.groupSize[g];
@@ -75,7 +75,7 @@ function unpack() {
 
                 const npcId = nextId++;
                 const defaultName = `npc_${npcId}`;
-                let debugName = npcNamesPack.get(npcId - 1) ?? defaultName;
+                let debugName = npcNamesPack.get(npcId) ?? defaultName;
 
                 if (debugName !== defaultName) {
                     if (seenNames.has(debugName)) {

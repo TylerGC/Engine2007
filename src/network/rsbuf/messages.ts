@@ -199,7 +199,7 @@ export class NpcInfoFaceEntity implements InfoMessage {
     constructor(private readonly entity: number) {}
 
     encode(buf: Packet): void {
-        buf.p2(this.entity);
+        buf.p2_alt2(this.entity);
     }
 
     test(): number {

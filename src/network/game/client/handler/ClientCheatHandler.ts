@@ -16,6 +16,12 @@ import SeqType from '#/cache/config/SeqType.ts';
 import Component from '#/cache/config/Component.ts';
 import LocType from '#/cache/config/LocType.ts';
 import NpcType from '#/cache/config/NpcType.ts';
+import World from '#/engine/World.ts';
+import Npc from '#/engine/entity/Npc.ts';
+import Loc from '#/engine/entity/Loc.ts';
+import { EntityLifeCycle } from '#/engine/entity/EntityLifeCycle.ts';
+import { LocShape } from '@2004scape/rsmod-pathfinder';
+import { LocAngle } from '@2004scape/rsmod-pathfinder';
 
 export default class ClientCheatHandler extends ClientGameMessageHandler<ClientCheat> {
     handle(message: ClientCheat, player: NetworkPlayer): boolean {
@@ -174,6 +180,29 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
                 return true;
             }
             player.teleJump((mx << 6) + lx, (mz << 6) + lz, level);
+        } else if (command === 'locadd') {
+            // authentic - https://youtu.be/E6tQ3b3vzro?t=3194
+            if (args.length < 1) {
+                return false;
+            }
+            const name: string = args[0];
+            const type: LocType | null = LocType.getByName(name);
+            if (!type) {
+                return false;
+            }
+            World.addLoc(new Loc(player.level, player.x, player.z, type.width, type.length, EntityLifeCycle.DESPAWN, type.id, LocShape.CENTREPIECE_STRAIGHT, LocAngle.WEST), 500);
+            player.messageGame(`Loc Added: ${name} (ID: ${type.id})`);
+        } else if (command === 'npcadd') {
+            // authentic - https://youtu.be/E6tQ3b3vzro?t=3412
+            if (args.length < 1) {
+                return false;
+            }
+            const name: string = args[0];
+            const type: NpcType | null = NpcType.getByName(name);
+            if (!type) {
+                return false;
+            }
+            World.addNpc(new Npc(player.level, player.x, player.z, type.size, type.size, EntityLifeCycle.DESPAWN, World.getNextNid(), type.id, type.moverestrict, type.blockwalk), 500);
         } else if (command === 'givecrap') {
                 // authentic (we don't know the exact specifics of this...)
 
