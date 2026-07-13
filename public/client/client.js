@@ -1998,45 +1998,61 @@ class IntMath {
 
 // src/dash3d/Pix3D.ts
 class Pix3D {
-  static brightness = 1;
+  static hclip = false;
+  static opaque = false;
+  static lowMem = false;
+  static lowDetail = true;
   static trans = 0;
-  static colourTable = new Int32Array(65536);
+  static originX = 0;
+  static originY = 0;
   static sizeX = 0;
   static sizeY = 0;
-  static divTable2 = new Int32Array(2048);
-  static opaque = false;
-  static cosTable = new Int32Array(2048);
-  static lowDetail = true;
-  static textureManager;
-  static divTable = new Int32Array(512);
-  static hclip = false;
-  static sinTable = new Int32Array(2048);
-  static scanline = new Int32Array(1024);
-  static originY = 0;
-  static lowMem = false;
-  static originX = 0;
-  static textureFallback = false;
   static minX = 0;
   static maxX = 0;
   static minY = 0;
   static maxY = 0;
+  static scanline = new Int32Array(1024);
+  static colourTable = new Int32Array(65536);
+  static textureManager;
+  static divTable = new Int32Array(512);
+  static divTable2 = new Int32Array(2048);
+  static sinTable = new Int32Array(2048);
+  static cosTable = new Int32Array(2048);
+  static brightness = 1;
+  static textureFallback = false;
   static {
-    for (let var0 = 1;var0 < 512; var0++) {
-      Pix3D.divTable[var0] = 32768 / var0 | 0;
+    for (let i = 1;i < 512; i++) {
+      Pix3D.divTable[i] = 32768 / i | 0;
     }
-    for (let var1 = 1;var1 < 2048; var1++) {
-      Pix3D.divTable2[var1] = 65536 / var1 | 0;
+    for (let i = 1;i < 2048; i++) {
+      Pix3D.divTable2[i] = 65536 / i | 0;
     }
-    for (let var2 = 0;var2 < 2048; var2++) {
-      Pix3D.sinTable[var2] = Math.sin(var2 * 0.0030679615) * 65536 | 0;
-      Pix3D.cosTable[var2] = Math.cos(var2 * 0.0030679615) * 65536 | 0;
+    for (let i = 0;i < 2048; i++) {
+      Pix3D.sinTable[i] = Math.sin(i * 0.0030679615) * 65536 | 0;
+      Pix3D.cosTable[i] = Math.cos(i * 0.0030679615) * 65536 | 0;
     }
   }
-  static setHClip(arg0, arg1, arg2) {
-    Pix3D.hclip = arg0 < 0 || arg0 > Pix3D.sizeX || arg1 < 0 || arg1 > Pix3D.sizeX || arg2 < 0 || arg2 > Pix3D.sizeX;
+  static setRenderClipping() {
+    Pix3D.setClipping(Pix2D.clipMinX, Pix2D.clipMinY, Pix2D.clipMaxX, Pix2D.clipMaxY);
+  }
+  static setClipping(arg0, arg1, arg2, arg3) {
+    Pix3D.sizeX = arg2 - arg0;
+    Pix3D.sizeY = arg3 - arg1;
+    Pix3D.resetOrigin();
+    if (Pix3D.scanline.length < Pix3D.sizeY) {
+      Pix3D.scanline = new Int32Array(IntMath.bitceil(Pix3D.sizeY));
+    }
+    let var4 = arg1 * Pix2D.width + arg0;
+    for (let var5 = 0;var5 < Pix3D.sizeY; var5++) {
+      Pix3D.scanline[var5] = var4;
+      var4 += Pix2D.width;
+    }
   }
   static getClipX() {
     return Pix3D.scanline[0] % Pix2D.width;
+  }
+  static getClipY() {
+    return Pix3D.scanline[0] / Pix2D.width | 0;
   }
   static resetOrigin() {
     Pix3D.originX = Pix3D.sizeX / 2 | 0;
@@ -2045,6 +2061,20 @@ class Pix3D {
     Pix3D.maxX = Pix3D.sizeX - Pix3D.originX;
     Pix3D.minY = -Pix3D.originY;
     Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
+  }
+  static setOrigin(arg0, arg1) {
+    const var2 = Pix3D.scanline[0];
+    const var3 = var2 / Pix2D.width | 0;
+    const var4 = var2 - var3 * Pix2D.width;
+    Pix3D.originX = arg0 - var4;
+    Pix3D.originY = arg1 - var3;
+    Pix3D.minX = -Pix3D.originX;
+    Pix3D.maxX = Pix3D.sizeX - Pix3D.originX;
+    Pix3D.minY = -Pix3D.originY;
+    Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
+  }
+  static setTextures(arg0) {
+    Pix3D.textureManager = arg0;
   }
   static setBrightness(arg0) {
     Pix3D.brightness = arg0;
@@ -2123,14 +2153,8 @@ class Pix3D {
       }
     }
   }
-  static textureLightColour(arg0, arg1) {
-    let var2 = arg1 * (arg0 & 127) >> 7;
-    if (var2 < 2) {
-      var2 = 2;
-    } else if (var2 > 126) {
-      var2 = 126;
-    }
-    return (arg0 & 65408) + var2;
+  static setHClip(arg0, arg1, arg2) {
+    Pix3D.hclip = arg0 < 0 || arg0 > Pix3D.sizeX || arg1 < 0 || arg1 > Pix3D.sizeX || arg2 < 0 || arg2 > Pix3D.sizeX;
   }
   static gouraudTriangle(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     const var9 = arg4 - arg3;
@@ -2585,17 +2609,6 @@ class Pix3D {
         }
       }
     }
-  }
-  static setOrigin(arg0, arg1) {
-    const var2 = Pix3D.scanline[0];
-    const var3 = var2 / Pix2D.width | 0;
-    const var4 = var2 - var3 * Pix2D.width;
-    Pix3D.originX = arg0 - var4;
-    Pix3D.originY = arg1 - var3;
-    Pix3D.minX = -Pix3D.originX;
-    Pix3D.maxX = Pix3D.sizeX - Pix3D.originX;
-    Pix3D.minY = -Pix3D.originY;
-    Pix3D.maxY = Pix3D.sizeY - Pix3D.originY;
   }
   static gouraudRaster(arg0, arg1, arg2, arg3, arg4, arg5) {
     if (Pix3D.hclip) {
@@ -3090,15 +3103,6 @@ class Pix3D {
         }
       }
     }
-  }
-  static getClipY() {
-    return Pix3D.scanline[0] / Pix2D.width | 0;
-  }
-  static setRenderClipping() {
-    Pix3D.setClipping(Pix2D.clipMinX, Pix2D.clipMinY, Pix2D.clipMaxX, Pix2D.clipMaxY);
-  }
-  static setTextures(arg0) {
-    Pix3D.textureManager = arg0;
   }
   static flatRaster(arg0, arg1, arg2, arg3, arg4) {
     if (Pix3D.hclip) {
@@ -3746,6 +3750,369 @@ class Pix3D {
       }
     }
   }
+  static textureRaster(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12) {
+    if (Pix3D.hclip) {
+      if (arg4 > Pix3D.sizeX) {
+        arg4 = Pix3D.sizeX;
+      }
+      if (arg3 < 0) {
+        arg3 = 0;
+      }
+    }
+    if (arg3 >= arg4) {
+      return;
+    }
+    let var13 = arg2 + arg3;
+    let var14 = arg5 + arg6 * arg3 | 0;
+    const var15 = arg4 - arg3;
+    if (!Pix3D.lowMem) {
+      const var74 = arg3 - Pix3D.originX;
+      const var75 = arg7 + ((arg10 >> 3) * var74 | 0) | 0;
+      const var76 = arg8 + ((arg11 >> 3) * var74 | 0) | 0;
+      const var77 = arg9 + ((arg12 >> 3) * var74 | 0) | 0;
+      const var78 = var77 >> 14;
+      let var79;
+      let var80;
+      if (var78 === 0) {
+        var79 = 0;
+        var80 = 0;
+      } else {
+        var79 = Math.trunc(var75 / var78) | 0;
+        var80 = Math.trunc(var76 / var78) | 0;
+      }
+      let var81 = var75 + arg10 | 0;
+      let var82 = var76 + arg11 | 0;
+      let var83 = var77 + arg12 | 0;
+      let var84 = var83 >> 14;
+      let var85;
+      let var86;
+      if (var84 === 0) {
+        var85 = 0;
+        var86 = 0;
+      } else {
+        var85 = Math.trunc(var81 / var84) | 0;
+        var86 = Math.trunc(var82 / var84) | 0;
+      }
+      let var87 = (var79 << 18) + var80 | 0;
+      let var88 = (var85 - var79 >> 3 << 18) + (var86 - var80 >> 3) | 0;
+      let var89 = var15 >> 3;
+      const var90 = arg6 << 3;
+      let var91 = var14 >> 8;
+      if (Pix3D.opaque) {
+        if (var89 > 0) {
+          do {
+            const var92 = arg1[(var87 & 16256) + (var87 >>> 25)];
+            arg0[var13++] = ((var92 & 16711935) * var91 & 4278255360) + ((var92 & 65280) * var91 & 16711680) >> 8;
+            const var93 = var87 + var88;
+            const var94 = arg1[(var93 & 16256) + (var93 >>> 25)];
+            arg0[var13++] = ((var94 & 16711935) * var91 & 4278255360) + ((var94 & 65280) * var91 & 16711680) >> 8;
+            const var95 = var93 + var88;
+            const var96 = arg1[(var95 & 16256) + (var95 >>> 25)];
+            arg0[var13++] = ((var96 & 16711935) * var91 & 4278255360) + ((var96 & 65280) * var91 & 16711680) >> 8;
+            const var97 = var95 + var88;
+            const var98 = arg1[(var97 & 16256) + (var97 >>> 25)];
+            arg0[var13++] = ((var98 & 16711935) * var91 & 4278255360) + ((var98 & 65280) * var91 & 16711680) >> 8;
+            const var99 = var97 + var88;
+            const var100 = arg1[(var99 & 16256) + (var99 >>> 25)];
+            arg0[var13++] = ((var100 & 16711935) * var91 & 4278255360) + ((var100 & 65280) * var91 & 16711680) >> 8;
+            const var101 = var99 + var88;
+            const var102 = arg1[(var101 & 16256) + (var101 >>> 25)];
+            arg0[var13++] = ((var102 & 16711935) * var91 & 4278255360) + ((var102 & 65280) * var91 & 16711680) >> 8;
+            const var103 = var101 + var88;
+            const var104 = arg1[(var103 & 16256) + (var103 >>> 25)];
+            arg0[var13++] = ((var104 & 16711935) * var91 & 4278255360) + ((var104 & 65280) * var91 & 16711680) >> 8;
+            const var105 = var103 + var88;
+            const var106 = arg1[(var105 & 16256) + (var105 >>> 25)];
+            arg0[var13++] = ((var106 & 16711935) * var91 & 4278255360) + ((var106 & 65280) * var91 & 16711680) >> 8;
+            const var107 = var85;
+            const var108 = var86;
+            var81 = var81 + arg10 | 0;
+            var82 = var82 + arg11 | 0;
+            var83 = var83 + arg12 | 0;
+            const var109 = var83 >> 14;
+            if (var109 === 0) {
+              var85 = 0;
+              var86 = 0;
+            } else {
+              var85 = Math.trunc(var81 / var109) | 0;
+              var86 = Math.trunc(var82 / var109) | 0;
+            }
+            var87 = (var107 << 18) + var108 | 0;
+            var88 = (var85 - var107 >> 3 << 18) + (var86 - var108 >> 3) | 0;
+            var14 = var14 + var90 | 0;
+            var91 = var14 >> 8;
+            var89--;
+          } while (var89 > 0);
+        }
+        let var110 = arg4 - arg3 & 7;
+        if (var110 > 0) {
+          do {
+            const var111 = arg1[(var87 & 16256) + (var87 >>> 25)];
+            arg0[var13++] = ((var111 & 16711935) * var91 & 4278255360) + ((var111 & 65280) * var91 & 16711680) >> 8;
+            var87 = var87 + var88 | 0;
+            var110--;
+          } while (var110 > 0);
+          return;
+        }
+      } else {
+        if (var89 > 0) {
+          do {
+            const var112 = arg1[(var87 & 16256) + (var87 >>> 25)];
+            if (var112 !== 0) {
+              arg0[var13] = ((var112 & 16711935) * var91 & 4278255360) + ((var112 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var113 = var87 + var88;
+            const var114 = arg1[(var113 & 16256) + (var113 >>> 25)];
+            if (var114 !== 0) {
+              arg0[var13] = ((var114 & 16711935) * var91 & 4278255360) + ((var114 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var115 = var113 + var88;
+            const var116 = arg1[(var115 & 16256) + (var115 >>> 25)];
+            if (var116 !== 0) {
+              arg0[var13] = ((var116 & 16711935) * var91 & 4278255360) + ((var116 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var117 = var115 + var88;
+            const var118 = arg1[(var117 & 16256) + (var117 >>> 25)];
+            if (var118 !== 0) {
+              arg0[var13] = ((var118 & 16711935) * var91 & 4278255360) + ((var118 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var119 = var117 + var88;
+            const var120 = arg1[(var119 & 16256) + (var119 >>> 25)];
+            if (var120 !== 0) {
+              arg0[var13] = ((var120 & 16711935) * var91 & 4278255360) + ((var120 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var121 = var119 + var88;
+            const var122 = arg1[(var121 & 16256) + (var121 >>> 25)];
+            if (var122 !== 0) {
+              arg0[var13] = ((var122 & 16711935) * var91 & 4278255360) + ((var122 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var123 = var121 + var88;
+            const var124 = arg1[(var123 & 16256) + (var123 >>> 25)];
+            if (var124 !== 0) {
+              arg0[var13] = ((var124 & 16711935) * var91 & 4278255360) + ((var124 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var125 = var123 + var88;
+            const var126 = arg1[(var125 & 16256) + (var125 >>> 25)];
+            if (var126 !== 0) {
+              arg0[var13] = ((var126 & 16711935) * var91 & 4278255360) + ((var126 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            const var127 = var85;
+            const var128 = var86;
+            var81 = var81 + arg10 | 0;
+            var82 = var82 + arg11 | 0;
+            var83 = var83 + arg12 | 0;
+            const var129 = var83 >> 14;
+            if (var129 === 0) {
+              var85 = 0;
+              var86 = 0;
+            } else {
+              var85 = Math.trunc(var81 / var129) | 0;
+              var86 = Math.trunc(var82 / var129) | 0;
+            }
+            var87 = (var127 << 18) + var128 | 0;
+            var88 = (var85 - var127 >> 3 << 18) + (var86 - var128 >> 3) | 0;
+            var14 = var14 + var90 | 0;
+            var91 = var14 >> 8;
+            var89--;
+          } while (var89 > 0);
+        }
+        let var130 = arg4 - arg3 & 7;
+        if (var130 > 0) {
+          do {
+            const var131 = arg1[(var87 & 16256) + (var87 >>> 25)];
+            if (var131 !== 0) {
+              arg0[var13] = ((var131 & 16711935) * var91 & 4278255360) + ((var131 & 65280) * var91 & 16711680) >> 8;
+            }
+            var13++;
+            var87 = var87 + var88 | 0;
+            var130--;
+          } while (var130 > 0);
+        }
+      }
+      return;
+    }
+    const var16 = arg3 - Pix3D.originX;
+    const var17 = arg7 + ((arg10 >> 3) * var16 | 0) | 0;
+    const var18 = arg8 + ((arg11 >> 3) * var16 | 0) | 0;
+    const var19 = arg9 + ((arg12 >> 3) * var16 | 0) | 0;
+    const var20 = var19 >> 12;
+    let var21;
+    let var22;
+    if (var20 === 0) {
+      var21 = 0;
+      var22 = 0;
+    } else {
+      var21 = Math.trunc(var17 / var20) | 0;
+      var22 = Math.trunc(var18 / var20) | 0;
+    }
+    let var23 = var17 + arg10 | 0;
+    let var24 = var18 + arg11 | 0;
+    let var25 = var19 + arg12 | 0;
+    let var26 = var25 >> 12;
+    let var27;
+    let var28;
+    if (var26 === 0) {
+      var27 = 0;
+      var28 = 0;
+    } else {
+      var27 = Math.trunc(var23 / var26) | 0;
+      var28 = Math.trunc(var24 / var26) | 0;
+    }
+    let var29 = (var21 << 20) + var22 | 0;
+    let var30 = (var27 - var21 >> 3 << 20) + (var28 - var22 >> 3) | 0;
+    let var31 = var15 >> 3;
+    const var32 = arg6 << 3;
+    let var33 = var14 >> 8;
+    if (Pix3D.opaque) {
+      if (var31 > 0) {
+        do {
+          const var34 = arg1[(var29 & 4032) + (var29 >>> 26)];
+          arg0[var13++] = ((var34 & 16711935) * var33 & 4278255360) + ((var34 & 65280) * var33 & 16711680) >> 8;
+          const var35 = var29 + var30;
+          const var36 = arg1[(var35 & 4032) + (var35 >>> 26)];
+          arg0[var13++] = ((var36 & 16711935) * var33 & 4278255360) + ((var36 & 65280) * var33 & 16711680) >> 8;
+          const var37 = var35 + var30;
+          const var38 = arg1[(var37 & 4032) + (var37 >>> 26)];
+          arg0[var13++] = ((var38 & 16711935) * var33 & 4278255360) + ((var38 & 65280) * var33 & 16711680) >> 8;
+          const var39 = var37 + var30;
+          const var40 = arg1[(var39 & 4032) + (var39 >>> 26)];
+          arg0[var13++] = ((var40 & 16711935) * var33 & 4278255360) + ((var40 & 65280) * var33 & 16711680) >> 8;
+          const var41 = var39 + var30;
+          const var42 = arg1[(var41 & 4032) + (var41 >>> 26)];
+          arg0[var13++] = ((var42 & 16711935) * var33 & 4278255360) + ((var42 & 65280) * var33 & 16711680) >> 8;
+          const var43 = var41 + var30;
+          const var44 = arg1[(var43 & 4032) + (var43 >>> 26)];
+          arg0[var13++] = ((var44 & 16711935) * var33 & 4278255360) + ((var44 & 65280) * var33 & 16711680) >> 8;
+          const var45 = var43 + var30;
+          const var46 = arg1[(var45 & 4032) + (var45 >>> 26)];
+          arg0[var13++] = ((var46 & 16711935) * var33 & 4278255360) + ((var46 & 65280) * var33 & 16711680) >> 8;
+          const var47 = var45 + var30;
+          const var48 = arg1[(var47 & 4032) + (var47 >>> 26)];
+          arg0[var13++] = ((var48 & 16711935) * var33 & 4278255360) + ((var48 & 65280) * var33 & 16711680) >> 8;
+          const var49 = var27;
+          const var50 = var28;
+          var23 = var23 + arg10 | 0;
+          var24 = var24 + arg11 | 0;
+          var25 = var25 + arg12 | 0;
+          const var51 = var25 >> 12;
+          if (var51 === 0) {
+            var27 = 0;
+            var28 = 0;
+          } else {
+            var27 = Math.trunc(var23 / var51) | 0;
+            var28 = Math.trunc(var24 / var51) | 0;
+          }
+          var29 = (var49 << 20) + var50 | 0;
+          var30 = (var27 - var49 >> 3 << 20) + (var28 - var50 >> 3) | 0;
+          var14 = var14 + var32 | 0;
+          var33 = var14 >> 8;
+          var31--;
+        } while (var31 > 0);
+      }
+      let var52 = arg4 - arg3 & 7;
+      if (var52 > 0) {
+        do {
+          const var53 = arg1[(var29 & 4032) + (var29 >>> 26)];
+          arg0[var13++] = ((var53 & 16711935) * var33 & 4278255360) + ((var53 & 65280) * var33 & 16711680) >> 8;
+          var29 = var29 + var30 | 0;
+          var52--;
+        } while (var52 > 0);
+        return;
+      }
+      return;
+    }
+    if (var31 > 0) {
+      do {
+        const var54 = arg1[(var29 & 4032) + (var29 >>> 26)];
+        if (var54 !== 0) {
+          arg0[var13] = ((var54 & 16711935) * var33 & 4278255360) + ((var54 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var55 = var29 + var30;
+        const var56 = arg1[(var55 & 4032) + (var55 >>> 26)];
+        if (var56 !== 0) {
+          arg0[var13] = ((var56 & 16711935) * var33 & 4278255360) + ((var56 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var57 = var55 + var30;
+        const var58 = arg1[(var57 & 4032) + (var57 >>> 26)];
+        if (var58 !== 0) {
+          arg0[var13] = ((var58 & 16711935) * var33 & 4278255360) + ((var58 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var59 = var57 + var30;
+        const var60 = arg1[(var59 & 4032) + (var59 >>> 26)];
+        if (var60 !== 0) {
+          arg0[var13] = ((var60 & 16711935) * var33 & 4278255360) + ((var60 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var61 = var59 + var30;
+        const var62 = arg1[(var61 & 4032) + (var61 >>> 26)];
+        if (var62 !== 0) {
+          arg0[var13] = ((var62 & 16711935) * var33 & 4278255360) + ((var62 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var63 = var61 + var30;
+        const var64 = arg1[(var63 & 4032) + (var63 >>> 26)];
+        if (var64 !== 0) {
+          arg0[var13] = ((var64 & 16711935) * var33 & 4278255360) + ((var64 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var65 = var63 + var30;
+        const var66 = arg1[(var65 & 4032) + (var65 >>> 26)];
+        if (var66 !== 0) {
+          arg0[var13] = ((var66 & 16711935) * var33 & 4278255360) + ((var66 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var67 = var65 + var30;
+        const var68 = arg1[(var67 & 4032) + (var67 >>> 26)];
+        if (var68 !== 0) {
+          arg0[var13] = ((var68 & 16711935) * var33 & 4278255360) + ((var68 & 65280) * var33 & 16711680) >> 8;
+        }
+        var13++;
+        const var69 = var27;
+        const var70 = var28;
+        var23 = var23 + arg10 | 0;
+        var24 = var24 + arg11 | 0;
+        var25 = var25 + arg12 | 0;
+        const var71 = var25 >> 12;
+        if (var71 === 0) {
+          var27 = 0;
+          var28 = 0;
+        } else {
+          var27 = Math.trunc(var23 / var71) | 0;
+          var28 = Math.trunc(var24 / var71) | 0;
+        }
+        var29 = (var69 << 20) + var70 | 0;
+        var30 = (var27 - var69 >> 3 << 20) + (var28 - var70 >> 3) | 0;
+        var14 = var14 + var32 | 0;
+        var33 = var14 >> 8;
+        var31--;
+      } while (var31 > 0);
+    }
+    let var72 = arg4 - arg3 & 7;
+    if (var72 <= 0) {
+      return;
+    }
+    do {
+      const var73 = arg1[(var29 & 4032) + (var29 >>> 26)];
+      if (var73 !== 0) {
+        arg0[var13] = ((var73 & 16711935) * var33 & 4278255360) + ((var73 & 65280) * var33 & 16711680) >> 8;
+      }
+      var13++;
+      var29 = var29 + var30 | 0;
+      var72--;
+    } while (var72 > 0);
+    return;
+  }
   static textureTriangleAffine(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18) {
     const var19 = Pix3D.textureManager.getTexels(Pix3D.brightness, arg18);
     if (var19 === null) {
@@ -4313,382 +4680,6 @@ class Pix3D {
       }
     }
   }
-  static textureRaster(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12) {
-    if (Pix3D.hclip) {
-      if (arg4 > Pix3D.sizeX) {
-        arg4 = Pix3D.sizeX;
-      }
-      if (arg3 < 0) {
-        arg3 = 0;
-      }
-    }
-    if (arg3 >= arg4) {
-      return;
-    }
-    let var13 = arg2 + arg3;
-    let var14 = arg5 + arg6 * arg3 | 0;
-    const var15 = arg4 - arg3;
-    if (!Pix3D.lowMem) {
-      const var74 = arg3 - Pix3D.originX;
-      const var75 = arg7 + ((arg10 >> 3) * var74 | 0) | 0;
-      const var76 = arg8 + ((arg11 >> 3) * var74 | 0) | 0;
-      const var77 = arg9 + ((arg12 >> 3) * var74 | 0) | 0;
-      const var78 = var77 >> 14;
-      let var79;
-      let var80;
-      if (var78 === 0) {
-        var79 = 0;
-        var80 = 0;
-      } else {
-        var79 = Math.trunc(var75 / var78) | 0;
-        var80 = Math.trunc(var76 / var78) | 0;
-      }
-      let var81 = var75 + arg10 | 0;
-      let var82 = var76 + arg11 | 0;
-      let var83 = var77 + arg12 | 0;
-      let var84 = var83 >> 14;
-      let var85;
-      let var86;
-      if (var84 === 0) {
-        var85 = 0;
-        var86 = 0;
-      } else {
-        var85 = Math.trunc(var81 / var84) | 0;
-        var86 = Math.trunc(var82 / var84) | 0;
-      }
-      let var87 = (var79 << 18) + var80 | 0;
-      let var88 = (var85 - var79 >> 3 << 18) + (var86 - var80 >> 3) | 0;
-      let var89 = var15 >> 3;
-      const var90 = arg6 << 3;
-      let var91 = var14 >> 8;
-      if (Pix3D.opaque) {
-        if (var89 > 0) {
-          do {
-            const var92 = arg1[(var87 & 16256) + (var87 >>> 25)];
-            arg0[var13++] = ((var92 & 16711935) * var91 & 4278255360) + ((var92 & 65280) * var91 & 16711680) >> 8;
-            const var93 = var87 + var88;
-            const var94 = arg1[(var93 & 16256) + (var93 >>> 25)];
-            arg0[var13++] = ((var94 & 16711935) * var91 & 4278255360) + ((var94 & 65280) * var91 & 16711680) >> 8;
-            const var95 = var93 + var88;
-            const var96 = arg1[(var95 & 16256) + (var95 >>> 25)];
-            arg0[var13++] = ((var96 & 16711935) * var91 & 4278255360) + ((var96 & 65280) * var91 & 16711680) >> 8;
-            const var97 = var95 + var88;
-            const var98 = arg1[(var97 & 16256) + (var97 >>> 25)];
-            arg0[var13++] = ((var98 & 16711935) * var91 & 4278255360) + ((var98 & 65280) * var91 & 16711680) >> 8;
-            const var99 = var97 + var88;
-            const var100 = arg1[(var99 & 16256) + (var99 >>> 25)];
-            arg0[var13++] = ((var100 & 16711935) * var91 & 4278255360) + ((var100 & 65280) * var91 & 16711680) >> 8;
-            const var101 = var99 + var88;
-            const var102 = arg1[(var101 & 16256) + (var101 >>> 25)];
-            arg0[var13++] = ((var102 & 16711935) * var91 & 4278255360) + ((var102 & 65280) * var91 & 16711680) >> 8;
-            const var103 = var101 + var88;
-            const var104 = arg1[(var103 & 16256) + (var103 >>> 25)];
-            arg0[var13++] = ((var104 & 16711935) * var91 & 4278255360) + ((var104 & 65280) * var91 & 16711680) >> 8;
-            const var105 = var103 + var88;
-            const var106 = arg1[(var105 & 16256) + (var105 >>> 25)];
-            arg0[var13++] = ((var106 & 16711935) * var91 & 4278255360) + ((var106 & 65280) * var91 & 16711680) >> 8;
-            const var107 = var85;
-            const var108 = var86;
-            var81 = var81 + arg10 | 0;
-            var82 = var82 + arg11 | 0;
-            var83 = var83 + arg12 | 0;
-            const var109 = var83 >> 14;
-            if (var109 === 0) {
-              var85 = 0;
-              var86 = 0;
-            } else {
-              var85 = Math.trunc(var81 / var109) | 0;
-              var86 = Math.trunc(var82 / var109) | 0;
-            }
-            var87 = (var107 << 18) + var108 | 0;
-            var88 = (var85 - var107 >> 3 << 18) + (var86 - var108 >> 3) | 0;
-            var14 = var14 + var90 | 0;
-            var91 = var14 >> 8;
-            var89--;
-          } while (var89 > 0);
-        }
-        let var110 = arg4 - arg3 & 7;
-        if (var110 > 0) {
-          do {
-            const var111 = arg1[(var87 & 16256) + (var87 >>> 25)];
-            arg0[var13++] = ((var111 & 16711935) * var91 & 4278255360) + ((var111 & 65280) * var91 & 16711680) >> 8;
-            var87 = var87 + var88 | 0;
-            var110--;
-          } while (var110 > 0);
-          return;
-        }
-      } else {
-        if (var89 > 0) {
-          do {
-            const var112 = arg1[(var87 & 16256) + (var87 >>> 25)];
-            if (var112 !== 0) {
-              arg0[var13] = ((var112 & 16711935) * var91 & 4278255360) + ((var112 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var113 = var87 + var88;
-            const var114 = arg1[(var113 & 16256) + (var113 >>> 25)];
-            if (var114 !== 0) {
-              arg0[var13] = ((var114 & 16711935) * var91 & 4278255360) + ((var114 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var115 = var113 + var88;
-            const var116 = arg1[(var115 & 16256) + (var115 >>> 25)];
-            if (var116 !== 0) {
-              arg0[var13] = ((var116 & 16711935) * var91 & 4278255360) + ((var116 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var117 = var115 + var88;
-            const var118 = arg1[(var117 & 16256) + (var117 >>> 25)];
-            if (var118 !== 0) {
-              arg0[var13] = ((var118 & 16711935) * var91 & 4278255360) + ((var118 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var119 = var117 + var88;
-            const var120 = arg1[(var119 & 16256) + (var119 >>> 25)];
-            if (var120 !== 0) {
-              arg0[var13] = ((var120 & 16711935) * var91 & 4278255360) + ((var120 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var121 = var119 + var88;
-            const var122 = arg1[(var121 & 16256) + (var121 >>> 25)];
-            if (var122 !== 0) {
-              arg0[var13] = ((var122 & 16711935) * var91 & 4278255360) + ((var122 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var123 = var121 + var88;
-            const var124 = arg1[(var123 & 16256) + (var123 >>> 25)];
-            if (var124 !== 0) {
-              arg0[var13] = ((var124 & 16711935) * var91 & 4278255360) + ((var124 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var125 = var123 + var88;
-            const var126 = arg1[(var125 & 16256) + (var125 >>> 25)];
-            if (var126 !== 0) {
-              arg0[var13] = ((var126 & 16711935) * var91 & 4278255360) + ((var126 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            const var127 = var85;
-            const var128 = var86;
-            var81 = var81 + arg10 | 0;
-            var82 = var82 + arg11 | 0;
-            var83 = var83 + arg12 | 0;
-            const var129 = var83 >> 14;
-            if (var129 === 0) {
-              var85 = 0;
-              var86 = 0;
-            } else {
-              var85 = Math.trunc(var81 / var129) | 0;
-              var86 = Math.trunc(var82 / var129) | 0;
-            }
-            var87 = (var127 << 18) + var128 | 0;
-            var88 = (var85 - var127 >> 3 << 18) + (var86 - var128 >> 3) | 0;
-            var14 = var14 + var90 | 0;
-            var91 = var14 >> 8;
-            var89--;
-          } while (var89 > 0);
-        }
-        let var130 = arg4 - arg3 & 7;
-        if (var130 > 0) {
-          do {
-            const var131 = arg1[(var87 & 16256) + (var87 >>> 25)];
-            if (var131 !== 0) {
-              arg0[var13] = ((var131 & 16711935) * var91 & 4278255360) + ((var131 & 65280) * var91 & 16711680) >> 8;
-            }
-            var13++;
-            var87 = var87 + var88 | 0;
-            var130--;
-          } while (var130 > 0);
-        }
-      }
-      return;
-    }
-    const var16 = arg3 - Pix3D.originX;
-    const var17 = arg7 + ((arg10 >> 3) * var16 | 0) | 0;
-    const var18 = arg8 + ((arg11 >> 3) * var16 | 0) | 0;
-    const var19 = arg9 + ((arg12 >> 3) * var16 | 0) | 0;
-    const var20 = var19 >> 12;
-    let var21;
-    let var22;
-    if (var20 === 0) {
-      var21 = 0;
-      var22 = 0;
-    } else {
-      var21 = Math.trunc(var17 / var20) | 0;
-      var22 = Math.trunc(var18 / var20) | 0;
-    }
-    let var23 = var17 + arg10 | 0;
-    let var24 = var18 + arg11 | 0;
-    let var25 = var19 + arg12 | 0;
-    let var26 = var25 >> 12;
-    let var27;
-    let var28;
-    if (var26 === 0) {
-      var27 = 0;
-      var28 = 0;
-    } else {
-      var27 = Math.trunc(var23 / var26) | 0;
-      var28 = Math.trunc(var24 / var26) | 0;
-    }
-    let var29 = (var21 << 20) + var22 | 0;
-    let var30 = (var27 - var21 >> 3 << 20) + (var28 - var22 >> 3) | 0;
-    let var31 = var15 >> 3;
-    const var32 = arg6 << 3;
-    let var33 = var14 >> 8;
-    if (Pix3D.opaque) {
-      if (var31 > 0) {
-        do {
-          const var34 = arg1[(var29 & 4032) + (var29 >>> 26)];
-          arg0[var13++] = ((var34 & 16711935) * var33 & 4278255360) + ((var34 & 65280) * var33 & 16711680) >> 8;
-          const var35 = var29 + var30;
-          const var36 = arg1[(var35 & 4032) + (var35 >>> 26)];
-          arg0[var13++] = ((var36 & 16711935) * var33 & 4278255360) + ((var36 & 65280) * var33 & 16711680) >> 8;
-          const var37 = var35 + var30;
-          const var38 = arg1[(var37 & 4032) + (var37 >>> 26)];
-          arg0[var13++] = ((var38 & 16711935) * var33 & 4278255360) + ((var38 & 65280) * var33 & 16711680) >> 8;
-          const var39 = var37 + var30;
-          const var40 = arg1[(var39 & 4032) + (var39 >>> 26)];
-          arg0[var13++] = ((var40 & 16711935) * var33 & 4278255360) + ((var40 & 65280) * var33 & 16711680) >> 8;
-          const var41 = var39 + var30;
-          const var42 = arg1[(var41 & 4032) + (var41 >>> 26)];
-          arg0[var13++] = ((var42 & 16711935) * var33 & 4278255360) + ((var42 & 65280) * var33 & 16711680) >> 8;
-          const var43 = var41 + var30;
-          const var44 = arg1[(var43 & 4032) + (var43 >>> 26)];
-          arg0[var13++] = ((var44 & 16711935) * var33 & 4278255360) + ((var44 & 65280) * var33 & 16711680) >> 8;
-          const var45 = var43 + var30;
-          const var46 = arg1[(var45 & 4032) + (var45 >>> 26)];
-          arg0[var13++] = ((var46 & 16711935) * var33 & 4278255360) + ((var46 & 65280) * var33 & 16711680) >> 8;
-          const var47 = var45 + var30;
-          const var48 = arg1[(var47 & 4032) + (var47 >>> 26)];
-          arg0[var13++] = ((var48 & 16711935) * var33 & 4278255360) + ((var48 & 65280) * var33 & 16711680) >> 8;
-          const var49 = var27;
-          const var50 = var28;
-          var23 = var23 + arg10 | 0;
-          var24 = var24 + arg11 | 0;
-          var25 = var25 + arg12 | 0;
-          const var51 = var25 >> 12;
-          if (var51 === 0) {
-            var27 = 0;
-            var28 = 0;
-          } else {
-            var27 = Math.trunc(var23 / var51) | 0;
-            var28 = Math.trunc(var24 / var51) | 0;
-          }
-          var29 = (var49 << 20) + var50 | 0;
-          var30 = (var27 - var49 >> 3 << 20) + (var28 - var50 >> 3) | 0;
-          var14 = var14 + var32 | 0;
-          var33 = var14 >> 8;
-          var31--;
-        } while (var31 > 0);
-      }
-      let var52 = arg4 - arg3 & 7;
-      if (var52 > 0) {
-        do {
-          const var53 = arg1[(var29 & 4032) + (var29 >>> 26)];
-          arg0[var13++] = ((var53 & 16711935) * var33 & 4278255360) + ((var53 & 65280) * var33 & 16711680) >> 8;
-          var29 = var29 + var30 | 0;
-          var52--;
-        } while (var52 > 0);
-        return;
-      }
-      return;
-    }
-    if (var31 > 0) {
-      do {
-        const var54 = arg1[(var29 & 4032) + (var29 >>> 26)];
-        if (var54 !== 0) {
-          arg0[var13] = ((var54 & 16711935) * var33 & 4278255360) + ((var54 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var55 = var29 + var30;
-        const var56 = arg1[(var55 & 4032) + (var55 >>> 26)];
-        if (var56 !== 0) {
-          arg0[var13] = ((var56 & 16711935) * var33 & 4278255360) + ((var56 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var57 = var55 + var30;
-        const var58 = arg1[(var57 & 4032) + (var57 >>> 26)];
-        if (var58 !== 0) {
-          arg0[var13] = ((var58 & 16711935) * var33 & 4278255360) + ((var58 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var59 = var57 + var30;
-        const var60 = arg1[(var59 & 4032) + (var59 >>> 26)];
-        if (var60 !== 0) {
-          arg0[var13] = ((var60 & 16711935) * var33 & 4278255360) + ((var60 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var61 = var59 + var30;
-        const var62 = arg1[(var61 & 4032) + (var61 >>> 26)];
-        if (var62 !== 0) {
-          arg0[var13] = ((var62 & 16711935) * var33 & 4278255360) + ((var62 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var63 = var61 + var30;
-        const var64 = arg1[(var63 & 4032) + (var63 >>> 26)];
-        if (var64 !== 0) {
-          arg0[var13] = ((var64 & 16711935) * var33 & 4278255360) + ((var64 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var65 = var63 + var30;
-        const var66 = arg1[(var65 & 4032) + (var65 >>> 26)];
-        if (var66 !== 0) {
-          arg0[var13] = ((var66 & 16711935) * var33 & 4278255360) + ((var66 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var67 = var65 + var30;
-        const var68 = arg1[(var67 & 4032) + (var67 >>> 26)];
-        if (var68 !== 0) {
-          arg0[var13] = ((var68 & 16711935) * var33 & 4278255360) + ((var68 & 65280) * var33 & 16711680) >> 8;
-        }
-        var13++;
-        const var69 = var27;
-        const var70 = var28;
-        var23 = var23 + arg10 | 0;
-        var24 = var24 + arg11 | 0;
-        var25 = var25 + arg12 | 0;
-        const var71 = var25 >> 12;
-        if (var71 === 0) {
-          var27 = 0;
-          var28 = 0;
-        } else {
-          var27 = Math.trunc(var23 / var71) | 0;
-          var28 = Math.trunc(var24 / var71) | 0;
-        }
-        var29 = (var69 << 20) + var70 | 0;
-        var30 = (var27 - var69 >> 3 << 20) + (var28 - var70 >> 3) | 0;
-        var14 = var14 + var32 | 0;
-        var33 = var14 >> 8;
-        var31--;
-      } while (var31 > 0);
-    }
-    let var72 = arg4 - arg3 & 7;
-    if (var72 <= 0) {
-      return;
-    }
-    do {
-      const var73 = arg1[(var29 & 4032) + (var29 >>> 26)];
-      if (var73 !== 0) {
-        arg0[var13] = ((var73 & 16711935) * var33 & 4278255360) + ((var73 & 65280) * var33 & 16711680) >> 8;
-      }
-      var13++;
-      var29 = var29 + var30 | 0;
-      var72--;
-    } while (var72 > 0);
-    return;
-  }
-  static setClipping(arg0, arg1, arg2, arg3) {
-    Pix3D.sizeX = arg2 - arg0;
-    Pix3D.sizeY = arg3 - arg1;
-    Pix3D.resetOrigin();
-    if (Pix3D.scanline.length < Pix3D.sizeY) {
-      Pix3D.scanline = new Int32Array(IntMath.bitceil(Pix3D.sizeY));
-    }
-    let var4 = arg1 * Pix2D.width + arg0;
-    for (let var5 = 0;var5 < Pix3D.sizeY; var5++) {
-      Pix3D.scanline[var5] = var4;
-      var4 += Pix2D.width;
-    }
-  }
   static textureRasterAffine(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12) {
     if (Pix3D.hclip) {
       if (arg4 > Pix3D.sizeX) {
@@ -4996,21 +4987,30 @@ class Pix3D {
     } while (var66 > 0);
     return;
   }
+  static textureLightColour(arg0, arg1) {
+    let var2 = arg1 * (arg0 & 127) >> 7;
+    if (var2 < 2) {
+      var2 = 2;
+    } else if (var2 > 126) {
+      var2 = 126;
+    }
+    return (arg0 & 65408) + var2;
+  }
 }
 
 // src/dash3d/FaceNormal.ts
 class FaceNormal {
   x = 0;
-  z = 0;
   y = 0;
+  z = 0;
 }
 
 // src/dash3d/PointNormal.ts
 class PointNormal {
+  x = 0;
   y = 0;
   z = 0;
   w = 0;
-  x = 0;
   constructor(arg0) {
     if (arg0) {
       this.z = arg0.z;
@@ -6596,55 +6596,55 @@ class SoftwareModelLit extends ModelLit {
 
 // src/dash3d/ModelUnlit.ts
 class ModelUnlit extends ModelSource {
-  faceLabel = null;
-  minX = 0;
-  textureDirection = null;
-  textureSpeed = null;
-  faceVertexB = null;
-  field1519 = 0;
-  maxX = 0;
-  textureRenderType = null;
-  pointX = null;
-  contrast = 0;
-  textureScaleZ = null;
-  pointY = null;
-  faceTextureN = null;
-  textureRotation = null;
-  maxZ = 0;
-  faceRenderType = null;
-  static sinTable = Pix3D.sinTable;
-  faceColour = null;
-  vertexLabel = null;
-  textureScaleX = null;
-  static shareMap = new Int32Array(1e4);
-  static shareTic = 0;
-  static cosTable = Pix3D.cosTable;
-  static shareMap2 = new Int32Array(1e4);
-  numFaces = 0;
-  boundsCalculated = false;
   numPoints = 0;
-  priority = 0;
-  numT = 0;
+  pointX = null;
+  pointY = null;
+  pointZ = null;
+  numFaces = 0;
+  faceVertexA = null;
+  faceVertexB = null;
+  faceVertexC = null;
+  faceRenderType = null;
   facePriority = null;
   faceAlpha = null;
-  faceTextureId = null;
   faceTextureAxis = null;
-  pointZ = null;
-  faceVertexA = null;
-  faceVertexC = null;
+  faceColour = null;
+  faceTextureId = null;
+  priority = 0;
+  numT = 0;
+  textureRenderType = null;
   faceTextureP = null;
   faceTextureM = null;
+  faceTextureN = null;
+  textureScaleX = null;
   textureScaleY = null;
+  textureScaleZ = null;
+  textureRotation = null;
+  textureSpeed = null;
+  textureDirection = null;
   textureTranslation = null;
-  field1502 = null;
+  vertexLabel = null;
+  faceLabel = null;
   labelVertices = null;
   labelFaces = null;
-  pointNormal = null;
   faceNormal = null;
+  pointNormal = null;
   sharedPointNormal = null;
   ambient = 0;
+  contrast = 0;
+  boundsCalculated = false;
   maxY = 0;
+  minX = 0;
+  maxX = 0;
   minZ = 0;
+  maxZ = 0;
+  static shareMap = new Int32Array(1e4);
+  static shareMap2 = new Int32Array(1e4);
+  static shareTic = 0;
+  static sinTable = Pix3D.sinTable;
+  static cosTable = Pix3D.cosTable;
+  field1519 = 0;
+  field1502 = null;
   static method543(arg0, arg1, arg2) {
     const var3 = arg1 >> 7;
     const var4 = arg2 >> 7;
@@ -8022,85 +8022,84 @@ class ModelUnlit extends ModelSource {
 
 // src/dash3d/ModelCacheLit.ts
 class ModelCacheLit extends Linkable2 {
-  field3984 = null;
+  model = null;
 }
 
-// src/datastruct/ModelSourceNode.ts
+// src/dash3d/ModelSourceNode.ts
 class ModelSourceNode extends Linkable2 {
-  field1829;
+  model;
   constructor(arg0) {
     super();
-    this.field1829 = arg0;
+    this.model = arg0;
   }
 }
 
 // src/dash3d/ModelSourceCache.ts
 class ModelSourceCache {
-  field389 = new LruCache(30);
+  cache = new LruCache(30);
   constructor(_size) {}
-  put(arg0, arg1) {
-    this.field389.put(arg0, new ModelSourceNode(arg1));
+  put(key, arg1) {
+    this.cache.put(key, new ModelSourceNode(arg1));
   }
-  method133(arg0) {
-    this.field389.remove(arg0);
+  remove(key) {
+    this.cache.remove(key);
   }
   clear() {
-    this.field389.clear();
+    this.cache.clear();
   }
-  find(arg0) {
-    const var3 = this.field389.find(arg0);
-    return var3 == null ? null : var3.field1829;
+  find(key) {
+    const var3 = this.cache.find(key);
+    return var3 == null ? null : var3.model;
   }
 }
 
 // src/config/VarBitType.ts
 class VarBitType extends Linkable2 {
-  static recentUse = new LruCache(64);
   static configClient;
+  static recentUse = new LruCache(64);
   basevar = 0;
   startbit = 0;
   endbit = 0;
-  static list(arg0) {
-    const var1 = VarBitType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
+  static init(config) {
+    VarBitType.configClient = config;
+  }
+  static getGroupId(id) {
+    return id & 1023;
+  }
+  static getFileId(id) {
+    return id >>> 10;
+  }
+  static list(id) {
+    const cached = VarBitType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
-    const var2 = VarBitType.configClient.getFile(VarBitType.getGroupId(arg0), VarBitType.getFileId(arg0));
-    const var3 = new VarBitType;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
+    const data = VarBitType.configClient.getFile(VarBitType.getGroupId(id), VarBitType.getFileId(id));
+    const type = new VarBitType;
+    if (data !== null) {
+      type.decode(new Packet(data));
     }
-    VarBitType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+    VarBitType.recentUse.put(BigInt(id), type);
+    return type;
+  }
+  decode(buf) {
+    while (true) {
+      const code = buf.g1();
+      if (code === 0) {
+        return;
+      }
+      this.decodeInner(code, buf);
+    }
+  }
+  decodeInner(code, buf) {
+    if (code === 1) {
+      this.basevar = buf.g2();
+      this.startbit = buf.g1();
+      this.endbit = buf.g1();
+    }
   }
   static resetCache() {
     VarBitType.recentUse.clear();
-  }
-  static init(arg0) {
-    VarBitType.configClient = arg0;
-  }
-  static getGroupId(arg0) {
-    return arg0 & 1023;
-  }
-  static getFileId(arg0) {
-    return arg0 >>> 10;
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      if (arg0 === 1) {
-        this.basevar = arg1.g2();
-        this.startbit = arg1.g1();
-        this.endbit = arg1.g1();
-      }
-      return;
-    }
-    while (true) {
-      const var2 = arg0.g1();
-      if (var2 === 0) {
-        return;
-      }
-      this.decode(var2, arg0);
-    }
   }
 }
 
@@ -8141,22 +8140,19 @@ class VarCache {
 
 // src/config/LocType.ts
 class LocType extends Linkable2 {
-  static recentUse = new LruCache(64);
+  static clientpalette = new Int16Array(256);
+  static lowMem = false;
   static clientConfig;
   static models;
-  static modelCacheDynamic;
-  static NULL = "null";
-  static lowMem = false;
-  static membersWorld = false;
-  static temp = new Array(4);
+  static recentUse = new LruCache(64);
   static mc1 = new ModelSourceCache(500);
   static mc2 = new ModelSourceCache(30);
   static mc3 = new ModelCacheLit;
-  static clientpalette = new Int16Array(256);
+  static temp = new Array(4);
   id = 0;
   model = null;
   shape = null;
-  name = LocType.NULL;
+  name = "null";
   recol_s = null;
   recol_d = null;
   retex_s = null;
@@ -8191,8 +8187,8 @@ class LocType extends Linkable2 {
   breakroutefinding = false;
   raiseobject = -1;
   multiloc = null;
-  multivarp = -1;
   multivarbit = -1;
+  multivarp = -1;
   bgsound_sound = -1;
   bgsound_range = 0;
   bgsound_mindelay = 0;
@@ -8202,46 +8198,234 @@ class LocType extends Linkable2 {
   field2799 = false;
   members = false;
   params = null;
-  static init(arg0, arg1, arg2, arg3) {
-    LocType.lowMem = arg3;
-    LocType.membersWorld = arg2;
-    LocType.clientConfig = arg0;
-    LocType.models = arg1;
+  static memServer = false;
+  static modelCacheDynamic;
+  static init(config, models, memServer, lowMem) {
+    LocType.lowMem = lowMem;
+    LocType.memServer = memServer;
+    LocType.clientConfig = config;
+    LocType.models = models;
     LocType.modelCacheDynamic = new ModelSourceCache(30);
   }
-  static getGroupId(arg0) {
-    return arg0 & 255;
+  static getGroupId(id) {
+    return id & 255;
   }
-  static getFileId(arg0) {
-    return arg0 >>> 8;
+  static getFileId(id) {
+    return id >>> 8;
   }
-  static list(arg0) {
-    const var1 = LocType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
+  static list(id) {
+    const cached = LocType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
-    const var2 = LocType.clientConfig.getFile(LocType.getGroupId(arg0), LocType.getFileId(arg0));
-    const var3 = new LocType;
-    var3.id = arg0;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
+    const data = LocType.clientConfig.getFile(LocType.getGroupId(id), LocType.getFileId(id));
+    const type = new LocType;
+    type.id = id;
+    if (data !== null) {
+      type.decode(new Packet(data));
     }
-    var3.postDecode();
-    if (!LocType.membersWorld && var3.members) {
-      var3.op = null;
+    type.postDecode();
+    if (!LocType.memServer && type.members) {
+      type.op = null;
     }
-    if (var3.breakroutefinding) {
-      var3.blockwalk = 0;
-      var3.blockrange = false;
+    if (type.breakroutefinding) {
+      type.blockwalk = 0;
+      type.blockrange = false;
     }
-    LocType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+    LocType.recentUse.put(BigInt(id), type);
+    return type;
   }
-  static resetCache() {
-    LocType.recentUse.clear();
-    LocType.mc1.clear();
-    LocType.modelCacheDynamic.clear();
-    LocType.mc2.clear();
+  decode(buf) {
+    while (true) {
+      const code = buf.g1();
+      if (code === 0) {
+        return;
+      }
+      this.decodeInner(code, buf);
+    }
+  }
+  decodeInner(code, buf) {
+    if (code === 1) {
+      const count = buf.g1();
+      if (count > 0) {
+        if (this.model !== null && !LocType.lowMem) {
+          buf.pos += count * 3;
+          return;
+        } else {
+          this.shape = new Int32Array(count);
+          this.model = new Int32Array(count);
+          for (let i = 0;i < count; i++) {
+            this.model[i] = buf.g2();
+            this.shape[i] = buf.g1();
+          }
+        }
+      }
+    } else if (code === 2) {
+      this.name = buf.gjstr();
+    } else if (code === 5) {
+      const count = buf.g1();
+      if (count > 0) {
+        if (this.model !== null && !LocType.lowMem) {
+          buf.pos += count * 2;
+          return;
+        } else {
+          this.model = new Int32Array(count);
+          this.shape = null;
+          for (let i = 0;i < count; i++) {
+            this.model[i] = buf.g2();
+          }
+        }
+      }
+    } else if (code === 14) {
+      this.width = buf.g1();
+    } else if (code === 15) {
+      this.length = buf.g1();
+    } else if (code === 17) {
+      this.blockrange = false;
+      this.blockwalk = 0;
+    } else if (code === 18) {
+      this.blockrange = false;
+    } else if (code === 19) {
+      this.active = buf.g1();
+    } else if (code === 21) {
+      this.skewType = 1;
+    } else if (code === 22) {
+      this.sharelight = true;
+    } else if (code === 23) {
+      this.occlude = true;
+    } else if (code === 24) {
+      this.anim = buf.g2();
+      if (this.anim === 65535) {
+        this.anim = -1;
+      }
+    } else if (code === 27) {
+      this.blockwalk = 1;
+    } else if (code === 28) {
+      this.wallwidth = buf.g1();
+    } else if (code === 29) {
+      this.ambient = buf.g1b();
+    } else if (code === 39) {
+      this.contrast = buf.g1b() * 5;
+    } else if (code >= 30 && code < 35) {
+      this.op[code - 30] = buf.gjstr();
+      if (this.op[code - 30].toLowerCase() === Text.hidden.toLowerCase()) {
+        this.op[code - 30] = null;
+      }
+    } else if (code === 40) {
+      const count = buf.g1();
+      this.recol_s = new Int16Array(count);
+      this.recol_d = new Int16Array(count);
+      for (let i = 0;i < count; i++) {
+        this.recol_s[i] = buf.g2();
+        this.recol_d[i] = buf.g2();
+      }
+    } else if (code === 41) {
+      const count = buf.g1();
+      this.retex_d = new Int16Array(count);
+      this.retex_s = new Int16Array(count);
+      for (let i = 0;i < count; i++) {
+        this.retex_s[i] = buf.g2();
+        this.retex_d[i] = buf.g2();
+      }
+    } else if (code === 42) {
+      const count = buf.g1();
+      this.recol_d_palette = new Int8Array(count);
+      for (let i = 0;i < count; i++) {
+        this.recol_d_palette[i] = buf.g1b();
+      }
+    } else if (code === 60) {
+      this.mapfunction = buf.g2();
+    } else if (code === 62) {
+      this.mirror = true;
+    } else if (code === 64) {
+      this.shadow = false;
+    } else if (code === 65) {
+      this.resizex = buf.g2();
+    } else if (code === 66) {
+      this.resizey = buf.g2();
+    } else if (code === 67) {
+      this.resizez = buf.g2();
+    } else if (code === 68) {
+      this.mapscene = buf.g2();
+    } else if (code === 69) {
+      this.forceapproach = buf.g1();
+    } else if (code === 70) {
+      this.offsetx = buf.g2b();
+    } else if (code === 71) {
+      this.offsety = buf.g2b();
+    } else if (code === 72) {
+      this.offsetz = buf.g2b();
+    } else if (code === 73) {
+      this.forcedecor = true;
+    } else if (code === 74) {
+      this.breakroutefinding = true;
+    } else if (code === 75) {
+      this.raiseobject = buf.g1();
+    } else if (code === 77 || code === 92) {
+      this.multivarbit = buf.g2();
+      if (this.multivarbit === 65535) {
+        this.multivarbit = -1;
+      }
+      let defaultLoc = -1;
+      this.multivarp = buf.g2();
+      if (this.multivarp === 65535) {
+        this.multivarp = -1;
+      }
+      if (code === 92) {
+        defaultLoc = buf.g2();
+        if (defaultLoc === 65535) {
+          defaultLoc = -1;
+        }
+      }
+      const count = buf.g1();
+      this.multiloc = new Int32Array(count + 2);
+      for (let i = 0;i <= count; i++) {
+        this.multiloc[i] = buf.g2();
+        if (this.multiloc[i] === 65535) {
+          this.multiloc[i] = -1;
+        }
+      }
+      this.multiloc[count + 1] = defaultLoc;
+    } else if (code === 78) {
+      this.bgsound_sound = buf.g2();
+      this.bgsound_range = buf.g1();
+    } else if (code === 79) {
+      this.bgsound_mindelay = buf.g2();
+      this.bgsound_maxdelay = buf.g2();
+      this.bgsound_range = buf.g1();
+      const count = buf.g1();
+      this.bgsound_random = new Int32Array(count);
+      for (let i = 0;i < count; i++) {
+        this.bgsound_random[i] = buf.g2();
+      }
+    } else if (code === 81) {
+      this.skewType = 2;
+      this.skewAmount = buf.g1() * 256 << 16 >> 16;
+    } else if (code === 82 || code === 88) {} else if (code === 89) {
+      this.randomanimframe = false;
+    } else if (code === 90) {
+      this.field2799 = true;
+    } else if (code === 91) {
+      this.members = true;
+    } else if (code === 93) {
+      this.skewType = 3;
+      this.skewAmount = buf.g2b();
+    } else if (code === 94) {
+      this.skewType = 4;
+    } else if (code === 95) {
+      this.skewType = 5;
+    } else if (code === 249) {
+      const count = buf.g1();
+      if (this.params === null) {
+        this.params = new HashTable(IntMath.bitceil(count));
+      }
+      for (let i = 0;i < count; i++) {
+        const isString = buf.g1() === 1;
+        const key = buf.g3();
+        const node = isString ? new StringNode(buf.gjstr()) : new IntNode(buf.g4());
+        this.params.put(BigInt(key), node);
+      }
+    }
   }
   postDecode() {
     if (this.active === -1) {
@@ -8258,217 +8442,6 @@ class LocType extends Linkable2 {
     }
     if (this.raiseobject === -1) {
       this.raiseobject = this.blockwalk === 0 ? 0 : 1;
-    }
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      const code = arg0;
-      const dat = arg1;
-      if (code === 1) {
-        const count = dat.g1();
-        if (count > 0) {
-          if (this.model !== null && !LocType.lowMem) {
-            dat.pos += count * 3;
-            return;
-          } else {
-            this.shape = new Int32Array(count);
-            this.model = new Int32Array(count);
-            for (let i = 0;i < count; i++) {
-              this.model[i] = dat.g2();
-              this.shape[i] = dat.g1();
-            }
-          }
-        }
-      } else if (code === 2) {
-        this.name = dat.gjstr();
-      } else if (code === 5) {
-        const count = dat.g1();
-        if (count > 0) {
-          if (this.model !== null && !LocType.lowMem) {
-            dat.pos += count * 2;
-            return;
-          } else {
-            this.model = new Int32Array(count);
-            this.shape = null;
-            for (let i = 0;i < count; i++) {
-              this.model[i] = dat.g2();
-            }
-          }
-        }
-      } else if (code === 14) {
-        this.width = dat.g1();
-      } else if (code === 15) {
-        this.length = dat.g1();
-      } else if (code === 17) {
-        this.blockrange = false;
-        this.blockwalk = 0;
-      } else if (code === 18) {
-        this.blockrange = false;
-      } else if (code === 19) {
-        this.active = dat.g1();
-      } else if (code === 21) {
-        this.skewType = 1;
-      } else if (code === 22) {
-        this.sharelight = true;
-      } else if (code === 23) {
-        this.occlude = true;
-      } else if (code === 24) {
-        this.anim = dat.g2();
-        if (this.anim === 65535) {
-          this.anim = -1;
-        }
-      } else if (code === 27) {
-        this.blockwalk = 1;
-      } else if (code === 28) {
-        this.wallwidth = dat.g1();
-      } else if (code === 29) {
-        this.ambient = dat.g1b();
-      } else if (code === 39) {
-        this.contrast = dat.g1b() * 5;
-      } else if (code >= 30 && code < 35) {
-        this.op[code - 30] = dat.gjstr();
-        if (this.op[code - 30].toLowerCase() === Text.hidden.toLowerCase()) {
-          this.op[code - 30] = null;
-        }
-      } else if (code === 40) {
-        const count = dat.g1();
-        this.recol_s = new Int16Array(count);
-        this.recol_d = new Int16Array(count);
-        for (let i = 0;i < count; i++) {
-          this.recol_s[i] = dat.g2();
-          this.recol_d[i] = dat.g2();
-        }
-      } else if (code === 41) {
-        const count = dat.g1();
-        this.retex_d = new Int16Array(count);
-        this.retex_s = new Int16Array(count);
-        for (let i = 0;i < count; i++) {
-          this.retex_s[i] = dat.g2();
-          this.retex_d[i] = dat.g2();
-        }
-      } else if (code === 42) {
-        const count = dat.g1();
-        this.recol_d_palette = new Int8Array(count);
-        for (let i = 0;i < count; i++) {
-          this.recol_d_palette[i] = dat.g1b();
-        }
-      } else if (code === 60) {
-        this.mapfunction = dat.g2();
-      } else if (code === 62) {
-        this.mirror = true;
-      } else if (code === 64) {
-        this.shadow = false;
-      } else if (code === 65) {
-        this.resizex = dat.g2();
-      } else if (code === 66) {
-        this.resizey = dat.g2();
-      } else if (code === 67) {
-        this.resizez = dat.g2();
-      } else if (code === 68) {
-        this.mapscene = dat.g2();
-      } else if (code === 69) {
-        this.forceapproach = dat.g1();
-      } else if (code === 70) {
-        this.offsetx = dat.g2b();
-      } else if (code === 71) {
-        this.offsety = dat.g2b();
-      } else if (code === 72) {
-        this.offsetz = dat.g2b();
-      } else if (code === 73) {
-        this.forcedecor = true;
-      } else if (code === 74) {
-        this.breakroutefinding = true;
-      } else if (code === 75) {
-        this.raiseobject = dat.g1();
-      } else if (code === 77 || code === 92) {
-        this.multivarbit = dat.g2();
-        if (this.multivarbit === 65535) {
-          this.multivarbit = -1;
-        }
-        let defaultLoc = -1;
-        this.multivarp = dat.g2();
-        if (this.multivarp === 65535) {
-          this.multivarp = -1;
-        }
-        if (code === 92) {
-          defaultLoc = dat.g2();
-          if (defaultLoc === 65535) {
-            defaultLoc = -1;
-          }
-        }
-        const count = dat.g1();
-        this.multiloc = new Int32Array(count + 2);
-        for (let i = 0;i <= count; i++) {
-          this.multiloc[i] = dat.g2();
-          if (this.multiloc[i] === 65535) {
-            this.multiloc[i] = -1;
-          }
-        }
-        this.multiloc[count + 1] = defaultLoc;
-      } else if (code === 78) {
-        this.bgsound_sound = dat.g2();
-        this.bgsound_range = dat.g1();
-      } else if (code === 79) {
-        this.bgsound_mindelay = dat.g2();
-        this.bgsound_maxdelay = dat.g2();
-        this.bgsound_range = dat.g1();
-        const count = dat.g1();
-        this.bgsound_random = new Int32Array(count);
-        for (let i = 0;i < count; i++) {
-          this.bgsound_random[i] = dat.g2();
-        }
-      } else if (code === 81) {
-        this.skewType = 2;
-        this.skewAmount = dat.g1() * 256 << 16 >> 16;
-      } else if (code === 82 || code === 88) {} else if (code === 89) {
-        this.randomanimframe = false;
-      } else if (code === 90) {
-        this.field2799 = true;
-      } else if (code === 91) {
-        this.members = true;
-      } else if (code === 93) {
-        this.skewType = 3;
-        this.skewAmount = dat.g2b();
-      } else if (code === 94) {
-        this.skewType = 4;
-      } else if (code === 95) {
-        this.skewType = 5;
-      } else if (code === 249) {
-        const count = dat.g1();
-        if (this.params === null) {
-          this.params = new HashTable(IntMath.bitceil(count));
-        }
-        for (let i = 0;i < count; i++) {
-          const isString = dat.g1() === 1;
-          const key = dat.g3();
-          const node = isString ? new StringNode(dat.gjstr()) : new IntNode(dat.g4());
-          this.params.put(BigInt(key), node);
-        }
-      }
-      return;
-    }
-    while (true) {
-      const code = arg0.g1();
-      if (code === 0) {
-        return;
-      }
-      this.decode(code, arg0);
-    }
-  }
-  getParamInt(arg0, arg1) {
-    if (this.params === null) {
-      return arg0;
-    } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
-    }
-  }
-  getParamString(arg0, arg1) {
-    if (this.params === null) {
-      return arg0;
-    } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
     }
   }
   checkModel(arg0) {
@@ -8490,20 +8463,6 @@ class LocType extends Linkable2 {
     } else {
       return true;
     }
-  }
-  hasBgSound() {
-    if (this.multiloc === null) {
-      return this.bgsound_sound !== -1 || this.bgsound_random !== null;
-    }
-    for (let i = 0;i < this.multiloc.length; i++) {
-      if (this.multiloc[i] !== -1) {
-        const loc = LocType.list(this.multiloc[i]);
-        if (loc.bgsound_sound !== -1 || loc.bgsound_random !== null) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
   checkModelAll() {
     if (this.model === null) {
@@ -8533,7 +8492,7 @@ class LocType extends Linkable2 {
     if (var12 === null) {
       const var13 = this.buildModel(arg6, arg0);
       if (var13 === null) {
-        LocType.mc3.field3984 = null;
+        LocType.mc3.model = null;
         return LocType.mc3;
       }
       var13.method563();
@@ -8557,7 +8516,7 @@ class LocType extends Linkable2 {
         var12 = var12.hillSkew(this.skewType, this.skewAmount, arg2, arg1, arg3, arg7, arg5);
       }
     }
-    LocType.mc3.field3984 = var12;
+    LocType.mc3.model = var12;
     return LocType.mc3;
   }
   getTempModel(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
@@ -8585,7 +8544,7 @@ class LocType extends Linkable2 {
       }
       var12 = var12.hillSkew(this.skewType, this.skewAmount, arg6, arg7, arg1, arg0, arg3, false);
     }
-    LocType.mc3.field3984 = var12;
+    LocType.mc3.model = var12;
     return LocType.mc3;
   }
   buildModel(arg0, arg1) {
@@ -8712,6 +8671,42 @@ class LocType extends Linkable2 {
     } else {
       return LocType.list(this.multiloc[index]);
     }
+  }
+  static resetCache() {
+    LocType.recentUse.clear();
+    LocType.mc1.clear();
+    LocType.modelCacheDynamic.clear();
+    LocType.mc2.clear();
+  }
+  getParamInt(arg0, arg1) {
+    if (this.params === null) {
+      return arg0;
+    } else {
+      const var3 = this.params.find(BigInt(arg1));
+      return var3 === null ? arg0 : var3.value;
+    }
+  }
+  getParamString(arg0, arg1) {
+    if (this.params === null) {
+      return arg0;
+    } else {
+      const var3 = this.params.find(BigInt(arg1));
+      return var3 === null ? arg0 : var3.value;
+    }
+  }
+  hasBgSound() {
+    if (this.multiloc === null) {
+      return this.bgsound_sound !== -1 || this.bgsound_random !== null;
+    }
+    for (let i = 0;i < this.multiloc.length; i++) {
+      if (this.multiloc[i] !== -1) {
+        const loc = LocType.list(this.multiloc[i]);
+        if (loc.bgsound_sound !== -1 || loc.bgsound_random !== null) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }
 
@@ -11271,31 +11266,31 @@ class BgSound extends Linkable {
 
 // src/dash3d/AnimBase.ts
 class AnimBase extends Linkable {
-  type;
-  field1410;
   id;
   size;
+  type;
   labels;
-  constructor(arg0, arg1) {
+  field1410;
+  constructor(id, src) {
     super();
-    this.id = arg0;
-    const var3 = new Packet(arg1);
-    this.size = var3.g1();
+    this.id = id;
+    const buf = new Packet(src);
+    this.size = buf.g1();
     this.field1410 = new Array(this.size).fill(false);
     this.type = new Int32Array(this.size);
     this.labels = new Array(this.size);
-    for (let var4 = 0;var4 < this.size; var4++) {
-      this.type[var4] = var3.g1();
+    for (let i = 0;i < this.size; i++) {
+      this.type[i] = buf.g1();
     }
-    for (let var5 = 0;var5 < this.size; var5++) {
-      this.field1410[var5] = var3.g1() === 1;
+    for (let i = 0;i < this.size; i++) {
+      this.field1410[i] = buf.g1() === 1;
     }
-    for (let var6 = 0;var6 < this.size; var6++) {
-      this.labels[var6] = new Int32Array(var3.g1());
+    for (let i = 0;i < this.size; i++) {
+      this.labels[i] = new Int32Array(buf.g1());
     }
-    for (let var7 = 0;var7 < this.size; var7++) {
-      for (let var8 = 0;var8 < this.labels[var7].length; var8++) {
-        this.labels[var7][var8] = var3.g1();
+    for (let i = 0;i < this.size; i++) {
+      for (let j = 0;j < this.labels[i].length; j++) {
+        this.labels[i][j] = buf.g1();
       }
     }
   }
@@ -11303,23 +11298,23 @@ class AnimBase extends Linkable {
 
 // src/dash3d/AnimFrame.ts
 class AnimFrame {
-  field3774;
   static tempTi = new Int16Array(500);
-  static tempTz = new Int16Array(500);
-  animateTransparencies = false;
-  static tempTy = new Int16Array(500);
-  size = -1;
-  ty;
-  ti;
   static tempTx = new Int16Array(500);
-  tx;
+  static tempTy = new Int16Array(500);
+  static tempTz = new Int16Array(500);
   static field3784 = new Int16Array(500);
-  tz;
   base;
-  constructor(arg0, arg1) {
-    this.base = arg1;
-    const var3 = new Packet(arg0);
-    const var4 = new Packet(arg0);
+  size = -1;
+  ti;
+  tx;
+  ty;
+  tz;
+  field3774;
+  animateTransparencies = false;
+  constructor(src, base) {
+    this.base = base;
+    const var3 = new Packet(src);
+    const var4 = new Packet(src);
     var3.pos = 2;
     const var5 = var3.g1();
     let var6 = 0;
@@ -11371,7 +11366,7 @@ class AnimFrame {
         }
       }
     }
-    if (var4.pos !== arg0.length) {
+    if (var4.pos !== src.length) {
       throw new Error;
     }
     this.size = var6;
@@ -11449,6 +11444,12 @@ class SeqType extends Linkable2 {
     SeqType.configClient = config;
     SeqType.bases = bases;
   }
+  static getGroupId(id) {
+    return id & 127;
+  }
+  static getFileId(id) {
+    return id >>> 7;
+  }
   static list(id) {
     const cached = SeqType.recentUse.find(BigInt(id));
     if (cached !== null) {
@@ -11462,47 +11463,6 @@ class SeqType extends Linkable2 {
     type.postDecode();
     SeqType.recentUse.put(BigInt(id), type);
     return type;
-  }
-  static loadFrameset(arg0, arg1, arg2) {
-    let var3 = true;
-    const var4 = arg2.getFileList(arg1);
-    for (let var5 = 0;var5 < var4.length; var5++) {
-      const var6 = arg2.peekFile(var4[var5], arg1);
-      if (var6 === null) {
-        var3 = false;
-      } else {
-        const var7 = var6[1] & 255 | (var6[0] & 255) << 8;
-        const var8 = arg0.peekFile(0, var7);
-        if (var8 === null) {
-          var3 = false;
-        }
-      }
-    }
-    if (!var3) {
-      return null;
-    }
-    try {
-      return new AnimFrameSet(arg2, arg0, arg1, false);
-    } catch (var9) {
-      return null;
-    }
-  }
-  static get(arg0) {
-    const var1 = SeqType.framesetCache.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
-    }
-    const var2 = SeqType.loadFrameset(SeqType.bases, arg0, SeqType.anims);
-    if (var2 !== null) {
-      SeqType.framesetCache.put(BigInt(arg0), var2);
-    }
-    return var2;
-  }
-  static getGroupId(arg0) {
-    return arg0 & 127;
-  }
-  static getFileId(arg0) {
-    return arg0 >>> 7;
   }
   decode(dat) {
     while (true) {
@@ -11563,7 +11523,7 @@ class SeqType extends Linkable2 {
       }
     } else if (code === 13) {
       const count = dat.g2();
-      this.sound = new Array(count);
+      this.sound = new Array(count).fill(null);
       for (let i = 0;i < count; i++) {
         const len = dat.g1();
         if (len > 0) {
@@ -11690,6 +11650,41 @@ class SeqType extends Linkable2 {
       return var10;
     }
   }
+  static loadFrameset(arg0, arg1, arg2) {
+    let var3 = true;
+    const var4 = arg2.getFileList(arg1);
+    for (let var5 = 0;var5 < var4.length; var5++) {
+      const var6 = arg2.peekFile(var4[var5], arg1);
+      if (var6 === null) {
+        var3 = false;
+      } else {
+        const var7 = var6[1] & 255 | (var6[0] & 255) << 8;
+        const var8 = arg0.peekFile(0, var7);
+        if (var8 === null) {
+          var3 = false;
+        }
+      }
+    }
+    if (!var3) {
+      return null;
+    }
+    try {
+      return new AnimFrameSet(arg2, arg0, arg1, false);
+    } catch (var9) {
+      return null;
+    }
+  }
+  static get(arg0) {
+    const var1 = SeqType.framesetCache.find(BigInt(arg0));
+    if (var1 !== null) {
+      return var1;
+    }
+    const var2 = SeqType.loadFrameset(SeqType.bases, arg0, SeqType.anims);
+    if (var2 !== null) {
+      SeqType.framesetCache.put(BigInt(arg0), var2);
+    }
+    return var2;
+  }
   static resetCache() {
     SeqType.recentUse.clear();
     SeqType.framesetCache.clear();
@@ -11698,99 +11693,119 @@ class SeqType extends Linkable2 {
 
 // src/dash3d/Occlude.ts
 class Occlude {
-  minX = 0;
-  maxDeltaZ = 0;
-  minTileZ = 0;
-  minDeltaY = 0;
-  minY = 0;
-  type = 0;
-  minZ = 0;
-  maxX = 0;
-  maxTileX = 0;
-  maxDeltaX = 0;
-  maxY = 0;
-  minDeltaX = 0;
-  minDeltaZ = 0;
-  maxTileZ = 0;
-  maxDeltaY = 0;
   minTileX = 0;
+  maxTileX = 0;
+  minTileZ = 0;
+  maxTileZ = 0;
+  type = 0;
+  minX = 0;
+  maxX = 0;
+  minZ = 0;
   maxZ = 0;
+  minY = 0;
+  maxY = 0;
   mode = 0;
+  minDeltaX = 0;
+  maxDeltaX = 0;
+  minDeltaZ = 0;
+  maxDeltaZ = 0;
+  minDeltaY = 0;
+  maxDeltaY = 0;
 }
 
 // src/dash3d/GroundDecor.ts
 class GroundDecor {
-  z = 0;
   y = 0;
-  model = null;
   x = 0;
+  z = 0;
   typecode = 0;
+  model = null;
 }
 
 // src/dash3d/Sprite.ts
 class Sprite {
-  minTileX = 0;
-  cycle = 0;
-  maxTileZ = 0;
-  minTileZ = 0;
-  y = 0;
-  yaw = 0;
-  maxTileX = 0;
-  model = null;
-  x = 0;
-  typecode = 0;
-  z = 0;
-  distance = 0;
   level = 0;
+  y = 0;
+  x = 0;
+  yaw = 0;
+  z = 0;
+  model = null;
+  minTileX = 0;
+  maxTileX = 0;
+  minTileZ = 0;
+  maxTileZ = 0;
+  distance = 0;
+  cycle = 0;
+  typecode = 0;
 }
 
 // src/dash3d/GroundObject.ts
 class GroundObject {
-  height = 0;
-  z = 0;
-  typecode = 0;
-  topObj = null;
   y = 0;
-  bottomObj = null;
-  middleObj = null;
   x = 0;
+  z = 0;
+  bottomObj = null;
+  topObj = null;
+  middleObj = null;
+  typecode = 0;
+  height = 0;
 }
 
 // src/dash3d/Square.ts
 class Square extends Linkable {
-  spriteSpans = 0;
-  spriteSpan = new Int32Array(5);
-  sprites = new Array(5).fill(null);
-  z;
   level;
-  originalLevel;
   x;
-  backWallTypes = 0;
-  drawLevel = 0;
-  blockLocSpans = 0;
-  checkLocSpans = 0;
-  inverseBlockLocSpans = 0;
-  spriteCount = 0;
+  z;
+  originalLevel;
+  quickGround = null;
+  ground = null;
   wall = null;
+  decor = null;
   groundDecor = null;
   groundObject = null;
-  linkedSquare = null;
-  ground = null;
-  decor = null;
-  quickGround = null;
+  spriteCount = 0;
+  sprites = new Array(5).fill(null);
+  spriteSpan = new Int32Array(5);
+  spriteSpans = 0;
+  drawLevel = 0;
   drawFront = false;
-  drawSprites = false;
   drawBack = false;
-  constructor(arg0, arg1, arg2) {
+  drawSprites = false;
+  checkLocSpans = 0;
+  blockLocSpans = 0;
+  inverseBlockLocSpans = 0;
+  backWallTypes = 0;
+  linkedSquare = null;
+  constructor(level, x, z) {
     super();
-    this.z = arg2;
-    this.originalLevel = this.level = arg0;
-    this.x = arg1;
+    this.z = z;
+    this.originalLevel = this.level = level;
+    this.x = x;
   }
 }
 
 // src/dash3d/Ground.ts
 class Ground {
+  vertexX;
+  vertexY;
+  vertexZ;
+  faceColourA;
+  faceColourB;
+  faceColourC;
+  faceVertexA;
+  faceVertexB;
+  faceVertexC;
+  faceTexture = null;
+  flat = true;
+  overlayShape;
+  overlayRotation;
+  minimapOverlay;
+  minimapUnderlay;
+  static drawVertexX = new Int32Array(6);
+  static drawVertexY = new Int32Array(6);
+  static drawTextureVertexX = new Int32Array(6);
+  static drawTextureVertexY = new Int32Array(6);
+  static drawTextureVertexZ = new Int32Array(6);
   static defShapeP = [
     Int8Array.of(1, 3, 5, 7),
     Int8Array.of(1, 3, 5, 7),
@@ -11821,35 +11836,15 @@ class Ground {
     Int8Array.of(1, 0, 1, 5, 1, 1, 4, 5, 1, 1, 2, 4, 0, 0, 5, 3, 0, 5, 4, 3, 0, 4, 2, 3),
     Int8Array.of(1, 0, 5, 4, 1, 0, 1, 5, 0, 0, 4, 3, 0, 4, 5, 3, 0, 5, 2, 3, 0, 1, 2, 5)
   ];
-  static drawVertexX = new Int32Array(6);
-  static drawVertexY = new Int32Array(6);
-  static drawTextureVertexX = new Int32Array(6);
-  static drawTextureVertexY = new Int32Array(6);
-  static drawTextureVertexZ = new Int32Array(6);
-  vertexX;
-  vertexY;
-  vertexZ;
-  faceColourA;
-  faceColourB;
-  faceColourC;
-  faceVertexA;
-  faceVertexB;
-  faceVertexC;
-  faceTexture = null;
-  flat = true;
-  minimapUnderlay;
-  minimapOverlay;
-  overlayShape;
-  overlayRotation;
-  constructor(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, arg17, arg18) {
+  constructor(overlayShape, overlayRotation, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14, arg15, arg16, minimapOverlay, minimapUnderlay) {
     if (arg5 !== arg6 || arg5 !== arg7 || arg5 !== arg8) {
       this.flat = false;
     }
-    this.overlayShape = arg0;
-    this.overlayRotation = arg1;
-    this.minimapOverlay = arg17;
-    this.minimapUnderlay = arg18;
-    const var20 = Ground.defShapeP[arg0];
+    this.overlayShape = overlayShape;
+    this.overlayRotation = overlayRotation;
+    this.minimapOverlay = minimapOverlay;
+    this.minimapUnderlay = minimapUnderlay;
+    const var20 = Ground.defShapeP[overlayShape];
     const var21 = var20.length;
     this.vertexX = new Int32Array(var21);
     this.vertexY = new Int32Array(var21);
@@ -11861,13 +11856,13 @@ class Ground {
     for (let var26 = 0;var26 < var21; var26++) {
       let var27 = var20[var26];
       if ((var27 & 1) === 0 && var27 <= 8) {
-        var27 = (var27 - arg1 - arg1 - 1 & 7) + 1;
+        var27 = (var27 - overlayRotation - overlayRotation - 1 & 7) + 1;
       }
       if (var27 > 8 && var27 <= 12) {
-        var27 = (var27 - arg1 - 9 & 3) + 9;
+        var27 = (var27 - overlayRotation - 9 & 3) + 9;
       }
       if (var27 > 12 && var27 <= 16) {
-        var27 = (var27 - arg1 - 13 & 3) + 13;
+        var27 = (var27 - overlayRotation - 13 & 3) + 13;
       }
       let var28;
       let var29;
@@ -11977,7 +11972,7 @@ class Ground {
       var22[var26] = var31;
       var23[var26] = var32;
     }
-    const var33 = Ground.defShapeF[arg0];
+    const var33 = Ground.defShapeF[overlayShape];
     const var34 = var33.length / 4 | 0;
     this.faceVertexA = new Int32Array(var34);
     this.faceVertexB = new Int32Array(var34);
@@ -11996,13 +11991,13 @@ class Ground {
       let var40 = var33[var35 + 3];
       var35 += 4;
       if (var38 < 4) {
-        var38 = var38 - arg1 & 3;
+        var38 = var38 - overlayRotation & 3;
       }
       if (var39 < 4) {
-        var39 = var39 - arg1 & 3;
+        var39 = var39 - overlayRotation & 3;
       }
       if (var40 < 4) {
-        var40 = var40 - arg1 & 3;
+        var40 = var40 - overlayRotation & 3;
       }
       this.faceVertexA[var36] = var38;
       this.faceVertexB[var36] = var39;
@@ -12044,48 +12039,48 @@ class Ground {
 
 // src/dash3d/QuickGround.ts
 class QuickGround {
-  colourNW;
   colourSW;
-  texture;
+  colourSE;
   colourNE;
+  colourNW;
+  texture;
   flat = true;
   minimapRgb;
-  colourSE;
-  constructor(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-    this.colourNW = arg3;
-    this.flat = arg6;
-    this.colourSW = arg0;
-    this.colourSE = arg1;
-    this.texture = arg4;
-    this.minimapRgb = arg5;
-    this.colourNE = arg2;
+  constructor(colourSW, colourSE, colourNE, colourNW, texture, minimapRgb, flat) {
+    this.colourNW = colourNW;
+    this.flat = flat;
+    this.colourSW = colourSW;
+    this.colourSE = colourSE;
+    this.texture = texture;
+    this.minimapRgb = minimapRgb;
+    this.colourNE = colourNE;
   }
 }
 
 // src/dash3d/Wall.ts
 class Wall {
-  modelA = null;
-  z = 0;
-  typeB = 0;
-  typeA = 0;
-  typecode = 0;
-  x = 0;
   y = 0;
+  x = 0;
+  z = 0;
+  typeA = 0;
+  typeB = 0;
+  modelA = null;
   modelB = null;
+  typecode = 0;
 }
 
 // src/dash3d/Decor.ts
 class Decor {
+  y = 0;
   x = 0;
-  typecode = 0;
-  model = null;
-  model2 = null;
   z = 0;
   wshape = 0;
-  zof = 0;
-  y = 0;
-  xof = 0;
   yof = 0;
+  xof = 0;
+  zof = 0;
+  model = null;
+  model2 = null;
+  typecode = 0;
 }
 
 // src/dash3d/World.ts
@@ -14048,24 +14043,24 @@ class World {
 
 // src/dash3d/ClientLocAnim.ts
 class ClientLocAnim extends ModelSource {
-  z;
-  x;
-  angle;
-  anim = null;
-  field1460 = -32768;
-  animCycle = 0;
   id;
-  level;
   shape;
+  angle;
+  level;
+  x;
+  z;
+  anim = null;
   animFrame = 0;
-  constructor(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+  animCycle = 0;
+  height = -32768;
+  constructor(id, shape, angle, level, x, z, arg6, arg7, arg8) {
     super();
-    this.id = arg0;
-    this.angle = arg2;
-    this.level = arg3;
-    this.z = arg5;
-    this.shape = arg1;
-    this.x = arg4;
+    this.id = id;
+    this.angle = angle;
+    this.level = level;
+    this.z = z;
+    this.shape = shape;
+    this.x = x;
     if (arg6 !== -1) {
       this.anim = SeqType.list(arg6);
       this.animFrame = 0;
@@ -14084,9 +14079,6 @@ class ClientLocAnim extends ModelSource {
         return;
       }
     }
-  }
-  method88() {
-    return this.field1460;
   }
   getTempModel() {
     const var1 = World.groundh !== ClientBuild.groundh;
@@ -14127,13 +14119,13 @@ class ClientLocAnim extends ModelSource {
     } else {
       var14 = var2.getTempModel(var10, var11, this.shape, var13, this.animFrame, this.anim, var9, var12, this.angle);
     }
-    return var14 === null ? null : var14.field3984;
+    return var14 === null ? null : var14.model;
   }
   method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     const var11 = this.getTempModel();
     if (var11 != null) {
       var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-      this.field1460 = var11.method88();
+      this.height = var11.method88();
     }
   }
   method537(arg0, arg1) {
@@ -14171,6 +14163,9 @@ class ClientLocAnim extends ModelSource {
     }
     this.animCycle = Client.loopCycle - var3;
   }
+  method88() {
+    return this.height;
+  }
 }
 
 // src/dash3d/CollisionMap.ts
@@ -14190,60 +14185,6 @@ class CollisionMap {
           this.flags[var1][var2] = 16777215;
         } else {
           this.flags[var1][var2] = 16777216;
-        }
-      }
-    }
-  }
-  blockGroundDecor(arg0, arg1) {
-    const var3 = arg0 - this.startZ;
-    const var4 = arg1 - this.startX;
-    this.flags[var4][var3] |= 262144;
-  }
-  unblockGroundDecor(arg0, arg1) {
-    const var3 = arg0 - this.startX;
-    const var4 = arg1 - this.startZ;
-    this.flags[var3][var4] &= 4294705151;
-  }
-  blockGround(arg0, arg1) {
-    const var3 = arg1 - this.startX;
-    const var4 = arg0 - this.startZ;
-    this.flags[var3][var4] |= 2097152;
-  }
-  addLoc(arg0, arg1, arg2, arg3, arg4) {
-    const var6 = arg4 - this.startZ;
-    let var7 = 256;
-    if (arg2) {
-      var7 = 131328;
-    }
-    const var8 = arg3 - this.startX;
-    for (let var9 = var8;var9 < var8 + arg0; var9++) {
-      if (var9 >= 0 && var9 < this.sizeX) {
-        for (let var10 = var6;var10 < arg1 + var6; var10++) {
-          if (var10 >= 0 && var10 < this.sizeZ) {
-            this.addCMap(var9, var7, var10);
-          }
-        }
-      }
-    }
-  }
-  delLoc(arg0, arg1, arg2, arg3, arg4, arg5) {
-    if (arg2 === 1 || arg2 === 3) {
-      const var7 = arg5;
-      arg5 = arg4;
-      arg4 = var7;
-    }
-    const var8 = arg3 - this.startZ;
-    const var9 = arg0 - this.startX;
-    let var10 = 256;
-    if (arg1) {
-      var10 = 131328;
-    }
-    for (let var11 = var9;var11 < arg5 + var9; var11++) {
-      if (var11 >= 0 && var11 < this.sizeX) {
-        for (let var12 = var8;var12 < arg4 + var8; var12++) {
-          if (var12 >= 0 && this.sizeZ > var12) {
-            this.remCMap(var11, var12, var10);
-          }
         }
       }
     }
@@ -14373,6 +14314,36 @@ class CollisionMap {
       return;
     }
   }
+  addLoc(arg0, arg1, arg2, arg3, arg4) {
+    const var6 = arg4 - this.startZ;
+    let var7 = 256;
+    if (arg2) {
+      var7 = 131328;
+    }
+    const var8 = arg3 - this.startX;
+    for (let var9 = var8;var9 < var8 + arg0; var9++) {
+      if (var9 >= 0 && var9 < this.sizeX) {
+        for (let var10 = var6;var10 < arg1 + var6; var10++) {
+          if (var10 >= 0 && var10 < this.sizeZ) {
+            this.addCMap(var9, var7, var10);
+          }
+        }
+      }
+    }
+  }
+  blockGround(arg0, arg1) {
+    const var3 = arg1 - this.startX;
+    const var4 = arg0 - this.startZ;
+    this.flags[var3][var4] |= 2097152;
+  }
+  blockGroundDecor(arg0, arg1) {
+    const var3 = arg0 - this.startZ;
+    const var4 = arg1 - this.startX;
+    this.flags[var4][var3] |= 262144;
+  }
+  addCMap(arg0, arg1, arg2) {
+    this.flags[arg0][arg2] |= arg1;
+  }
   delWall(arg0, arg1, arg2, arg3, arg4) {
     const var6 = arg4 - this.startX;
     const var7 = arg3 - this.startZ;
@@ -14497,6 +14468,36 @@ class CollisionMap {
       this.remCMap(var6 - 1, var7, 4096);
       return;
     }
+  }
+  delLoc(arg0, arg1, arg2, arg3, arg4, arg5) {
+    if (arg2 === 1 || arg2 === 3) {
+      const var7 = arg5;
+      arg5 = arg4;
+      arg4 = var7;
+    }
+    const var8 = arg3 - this.startZ;
+    const var9 = arg0 - this.startX;
+    let var10 = 256;
+    if (arg1) {
+      var10 = 131328;
+    }
+    for (let var11 = var9;var11 < arg5 + var9; var11++) {
+      if (var11 >= 0 && var11 < this.sizeX) {
+        for (let var12 = var8;var12 < arg4 + var8; var12++) {
+          if (var12 >= 0 && this.sizeZ > var12) {
+            this.remCMap(var11, var12, var10);
+          }
+        }
+      }
+    }
+  }
+  remCMap(arg0, arg1, arg2) {
+    this.flags[arg0][arg1] &= ~arg2;
+  }
+  unblockGroundDecor(arg0, arg1) {
+    const var3 = arg0 - this.startX;
+    const var4 = arg1 - this.startZ;
+    this.flags[var3][var4] &= 4294705151;
   }
   testWall(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
     if (arg4 === 1) {
@@ -14856,6 +14857,24 @@ class CollisionMap {
     }
     return false;
   }
+  testLoc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+    if (arg0 > 1) {
+      return this.testRectOverlap(arg2, arg0, arg0, arg4, arg3, arg1, arg5, arg6) ? true : this.testLocBoundary(arg0, arg3, arg5, arg2, arg4, arg0, arg1, arg6, arg7);
+    }
+    const var9 = arg1 + arg4 - 1;
+    const var10 = arg6 + arg2 - 1;
+    if (arg5 >= arg6 && arg5 <= var10 && arg1 <= arg3 && var9 >= arg3) {
+      return true;
+    } else if (arg5 === arg6 - 1 && arg3 >= arg1 && arg3 <= var9 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 8) === 0 && (arg7 & 8) === 0) {
+      return true;
+    } else if (arg5 === var10 + 1 && arg3 >= arg1 && arg3 <= var9 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 128) === 0 && (arg7 & 2) === 0) {
+      return true;
+    } else if (arg3 === arg1 - 1 && arg6 <= arg5 && var10 >= arg5 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 2) === 0 && (arg7 & 4) === 0) {
+      return true;
+    } else {
+      return var9 + 1 === arg3 && arg6 <= arg5 && var10 >= arg5 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 32) === 0 && (arg7 & 1) === 0;
+    }
+  }
   testLocBoundary(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     const var10 = arg1 + arg5;
     const var11 = arg2 + arg0;
@@ -14936,30 +14955,6 @@ class CollisionMap {
     } else {
       return false;
     }
-  }
-  testLoc(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-    if (arg0 > 1) {
-      return this.testRectOverlap(arg2, arg0, arg0, arg4, arg3, arg1, arg5, arg6) ? true : this.testLocBoundary(arg0, arg3, arg5, arg2, arg4, arg0, arg1, arg6, arg7);
-    }
-    const var9 = arg1 + arg4 - 1;
-    const var10 = arg6 + arg2 - 1;
-    if (arg5 >= arg6 && arg5 <= var10 && arg1 <= arg3 && var9 >= arg3) {
-      return true;
-    } else if (arg5 === arg6 - 1 && arg3 >= arg1 && arg3 <= var9 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 8) === 0 && (arg7 & 8) === 0) {
-      return true;
-    } else if (arg5 === var10 + 1 && arg3 >= arg1 && arg3 <= var9 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 128) === 0 && (arg7 & 2) === 0) {
-      return true;
-    } else if (arg3 === arg1 - 1 && arg6 <= arg5 && var10 >= arg5 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 2) === 0 && (arg7 & 4) === 0) {
-      return true;
-    } else {
-      return var9 + 1 === arg3 && arg6 <= arg5 && var10 >= arg5 && (this.flags[arg5 - this.startX][arg3 - this.startZ] & 32) === 0 && (arg7 & 1) === 0;
-    }
-  }
-  addCMap(arg0, arg1, arg2) {
-    this.flags[arg0][arg2] |= arg1;
-  }
-  remCMap(arg0, arg1, arg2) {
-    this.flags[arg0][arg1] &= ~arg2;
   }
 }
 
@@ -15498,7 +15493,7 @@ class ClientBuild {
         let var27;
         if (var10.anim === -1 && var10.multiloc === null) {
           const var26 = var10.getModel(22, var21, var17, var18, arg0, var20, arg2, var19);
-          var27 = var26.field3984;
+          var27 = var26.model;
         } else {
           var27 = new ClientLocAnim(arg5, 22, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
         }
@@ -15511,7 +15506,7 @@ class ClientBuild {
       let var29;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var28 = var10.getModel(10, var21, var17, var18, arg0, var20, arg2, var19);
-        var29 = var28.field3984;
+        var29 = var28.model;
       } else {
         var29 = new ClientLocAnim(arg5, 10, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15541,7 +15536,7 @@ class ClientBuild {
       let var35;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var34 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-        var35 = var34.field3984;
+        var35 = var34.model;
       } else {
         var35 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15556,7 +15551,7 @@ class ClientBuild {
       let var36;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var37 = var10.getModel(0, var21, var17, var18, arg0, var20, arg2, var19);
-        var36 = var37.field3984;
+        var36 = var37.model;
       } else {
         var36 = new ClientLocAnim(arg5, 0, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15606,7 +15601,7 @@ class ClientBuild {
       let var38;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var39 = var10.getModel(1, var21, var17, var18, arg0, var20, arg2, var19);
-        var38 = var39.field3984;
+        var38 = var39.model;
       } else {
         var38 = new ClientLocAnim(arg5, 1, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15631,9 +15626,9 @@ class ClientBuild {
       let var42;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var43 = var10.getModel(2, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-        var41 = var43.field3984;
+        var41 = var43.model;
         const var44 = var10.getModel(2, var21, var17, var18, arg0, var20, var40, var19);
-        var42 = var44.field3984;
+        var42 = var44.model;
       } else {
         var41 = new ClientLocAnim(arg5, 2, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
         var42 = new ClientLocAnim(arg5, 2, var40, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
@@ -15664,7 +15659,7 @@ class ClientBuild {
       let var46;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var45 = var10.getModel(3, var21, var17, var18, arg0, var20, arg2, var19);
-        var46 = var45.field3984;
+        var46 = var45.model;
       } else {
         var46 = new ClientLocAnim(arg5, 3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15687,7 +15682,7 @@ class ClientBuild {
       let var47;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var48 = var10.getModel(arg3, var21, var17, var18, arg0, var20, arg2, var19);
-        var47 = var48.field3984;
+        var47 = var48.model;
       } else {
         var47 = new ClientLocAnim(arg5, arg3, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15702,7 +15697,7 @@ class ClientBuild {
       let var49;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var50 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-        var49 = var50.field3984;
+        var49 = var50.model;
       } else {
         var49 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15716,7 +15711,7 @@ class ClientBuild {
       let var54;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var55 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2, var19);
-        var54 = var55.field3984;
+        var54 = var55.model;
       } else {
         var54 = new ClientLocAnim(arg5, 4, arg2, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15730,7 +15725,7 @@ class ClientBuild {
       let var59;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var60 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-        var59 = var60.field3984;
+        var59 = var60.model;
       } else {
         var59 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15740,7 +15735,7 @@ class ClientBuild {
       let var63;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var62 = var10.getModel(4, var21, var17, var18, arg0, var20, var61 + 4, var19);
-        var63 = var62.field3984;
+        var63 = var62.model;
       } else {
         var63 = new ClientLocAnim(arg5, 4, var61 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
       }
@@ -15756,9 +15751,9 @@ class ClientBuild {
       let var69;
       if (var10.anim === -1 && var10.multiloc === null) {
         const var70 = var10.getModel(4, var21, var17, var18, arg0, var20, arg2 + 4, var19);
-        var68 = var70.field3984;
+        var68 = var70.model;
         const var71 = var10.getModel(4, var21, var17, var18, arg0, var20, var67 + 4, var19);
-        var69 = var71.field3984;
+        var69 = var71.model;
       } else {
         var68 = new ClientLocAnim(arg5, 4, arg2 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
         var69 = new ClientLocAnim(arg5, 4, var67 + 4, arg6, arg9, arg8, var10.anim, var10.randomanimframe, null);
@@ -18729,113 +18724,369 @@ class JagString {
 
 // src/config/ObjType.ts
 class ObjType extends Linkable2 {
+  static clientpalette = new Int16Array(256);
+  static configClient;
+  static models;
+  static memServer = false;
+  static numDefinitions = 0;
   static recentUse = new LruCache(64);
   static modelCache = new ModelSourceCache(50);
   static spriteCache = new LruCache(100);
-  static configClient;
-  static memServer = false;
-  static models;
-  static numDefinitions = 0;
   static countFont = null;
-  static clientpalette = new Int16Array(256);
+  id = 0;
+  model = 0;
+  name = "null";
+  recol_s = null;
+  recol_d = null;
+  retex_s = null;
+  retex_d = null;
+  recol_d_palette = null;
+  zoom2d = 2000;
+  xan2d = 0;
+  yan2d = 0;
+  zan2d = 0;
+  xof2d = 0;
+  yof2d = 0;
+  stackable = 0;
+  cost = 1;
+  members = false;
+  op = [null, null, Text.take, null, null];
+  iop = [null, null, null, null, Text.drop];
+  manwear = -1;
+  manwear2 = -1;
+  manwearOffsetY = 0;
+  womanwear = -1;
+  womanwear2 = -1;
+  womanwearOffsetY = 0;
+  manwear3 = -1;
+  womanwear3 = -1;
+  manhead = -1;
+  manhead2 = -1;
+  womanhead = -1;
+  womanhead2 = -1;
+  countobj = null;
+  countco = null;
+  certlink = -1;
+  certtemplate = -1;
+  lentlink = -1;
+  lenttemplate = -1;
+  resizex = 128;
+  resizey = 128;
+  resizez = 128;
+  ambient = 0;
+  contrast = 0;
+  team = 0;
+  stockmarket = false;
+  dummyitem = 0;
+  params = null;
+  field2839 = null;
   static field1210 = null;
   static field2107 = 0;
   static field3893 = 0;
-  static field1698;
-  manwearOffsetY = 0;
-  womanwear3 = -1;
-  stockmarket = false;
-  model = 0;
-  retex_s = null;
-  womanhead2 = -1;
-  ambient = 0;
-  certtemplate = -1;
-  params = null;
-  yof2d = 0;
-  resizez = 128;
-  yan2d = 0;
-  xan2d = 0;
-  lentlink = -1;
-  manwear2 = -1;
-  xof2d = 0;
-  members = false;
-  womanwearOffsetY = 0;
-  manhead2 = -1;
-  manwear3 = -1;
-  team = 0;
-  stackable = 0;
-  zan2d = 0;
-  manhead = -1;
-  resizey = 128;
-  womanwear = -1;
-  cost = 1;
-  dummyitem = 0;
-  womanhead = -1;
-  zoom2d = 2000;
-  lenttemplate = -1;
-  resizex = 128;
-  womanwear2 = -1;
-  certlink = -1;
-  static NULL = "null";
-  name = ObjType.NULL;
-  op = [null, null, Text.take, null, null];
-  manwear = -1;
-  contrast = 0;
-  iop = [null, null, null, null, Text.drop];
-  id = 0;
-  recol_d_palette = null;
-  countco = null;
-  countobj = null;
-  retex_d = null;
-  recol_d = null;
-  recol_s = null;
-  field2839 = null;
-  static list(arg0) {
-    const var1 = ObjType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
-    }
-    const var2 = ObjType.configClient.getFile(ObjType.getGroupId(arg0), ObjType.getFileId(arg0));
-    const var3 = new ObjType;
-    var3.id = arg0;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
-    }
-    var3.postDecode();
-    if (var3.certtemplate !== -1) {
-      var3.genCert(ObjType.list(var3.certlink), ObjType.list(var3.certtemplate));
-    }
-    if (var3.lenttemplate !== -1) {
-      var3.genLent(ObjType.list(var3.lentlink), ObjType.list(var3.lenttemplate));
-    }
-    if (!ObjType.memServer && var3.members) {
-      var3.team = 0;
-      var3.op = null;
-      var3.stockmarket = false;
-      var3.name = Text.members_object;
-      var3.iop = null;
-    }
-    ObjType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+  static wearable;
+  static init(memServer, config, countFont, models) {
+    ObjType.models = models;
+    ObjType.memServer = memServer;
+    ObjType.configClient = config;
+    const groups = ObjType.configClient.getGroupCount() - 1;
+    ObjType.numDefinitions = groups * 256 + ObjType.configClient.getFileIdLimit(groups);
+    ObjType.countFont = countFont;
   }
-  static resetCache() {
-    ObjType.recentUse.clear();
-    ObjType.modelCache.clear();
-    ObjType.spriteCache.clear();
+  static getGroupId(id) {
+    return id & 255;
   }
-  static init(arg0, arg1, arg2, arg3) {
-    ObjType.models = arg3;
-    ObjType.memServer = arg0;
-    ObjType.configClient = arg1;
-    const var4 = ObjType.configClient.getGroupCount() - 1;
-    ObjType.numDefinitions = var4 * 256 + ObjType.configClient.getFileIdLimit(var4);
-    ObjType.countFont = arg2;
+  static getFileId(id) {
+    return id >>> 8;
   }
-  static resetModelCache() {
-    ObjType.modelCache.clear();
+  static list(id) {
+    const cached = ObjType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
+    }
+    const data = ObjType.configClient.getFile(ObjType.getGroupId(id), ObjType.getFileId(id));
+    const type = new ObjType;
+    type.id = id;
+    if (data !== null) {
+      type.decode(new Packet(data));
+    }
+    type.postDecode();
+    if (type.certtemplate !== -1) {
+      type.genCert(ObjType.list(type.certlink), ObjType.list(type.certtemplate));
+    }
+    if (type.lenttemplate !== -1) {
+      type.genLent(ObjType.list(type.lentlink), ObjType.list(type.lenttemplate));
+    }
+    if (!ObjType.memServer && type.members) {
+      type.team = 0;
+      type.op = null;
+      type.stockmarket = false;
+      type.name = Text.members_object;
+      type.iop = null;
+    }
+    ObjType.recentUse.put(BigInt(id), type);
+    return type;
   }
-  static resetSpriteCache() {
-    ObjType.spriteCache.clear();
+  decode(buf) {
+    while (true) {
+      const code = buf.g1();
+      if (code === 0) {
+        return;
+      }
+      this.decodeInner(code, buf);
+    }
+  }
+  decodeInner(code, buf) {
+    if (code === 1) {
+      this.model = buf.g2();
+    } else if (code === 2) {
+      this.name = buf.gjstr();
+    } else if (code === 4) {
+      this.zoom2d = buf.g2();
+    } else if (code === 5) {
+      this.xan2d = buf.g2();
+    } else if (code === 6) {
+      this.yan2d = buf.g2();
+    } else if (code === 7) {
+      this.xof2d = buf.g2();
+      if (this.xof2d > 32767) {
+        this.xof2d -= 65536;
+      }
+    } else if (code === 8) {
+      this.yof2d = buf.g2();
+      if (this.yof2d > 32767) {
+        this.yof2d -= 65536;
+      }
+    } else if (code === 11) {
+      this.stackable = 1;
+    } else if (code === 12) {
+      this.cost = buf.g4();
+    } else if (code === 16) {
+      this.members = true;
+    } else if (code === 23) {
+      this.manwear = buf.g2();
+      this.manwearOffsetY = buf.g1();
+    } else if (code === 24) {
+      this.manwear2 = buf.g2();
+    } else if (code === 25) {
+      this.womanwear = buf.g2();
+      this.womanwearOffsetY = buf.g1();
+    } else if (code === 26) {
+      this.womanwear2 = buf.g2();
+    } else if (code >= 30 && code < 35) {
+      this.op[code - 30] = buf.gjstr();
+      if (this.op[code - 30].toLowerCase() === Text.hidden.toLowerCase()) {
+        this.op[code - 30] = null;
+      }
+    } else if (code >= 35 && code < 40) {
+      this.iop[code - 35] = buf.gjstr();
+    } else if (code === 40) {
+      const count = buf.g1();
+      this.recol_s = new Int16Array(count);
+      this.recol_d = new Int16Array(count);
+      for (let i = 0;i < count; i++) {
+        this.recol_s[i] = buf.g2();
+        this.recol_d[i] = buf.g2();
+      }
+    } else if (code === 41) {
+      const count = buf.g1();
+      this.retex_d = new Int16Array(count);
+      this.retex_s = new Int16Array(count);
+      for (let i = 0;i < count; i++) {
+        this.retex_s[i] = buf.g2();
+        this.retex_d[i] = buf.g2();
+      }
+    } else if (code === 42) {
+      const count = buf.g1();
+      this.recol_d_palette = new Int8Array(count);
+      for (let i = 0;i < count; i++) {
+        this.recol_d_palette[i] = buf.g1b();
+      }
+    } else if (code === 65) {
+      this.stockmarket = true;
+    } else if (code === 78) {
+      this.manwear3 = buf.g2();
+    } else if (code === 79) {
+      this.womanwear3 = buf.g2();
+    } else if (code === 90) {
+      this.manhead = buf.g2();
+    } else if (code === 91) {
+      this.womanhead = buf.g2();
+    } else if (code === 92) {
+      this.manhead2 = buf.g2();
+    } else if (code === 93) {
+      this.womanhead2 = buf.g2();
+    } else if (code === 95) {
+      this.zan2d = buf.g2();
+    } else if (code === 96) {
+      this.dummyitem = buf.g1();
+    } else if (code === 97) {
+      this.certlink = buf.g2();
+    } else if (code === 98) {
+      this.certtemplate = buf.g2();
+    } else if (code >= 100 && code < 110) {
+      if (this.countobj === null) {
+        this.countco = new Int32Array(10);
+        this.countobj = new Int32Array(10);
+      }
+      this.countobj[code - 100] = buf.g2();
+      this.countco[code - 100] = buf.g2();
+    } else if (code === 110) {
+      this.resizex = buf.g2();
+    } else if (code === 111) {
+      this.resizey = buf.g2();
+    } else if (code === 112) {
+      this.resizez = buf.g2();
+    } else if (code === 113) {
+      this.ambient = buf.g1b();
+    } else if (code === 114) {
+      this.contrast = buf.g1b() * 5;
+    } else if (code === 115) {
+      this.team = buf.g1();
+    } else if (code === 121) {
+      this.lentlink = buf.g2();
+    } else if (code === 122) {
+      this.lenttemplate = buf.g2();
+    } else if (code === 124) {
+      if (this.field2839 === null) {
+        this.field2839 = new Array(11);
+      }
+      const index = buf.g1();
+      this.field2839[index] = new Int32Array(6);
+      for (let i = 0;i < 6; i++) {
+        this.field2839[index][i] = buf.g2b();
+      }
+    } else if (code === 249) {
+      const count = buf.g1();
+      if (this.params === null) {
+        this.params = new HashTable(IntMath.bitceil(count));
+      }
+      for (let i = 0;i < count; i++) {
+        const isString = buf.g1() === 1;
+        const key = buf.g3();
+        const node = isString ? new StringNode(buf.gjstr()) : new IntNode(buf.g4());
+        this.params.put(BigInt(key), node);
+      }
+    }
+  }
+  postDecode() {}
+  genCert(link, template) {
+    this.yof2d = template.yof2d;
+    this.recol_d_palette = template.recol_d_palette;
+    this.cost = link.cost;
+    this.stackable = 1;
+    this.recol_s = template.recol_s;
+    this.name = link.name;
+    this.zoom2d = template.zoom2d;
+    this.xan2d = template.xan2d;
+    this.xof2d = template.xof2d;
+    this.yan2d = template.yan2d;
+    this.retex_s = template.retex_s;
+    this.members = link.members;
+    this.model = template.model;
+    this.retex_d = template.retex_d;
+    this.recol_d = template.recol_d;
+    this.zan2d = template.zan2d;
+  }
+  genLent(arg0, arg1) {
+    this.xan2d = arg1.xan2d;
+    this.zoom2d = arg1.zoom2d;
+    this.name = arg0.name;
+    this.womanwearOffsetY = arg0.womanwearOffsetY;
+    this.womanwear2 = arg0.womanwear2;
+    this.yan2d = arg1.yan2d;
+    this.recol_d = arg0.recol_d;
+    this.manwear2 = arg0.manwear2;
+    this.xof2d = arg1.xof2d;
+    this.manhead2 = arg0.manhead2;
+    this.retex_d = arg0.retex_d;
+    this.womanwear = arg0.womanwear;
+    this.op = arg0.op;
+    this.manhead = arg0.manhead;
+    this.model = arg1.model;
+    this.members = arg0.members;
+    this.zan2d = arg1.zan2d;
+    this.iop = new Array(5).fill(null);
+    this.manwear3 = arg0.manwear3;
+    this.womanwear3 = arg0.womanwear3;
+    this.cost = 0;
+    this.womanhead = arg0.womanhead;
+    this.recol_d_palette = arg0.recol_d_palette;
+    this.womanhead2 = arg0.womanhead2;
+    this.manwear = arg0.manwear;
+    this.retex_s = arg0.retex_s;
+    this.yof2d = arg1.yof2d;
+    this.team = arg0.team;
+    this.manwearOffsetY = arg0.manwearOffsetY;
+    this.recol_s = arg0.recol_s;
+    this.params = arg0.params;
+    if (arg0.iop !== null) {
+      for (let var3 = 0;var3 < 4; var3++) {
+        this.iop[var3] = arg0.iop[var3];
+      }
+    }
+    this.iop[4] = Text.discard;
+  }
+  getModelLit(arg0, arg1 = 0, arg2 = null) {
+    const animated = arg0 !== undefined;
+    const count = arg0 ?? 1;
+    if (this.countobj !== null && count > 1) {
+      let id = -1;
+      for (let i = 0;i < 10; i++) {
+        if (count >= this.countco[i] && this.countco[i] !== 0) {
+          id = this.countobj[i];
+        }
+      }
+      if (id !== -1) {
+        return ObjType.list(id).getModelLit(1, arg1, arg2);
+      }
+    }
+    if (animated) {
+      const cached = ObjType.modelCache.find(BigInt(this.id));
+      if (cached !== null) {
+        return arg2 !== null ? arg2.animateModelWithExtra(arg1, cached) : cached;
+      }
+    }
+    const model = ModelUnlit.load(ObjType.models, this.model);
+    if (model === null) {
+      return null;
+    }
+    if (this.recol_s !== null) {
+      for (let i = 0;i < this.recol_s.length; i++) {
+        if (this.recol_d_palette === null || i >= this.recol_d_palette.length) {
+          model.recolour(this.recol_s[i], this.recol_d[i]);
+        } else {
+          model.recolour(this.recol_s[i], ObjType.clientpalette[this.recol_d_palette[i] & 255]);
+        }
+      }
+    }
+    if (this.retex_s !== null) {
+      for (let i = 0;i < this.retex_s.length; i++) {
+        model.retexture(this.retex_s[i], this.retex_d[i]);
+      }
+    }
+    const lit = animated ? new SoftwareModelLit(model, this.ambient + 64, this.contrast + 768, -50, -10, -50) : model.method547(this.ambient + 64, this.contrast + 768);
+    if (this.resizex !== 128 || this.resizey !== 128 || this.resizez !== 128) {
+      lit.resize(this.resizex, this.resizey, this.resizez);
+    }
+    if (animated) {
+      lit.useAABBMouseCheck = true;
+      ObjType.modelCache.put(BigInt(this.id), lit);
+    }
+    return arg2 !== null ? arg2.animateModelWithExtra(arg1, lit) : lit;
+  }
+  getStackSizeAlt(arg0) {
+    if (this.countobj !== null && arg0 > 1) {
+      let var2 = -1;
+      for (let var3 = 0;var3 < 10; var3++) {
+        if (arg0 >= this.countco[var3] && this.countco[var3] !== 0) {
+          var2 = this.countobj[var3];
+        }
+      }
+      if (var2 !== -1) {
+        return ObjType.list(var2);
+      }
+    }
+    return this;
   }
   static getSprite(arg0, arg1, arg2, arg3, arg4) {
     const var5 = (BigInt(arg4) << 40n) + (BigInt(arg2) << 16n) + BigInt(arg1) + (arg3 ? 137438953472n : 0n) + (BigInt(arg0) << 38n);
@@ -18924,12 +19175,6 @@ class ObjType extends Linkable2 {
     Pix3D.lowDetail = true;
     return var15;
   }
-  static getGroupId(arg0) {
-    return arg0 & 255;
-  }
-  static getFileId(arg0) {
-    return arg0 >>> 8;
-  }
   static invNumber(value) {
     if (value < 1e5) {
       return `<col=ffff00>${value}</col>`;
@@ -18939,7 +19184,147 @@ class ObjType extends Linkable2 {
       return `<col=00ff80>${value / 1e6 | 0}${Text.million_short}</col>`;
     }
   }
-  static method1416() {
+  checkWearModel(arg0) {
+    let var2 = this.manwear2;
+    let var3 = this.manwear;
+    let var4 = this.manwear3;
+    if (arg0) {
+      var3 = this.womanwear;
+      var2 = this.womanwear2;
+      var4 = this.womanwear3;
+    }
+    if (var3 === -1) {
+      return true;
+    }
+    let var5 = true;
+    if (!ObjType.models.requestDownload(var3, 0)) {
+      var5 = false;
+    }
+    if (var2 !== -1 && !ObjType.models.requestDownload(var2, 0)) {
+      var5 = false;
+    }
+    if (var4 !== -1 && !ObjType.models.requestDownload(var4, 0)) {
+      var5 = false;
+    }
+    return var5;
+  }
+  getWearModelNoCheck(arg0) {
+    let var2 = this.manwear;
+    let var3 = this.manwear3;
+    let var4 = this.manwear2;
+    if (arg0) {
+      var2 = this.womanwear;
+      var3 = this.womanwear3;
+      var4 = this.womanwear2;
+    }
+    if (var2 === -1) {
+      return null;
+    }
+    let var5 = ModelUnlit.load(ObjType.models, var2);
+    if (var4 !== -1) {
+      const var6 = ModelUnlit.load(ObjType.models, var4);
+      if (var3 === -1) {
+        const var7 = [var5, var6];
+        var5 = new ModelUnlit(var7, 2);
+      } else {
+        const var8 = ModelUnlit.load(ObjType.models, var3);
+        const var9 = [var5, var6, var8];
+        var5 = new ModelUnlit(var9, 3);
+      }
+    }
+    if (!arg0 && this.manwearOffsetY !== 0) {
+      var5.translate(0, this.manwearOffsetY, 0);
+    }
+    if (arg0 && this.womanwearOffsetY !== 0) {
+      var5.translate(0, this.womanwearOffsetY, 0);
+    }
+    if (this.recol_s !== null) {
+      for (let var10 = 0;var10 < this.recol_s.length; var10++) {
+        var5.recolour(this.recol_s[var10], this.recol_d[var10]);
+      }
+    }
+    if (this.retex_s !== null) {
+      for (let var11 = 0;var11 < this.retex_s.length; var11++) {
+        var5.retexture(this.retex_s[var11], this.retex_d[var11]);
+      }
+    }
+    return var5;
+  }
+  checkHeadModel(arg0) {
+    let var2 = this.manhead;
+    let var3 = this.manhead2;
+    if (arg0) {
+      var3 = this.womanhead2;
+      var2 = this.womanhead;
+    }
+    if (var2 === -1) {
+      return true;
+    }
+    let var4 = true;
+    if (!ObjType.models.requestDownload(var2, 0)) {
+      var4 = false;
+    }
+    if (var3 !== -1 && !ObjType.models.requestDownload(var3, 0)) {
+      var4 = false;
+    }
+    return var4;
+  }
+  getHeadModelNoCheck(arg0) {
+    let var2 = this.manhead;
+    let var3 = this.manhead2;
+    if (arg0) {
+      var3 = this.womanhead2;
+      var2 = this.womanhead;
+    }
+    if (var2 === -1) {
+      return null;
+    }
+    let var4 = ModelUnlit.load(ObjType.models, var2);
+    if (var3 !== -1) {
+      const var5 = ModelUnlit.load(ObjType.models, var3);
+      const var6 = [var4, var5];
+      var4 = new ModelUnlit(var6, 2);
+    }
+    if (this.recol_s !== null) {
+      for (let var7 = 0;var7 < this.recol_s.length; var7++) {
+        var4.recolour(this.recol_s[var7], this.recol_d[var7]);
+      }
+    }
+    if (this.retex_s !== null) {
+      for (let var8 = 0;var8 < this.retex_s.length; var8++) {
+        var4.retexture(this.retex_s[var8], this.retex_d[var8]);
+      }
+    }
+    return var4;
+  }
+  getParamInt(arg0, arg1) {
+    if (this.params === null) {
+      return arg1;
+    } else {
+      const var3 = this.params.find(BigInt(arg0));
+      return var3 === null ? arg1 : var3.value;
+    }
+  }
+  getParamString(arg0, arg1) {
+    if (this.params === null) {
+      return arg0;
+    } else {
+      const var3 = this.params.find(BigInt(arg1));
+      return var3 === null ? arg0 : var3.value;
+    }
+  }
+  static resetCache() {
+    ObjType.recentUse.clear();
+    ObjType.modelCache.clear();
+    ObjType.spriteCache.clear();
+  }
+  static resetModelCache() {
+    ObjType.modelCache.clear();
+  }
+  static resetSpriteCache() {
+    ObjType.spriteCache.clear();
+  }
+  static initWearable() {
     const var0 = new Int32Array(ObjType.numDefinitions);
     let var1 = 0;
     for (let var2 = 0;var2 < ObjType.numDefinitions; var2++) {
@@ -18948,9 +19333,9 @@ class ObjType extends Linkable2 {
         var0[var1++] = var2;
       }
     }
-    ObjType.field1698 = new Int32Array(var1);
+    ObjType.wearable = new Int32Array(var1);
     for (let var4 = 0;var4 < var1; var4++) {
-      ObjType.field1698[var4] = var0[var4];
+      ObjType.wearable[var4] = var0[var4];
     }
   }
   static method467(arg0, arg1) {
@@ -19015,400 +19400,6 @@ class ObjType extends Linkable2 {
     arg3[var6] = var7;
     ObjType.method1037(arg0, arg1, var6 - 1, arg3);
     ObjType.method1037(var6 + 1, arg1, arg2, arg3);
-  }
-  getModelLit(arg0, arg1 = 0, arg2 = null) {
-    const animated = arg0 !== undefined;
-    const count = arg0 ?? 1;
-    if (this.countobj !== null && count > 1) {
-      let id = -1;
-      for (let i = 0;i < 10; i++) {
-        if (count >= this.countco[i] && this.countco[i] !== 0) {
-          id = this.countobj[i];
-        }
-      }
-      if (id !== -1) {
-        return ObjType.list(id).getModelLit(1, arg1, arg2);
-      }
-    }
-    if (animated) {
-      const cached = ObjType.modelCache.find(BigInt(this.id));
-      if (cached !== null) {
-        return arg2 !== null ? arg2.animateModelWithExtra(arg1, cached) : cached;
-      }
-    }
-    const model = ModelUnlit.load(ObjType.models, this.model);
-    if (model === null) {
-      return null;
-    }
-    if (this.recol_s !== null) {
-      for (let i = 0;i < this.recol_s.length; i++) {
-        if (this.recol_d_palette === null || i >= this.recol_d_palette.length) {
-          model.recolour(this.recol_s[i], this.recol_d[i]);
-        } else {
-          model.recolour(this.recol_s[i], ObjType.clientpalette[this.recol_d_palette[i] & 255]);
-        }
-      }
-    }
-    if (this.retex_s !== null) {
-      for (let i = 0;i < this.retex_s.length; i++) {
-        model.retexture(this.retex_s[i], this.retex_d[i]);
-      }
-    }
-    const lit = animated ? new SoftwareModelLit(model, this.ambient + 64, this.contrast + 768, -50, -10, -50) : model.method547(this.ambient + 64, this.contrast + 768);
-    if (this.resizex !== 128 || this.resizey !== 128 || this.resizez !== 128) {
-      lit.resize(this.resizex, this.resizey, this.resizez);
-    }
-    if (animated) {
-      lit.useAABBMouseCheck = true;
-      ObjType.modelCache.put(BigInt(this.id), lit);
-    }
-    return arg2 !== null ? arg2.animateModelWithExtra(arg1, lit) : lit;
-  }
-  getParamString(arg0, arg1) {
-    if (this.params === null) {
-      return arg0;
-    } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
-    }
-  }
-  getParamInt(arg0, arg1) {
-    if (this.params === null) {
-      return arg1;
-    } else {
-      const var3 = this.params.find(BigInt(arg0));
-      return var3 === null ? arg1 : var3.value;
-    }
-  }
-  getWearModelNoCheck(arg0) {
-    let var2 = this.manwear;
-    let var3 = this.manwear3;
-    let var4 = this.manwear2;
-    if (arg0) {
-      var2 = this.womanwear;
-      var3 = this.womanwear3;
-      var4 = this.womanwear2;
-    }
-    if (var2 === -1) {
-      return null;
-    }
-    let var5 = ModelUnlit.load(ObjType.models, var2);
-    if (var4 !== -1) {
-      const var6 = ModelUnlit.load(ObjType.models, var4);
-      if (var3 === -1) {
-        const var7 = [var5, var6];
-        var5 = new ModelUnlit(var7, 2);
-      } else {
-        const var8 = ModelUnlit.load(ObjType.models, var3);
-        const var9 = [var5, var6, var8];
-        var5 = new ModelUnlit(var9, 3);
-      }
-    }
-    if (!arg0 && this.manwearOffsetY !== 0) {
-      var5.translate(0, this.manwearOffsetY, 0);
-    }
-    if (arg0 && this.womanwearOffsetY !== 0) {
-      var5.translate(0, this.womanwearOffsetY, 0);
-    }
-    if (this.recol_s !== null) {
-      for (let var10 = 0;var10 < this.recol_s.length; var10++) {
-        var5.recolour(this.recol_s[var10], this.recol_d[var10]);
-      }
-    }
-    if (this.retex_s !== null) {
-      for (let var11 = 0;var11 < this.retex_s.length; var11++) {
-        var5.retexture(this.retex_s[var11], this.retex_d[var11]);
-      }
-    }
-    return var5;
-  }
-  postDecode() {}
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      const code = arg0;
-      const dat = arg1;
-      if (code === 1) {
-        this.model = dat.g2();
-      } else if (code === 2) {
-        this.name = dat.gjstr();
-      } else if (code === 4) {
-        this.zoom2d = dat.g2();
-      } else if (code === 5) {
-        this.xan2d = dat.g2();
-      } else if (code === 6) {
-        this.yan2d = dat.g2();
-      } else if (code === 7) {
-        this.xof2d = dat.g2();
-        if (this.xof2d > 32767) {
-          this.xof2d -= 65536;
-        }
-      } else if (code === 8) {
-        this.yof2d = dat.g2();
-        if (this.yof2d > 32767) {
-          this.yof2d -= 65536;
-        }
-      } else if (code === 11) {
-        this.stackable = 1;
-      } else if (code === 12) {
-        this.cost = dat.g4();
-      } else if (code === 16) {
-        this.members = true;
-      } else if (code === 23) {
-        this.manwear = dat.g2();
-        this.manwearOffsetY = dat.g1();
-      } else if (code === 24) {
-        this.manwear2 = dat.g2();
-      } else if (code === 25) {
-        this.womanwear = dat.g2();
-        this.womanwearOffsetY = dat.g1();
-      } else if (code === 26) {
-        this.womanwear2 = dat.g2();
-      } else if (code >= 30 && code < 35) {
-        this.op[code - 30] = dat.gjstr();
-        if (this.op[code - 30].toLowerCase() === Text.hidden.toLowerCase()) {
-          this.op[code - 30] = null;
-        }
-      } else if (code >= 35 && code < 40) {
-        this.iop[code - 35] = dat.gjstr();
-      } else if (code === 40) {
-        const count = dat.g1();
-        this.recol_s = new Int16Array(count);
-        this.recol_d = new Int16Array(count);
-        for (let i = 0;i < count; i++) {
-          this.recol_s[i] = dat.g2();
-          this.recol_d[i] = dat.g2();
-        }
-      } else if (code === 41) {
-        const count = dat.g1();
-        this.retex_d = new Int16Array(count);
-        this.retex_s = new Int16Array(count);
-        for (let i = 0;i < count; i++) {
-          this.retex_s[i] = dat.g2();
-          this.retex_d[i] = dat.g2();
-        }
-      } else if (code === 42) {
-        const count = dat.g1();
-        this.recol_d_palette = new Int8Array(count);
-        for (let i = 0;i < count; i++) {
-          this.recol_d_palette[i] = dat.g1b();
-        }
-      } else if (code === 65) {
-        this.stockmarket = true;
-      } else if (code === 78) {
-        this.manwear3 = dat.g2();
-      } else if (code === 79) {
-        this.womanwear3 = dat.g2();
-      } else if (code === 90) {
-        this.manhead = dat.g2();
-      } else if (code === 91) {
-        this.womanhead = dat.g2();
-      } else if (code === 92) {
-        this.manhead2 = dat.g2();
-      } else if (code === 93) {
-        this.womanhead2 = dat.g2();
-      } else if (code === 95) {
-        this.zan2d = dat.g2();
-      } else if (code === 96) {
-        this.dummyitem = dat.g1();
-      } else if (code === 97) {
-        this.certlink = dat.g2();
-      } else if (code === 98) {
-        this.certtemplate = dat.g2();
-      } else if (code >= 100 && code < 110) {
-        if (this.countobj === null) {
-          this.countco = new Int32Array(10);
-          this.countobj = new Int32Array(10);
-        }
-        this.countobj[code - 100] = dat.g2();
-        this.countco[code - 100] = dat.g2();
-      } else if (code === 110) {
-        this.resizex = dat.g2();
-      } else if (code === 111) {
-        this.resizey = dat.g2();
-      } else if (code === 112) {
-        this.resizez = dat.g2();
-      } else if (code === 113) {
-        this.ambient = dat.g1b();
-      } else if (code === 114) {
-        this.contrast = dat.g1b() * 5;
-      } else if (code === 115) {
-        this.team = dat.g1();
-      } else if (code === 121) {
-        this.lentlink = dat.g2();
-      } else if (code === 122) {
-        this.lenttemplate = dat.g2();
-      } else if (code === 124) {
-        if (this.field2839 === null) {
-          this.field2839 = new Array(11);
-        }
-        const index = dat.g1();
-        this.field2839[index] = new Int32Array(6);
-        for (let i = 0;i < 6; i++) {
-          this.field2839[index][i] = dat.g2b();
-        }
-      } else if (code === 249) {
-        const count = dat.g1();
-        if (this.params === null) {
-          this.params = new HashTable(IntMath.bitceil(count));
-        }
-        for (let i = 0;i < count; i++) {
-          const isString = dat.g1() === 1;
-          const key = dat.g3();
-          const node = isString ? new StringNode(dat.gjstr()) : new IntNode(dat.g4());
-          this.params.put(BigInt(key), node);
-        }
-      }
-      return;
-    }
-    while (true) {
-      const code = arg0.g1();
-      if (code === 0) {
-        return;
-      }
-      this.decode(code, arg0);
-    }
-  }
-  checkHeadModel(arg0) {
-    let var2 = this.manhead;
-    let var3 = this.manhead2;
-    if (arg0) {
-      var3 = this.womanhead2;
-      var2 = this.womanhead;
-    }
-    if (var2 === -1) {
-      return true;
-    }
-    let var4 = true;
-    if (!ObjType.models.requestDownload(var2, 0)) {
-      var4 = false;
-    }
-    if (var3 !== -1 && !ObjType.models.requestDownload(var3, 0)) {
-      var4 = false;
-    }
-    return var4;
-  }
-  getHeadModelNoCheck(arg0) {
-    let var2 = this.manhead;
-    let var3 = this.manhead2;
-    if (arg0) {
-      var3 = this.womanhead2;
-      var2 = this.womanhead;
-    }
-    if (var2 === -1) {
-      return null;
-    }
-    let var4 = ModelUnlit.load(ObjType.models, var2);
-    if (var3 !== -1) {
-      const var5 = ModelUnlit.load(ObjType.models, var3);
-      const var6 = [var4, var5];
-      var4 = new ModelUnlit(var6, 2);
-    }
-    if (this.recol_s !== null) {
-      for (let var7 = 0;var7 < this.recol_s.length; var7++) {
-        var4.recolour(this.recol_s[var7], this.recol_d[var7]);
-      }
-    }
-    if (this.retex_s !== null) {
-      for (let var8 = 0;var8 < this.retex_s.length; var8++) {
-        var4.retexture(this.retex_s[var8], this.retex_d[var8]);
-      }
-    }
-    return var4;
-  }
-  genCert(arg0, arg1) {
-    this.yof2d = arg1.yof2d;
-    this.recol_d_palette = arg1.recol_d_palette;
-    this.cost = arg0.cost;
-    this.stackable = 1;
-    this.recol_s = arg1.recol_s;
-    this.name = arg0.name;
-    this.zoom2d = arg1.zoom2d;
-    this.xan2d = arg1.xan2d;
-    this.xof2d = arg1.xof2d;
-    this.yan2d = arg1.yan2d;
-    this.retex_s = arg1.retex_s;
-    this.members = arg0.members;
-    this.model = arg1.model;
-    this.retex_d = arg1.retex_d;
-    this.recol_d = arg1.recol_d;
-    this.zan2d = arg1.zan2d;
-  }
-  genLent(arg0, arg1) {
-    this.xan2d = arg1.xan2d;
-    this.zoom2d = arg1.zoom2d;
-    this.name = arg0.name;
-    this.womanwearOffsetY = arg0.womanwearOffsetY;
-    this.womanwear2 = arg0.womanwear2;
-    this.yan2d = arg1.yan2d;
-    this.recol_d = arg0.recol_d;
-    this.manwear2 = arg0.manwear2;
-    this.xof2d = arg1.xof2d;
-    this.manhead2 = arg0.manhead2;
-    this.retex_d = arg0.retex_d;
-    this.womanwear = arg0.womanwear;
-    this.op = arg0.op;
-    this.manhead = arg0.manhead;
-    this.model = arg1.model;
-    this.members = arg0.members;
-    this.zan2d = arg1.zan2d;
-    this.iop = new Array(5).fill(null);
-    this.manwear3 = arg0.manwear3;
-    this.womanwear3 = arg0.womanwear3;
-    this.cost = 0;
-    this.womanhead = arg0.womanhead;
-    this.recol_d_palette = arg0.recol_d_palette;
-    this.womanhead2 = arg0.womanhead2;
-    this.manwear = arg0.manwear;
-    this.retex_s = arg0.retex_s;
-    this.yof2d = arg1.yof2d;
-    this.team = arg0.team;
-    this.manwearOffsetY = arg0.manwearOffsetY;
-    this.recol_s = arg0.recol_s;
-    this.params = arg0.params;
-    if (arg0.iop !== null) {
-      for (let var3 = 0;var3 < 4; var3++) {
-        this.iop[var3] = arg0.iop[var3];
-      }
-    }
-    this.iop[4] = Text.discard;
-  }
-  getStackSizeAlt(arg0) {
-    if (this.countobj !== null && arg0 > 1) {
-      let var2 = -1;
-      for (let var3 = 0;var3 < 10; var3++) {
-        if (arg0 >= this.countco[var3] && this.countco[var3] !== 0) {
-          var2 = this.countobj[var3];
-        }
-      }
-      if (var2 !== -1) {
-        return ObjType.list(var2);
-      }
-    }
-    return this;
-  }
-  checkWearModel(arg0) {
-    let var2 = this.manwear2;
-    let var3 = this.manwear;
-    let var4 = this.manwear3;
-    if (arg0) {
-      var3 = this.womanwear;
-      var2 = this.womanwear2;
-      var4 = this.womanwear3;
-    }
-    if (var3 === -1) {
-      return true;
-    }
-    let var5 = true;
-    if (!ObjType.models.requestDownload(var3, 0)) {
-      var5 = false;
-    }
-    if (var2 !== -1 && !ObjType.models.requestDownload(var2, 0)) {
-      var5 = false;
-    }
-    if (var4 !== -1 && !ObjType.models.requestDownload(var4, 0)) {
-      var5 = false;
-    }
-    return var5;
   }
 }
 
@@ -20196,13 +20187,13 @@ class GameShell {
   static loadingText = null;
   static field1673 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   static field658 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  startCommon() {
+  startCommon(width, height, revision) {
     try {
       if (GameShell.shell === null) {
-        GameShell.sWid = 765;
-        GameShell.sHei = 503;
+        GameShell.sWid = width;
+        GameShell.sHei = height;
         GameShell.shell = this;
-        JagException.revision = 500;
+        JagException.revision = revision;
         this.run();
       } else {
         GameShell.loaded++;
@@ -23625,327 +23616,216 @@ class PixLoader {
 
 // src/config/NpcType.ts
 class NpcType extends Linkable2 {
-  static recentUse = new LruCache(64);
-  static modelCache = new ModelSourceCache(50);
-  static headModelCache = new ModelSourceCache(5);
+  static clientpalette = new Int16Array(256);
   static configClient;
   static models;
-  static clientpalette = new Int16Array(256);
-  recol_d_palette = null;
-  walkanim_l = -1;
-  turnspeed = 32;
-  resizeh = 128;
-  static NULL = "null";
-  name = NpcType.NULL;
-  op = new Array(5).fill(null);
-  walkanim_b = -1;
-  params = null;
-  retex_d = null;
-  resizev = 128;
-  size = 1;
-  field2350 = 0;
-  walkanim_r = -1;
-  multivarbit = -1;
-  walksmoothing = true;
-  retex_s = null;
-  minimap = true;
-  headicon = -1;
-  field2329 = 0;
-  contrast = 0;
-  turnleftanim = -1;
-  vislevel = -1;
-  readyanim = -1;
-  walkanim = -1;
-  ambient = 0;
-  active = true;
-  turnrightanim = -1;
-  alwaysontop = false;
-  multivarp = -1;
+  static recentUse = new LruCache(64);
+  static modelCache = new ModelSourceCache(50);
   id = 0;
-  multinpc = null;
+  name = "null";
+  size = 1;
   model = null;
   head = null;
-  recol_d = null;
+  readyanim = -1;
+  turnleftanim = -1;
+  turnrightanim = -1;
+  walkanim = -1;
+  walkanim_b = -1;
+  walkanim_r = -1;
+  walkanim_l = -1;
   recol_s = null;
-  static list(arg0) {
-    const var1 = NpcType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
+  recol_d = null;
+  retex_s = null;
+  retex_d = null;
+  recol_d_palette = null;
+  op = new Array(5).fill(null);
+  minimap = true;
+  vislevel = -1;
+  resizeh = 128;
+  resizev = 128;
+  alwaysontop = false;
+  ambient = 0;
+  contrast = 0;
+  headicon = -1;
+  turnspeed = 32;
+  multinpc = null;
+  multivarbit = -1;
+  multivarp = -1;
+  active = true;
+  walksmoothing = true;
+  field2350 = 0;
+  field2329 = 0;
+  params = null;
+  static headModelCache = new ModelSourceCache(5);
+  static init(config, models) {
+    NpcType.configClient = config;
+    NpcType.models = models;
+  }
+  static getGroupId(id) {
+    return id & 127;
+  }
+  static getFileId(id) {
+    return id >>> 7;
+  }
+  static list(id) {
+    const cached = NpcType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
-    const var2 = NpcType.configClient.getFile(NpcType.getGroupId(arg0), NpcType.getFileId(arg0));
-    const var3 = new NpcType;
-    var3.id = arg0;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
+    const data = NpcType.configClient.getFile(NpcType.getGroupId(id), NpcType.getFileId(id));
+    const type = new NpcType;
+    type.id = id;
+    if (data !== null) {
+      type.decode(new Packet(data));
     }
-    var3.postDecode();
-    NpcType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+    type.postDecode();
+    NpcType.recentUse.put(BigInt(id), type);
+    return type;
   }
-  static resetCache() {
-    NpcType.recentUse.clear();
-    NpcType.modelCache.clear();
-    NpcType.headModelCache.clear();
-  }
-  static init(arg0, arg1) {
-    NpcType.configClient = arg0;
-    NpcType.models = arg1;
-  }
-  static resetModelCache() {
-    NpcType.modelCache.clear();
-  }
-  static resetHeadModelCache() {
-    NpcType.headModelCache.clear();
-  }
-  static getFileId(arg0) {
-    return arg0 >>> 7;
-  }
-  static getGroupId(arg0) {
-    return arg0 & 127;
-  }
-  isMultiNpcVisible() {
-    if (this.multinpc === null) {
-      return true;
-    }
-    let var1 = -1;
-    if (this.multivarbit !== -1) {
-      var1 = VarCache.getVarbit(this.multivarbit);
-    } else if (this.multivarp !== -1) {
-      var1 = VarCache.var[this.multivarp];
-    }
-    if (var1 < 0 || var1 >= this.multinpc.length - 1 || this.multinpc[var1] === -1) {
-      const var2 = this.multinpc[this.multinpc.length - 1];
-      return var2 !== -1;
-    } else {
-      return true;
-    }
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      if (arg0 === 1) {
-        const var3 = arg1.g1();
-        this.model = new Int32Array(var3);
-        for (let var4 = 0;var4 < var3; var4++) {
-          this.model[var4] = arg1.g2();
-        }
-      } else if (arg0 === 2) {
-        this.name = arg1.gjstr();
-      } else if (arg0 === 12) {
-        this.size = arg1.g1();
-      } else if (arg0 === 13) {
-        this.readyanim = arg1.g2();
-      } else if (arg0 === 14) {
-        this.walkanim = arg1.g2();
-      } else if (arg0 === 15) {
-        this.turnleftanim = arg1.g2();
-      } else if (arg0 === 16) {
-        this.turnrightanim = arg1.g2();
-      } else if (arg0 === 17) {
-        this.walkanim = arg1.g2();
-        this.walkanim_b = arg1.g2();
-        this.walkanim_r = arg1.g2();
-        this.walkanim_l = arg1.g2();
-      } else if (arg0 >= 30 && arg0 < 35) {
-        this.op[arg0 - 30] = arg1.gjstr();
-        if (this.op[arg0 - 30].toLowerCase() === Text.hidden.toLowerCase()) {
-          this.op[arg0 - 30] = null;
-        }
-      } else if (arg0 === 40) {
-        const var20 = arg1.g1();
-        this.recol_d = new Int16Array(var20);
-        this.recol_s = new Int16Array(var20);
-        for (let var21 = 0;var21 < var20; var21++) {
-          this.recol_s[var21] = arg1.g2();
-          this.recol_d[var21] = arg1.g2();
-        }
-      } else if (arg0 === 41) {
-        const var18 = arg1.g1();
-        this.retex_d = new Int16Array(var18);
-        this.retex_s = new Int16Array(var18);
-        for (let var19 = 0;var19 < var18; var19++) {
-          this.retex_s[var19] = arg1.g2();
-          this.retex_d[var19] = arg1.g2();
-        }
-      } else if (arg0 === 42) {
-        const var5 = arg1.g1();
-        this.recol_d_palette = new Int8Array(var5);
-        for (let var6 = 0;var6 < var5; var6++) {
-          this.recol_d_palette[var6] = arg1.g1b();
-        }
-      } else if (arg0 === 60) {
-        const var16 = arg1.g1();
-        this.head = new Int32Array(var16);
-        for (let var17 = 0;var17 < var16; var17++) {
-          this.head[var17] = arg1.g2();
-        }
-      } else if (arg0 === 93) {
-        this.minimap = false;
-      } else if (arg0 === 95) {
-        this.vislevel = arg1.g2();
-      } else if (arg0 === 97) {
-        this.resizeh = arg1.g2();
-      } else if (arg0 === 98) {
-        this.resizev = arg1.g2();
-      } else if (arg0 === 99) {
-        this.alwaysontop = true;
-      } else if (arg0 === 100) {
-        this.ambient = arg1.g1b();
-      } else if (arg0 === 101) {
-        this.contrast = arg1.g1b() * 5;
-      } else if (arg0 === 102) {
-        this.headicon = arg1.g2();
-      } else if (arg0 === 103) {
-        this.turnspeed = arg1.g2();
-      } else if (arg0 === 106 || arg0 === 118) {
-        let var13 = -1;
-        this.multivarbit = arg1.g2();
-        if (this.multivarbit === 65535) {
-          this.multivarbit = -1;
-        }
-        this.multivarp = arg1.g2();
-        if (this.multivarp === 65535) {
-          this.multivarp = -1;
-        }
-        if (arg0 === 118) {
-          var13 = arg1.g2();
-          if (var13 === 65535) {
-            var13 = -1;
-          }
-        }
-        const var14 = arg1.g1();
-        this.multinpc = new Int32Array(var14 + 2);
-        for (let var15 = 0;var15 <= var14; var15++) {
-          this.multinpc[var15] = arg1.g2();
-          if (this.multinpc[var15] === 65535) {
-            this.multinpc[var15] = -1;
-          }
-        }
-        this.multinpc[var14 + 1] = var13;
-      } else if (arg0 === 107) {
-        this.active = false;
-      } else if (arg0 === 109) {
-        this.walksmoothing = false;
-      } else if (arg0 === 111) {} else if (arg0 === 113) {
-        arg1.g2();
-        arg1.g2();
-      } else if (arg0 === 114) {
-        arg1.g1b();
-        arg1.g1b();
-      } else if (arg0 === 115) {
-        this.field2350 = arg1.g1() * 4;
-        this.field2329 = arg1.g1() * 4;
-      } else if (arg0 === 119) {
-        arg1.g1b();
-      } else if (arg0 === 249) {
-        const var7 = arg1.g1();
-        if (this.params === null) {
-          const var8 = IntMath.bitceil(var7);
-          this.params = new HashTable(var8);
-        }
-        for (let var9 = 0;var9 < var7; var9++) {
-          const var10 = arg1.g1() === 1;
-          const var11 = arg1.g3();
-          let var12;
-          if (var10) {
-            var12 = new StringNode(arg1.gjstr());
-          } else {
-            var12 = new IntNode(arg1.g4());
-          }
-          this.params.put(BigInt(var11), var12);
-        }
-      }
-      return;
-    }
+  decode(buf) {
     while (true) {
-      const var2 = arg0.g1();
-      if (var2 === 0) {
+      const code = buf.g1();
+      if (code === 0) {
         return;
       }
-      this.decode(var2, arg0);
+      this.decodeInner(code, buf);
     }
   }
-  getParamInt(arg0, arg1) {
-    if (this.params === null) {
-      return arg0;
-    } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
+  decodeInner(code, buf) {
+    if (code === 1) {
+      const count = buf.g1();
+      this.model = new Int32Array(count);
+      for (let i2 = 0;i2 < count; i2++) {
+        this.model[i2] = buf.g2();
+      }
+    } else if (code === 2) {
+      this.name = buf.gjstr();
+    } else if (code === 12) {
+      this.size = buf.g1();
+    } else if (code === 13) {
+      this.readyanim = buf.g2();
+    } else if (code === 14) {
+      this.walkanim = buf.g2();
+    } else if (code === 15) {
+      this.turnleftanim = buf.g2();
+    } else if (code === 16) {
+      this.turnrightanim = buf.g2();
+    } else if (code === 17) {
+      this.walkanim = buf.g2();
+      this.walkanim_b = buf.g2();
+      this.walkanim_r = buf.g2();
+      this.walkanim_l = buf.g2();
+    } else if (code >= 30 && code < 35) {
+      this.op[code - 30] = buf.gjstr();
+      if (this.op[code - 30].toLowerCase() === Text.hidden.toLowerCase()) {
+        this.op[code - 30] = null;
+      }
+    } else if (code === 40) {
+      const count = buf.g1();
+      this.recol_d = new Int16Array(count);
+      this.recol_s = new Int16Array(count);
+      for (let i2 = 0;i2 < count; i2++) {
+        this.recol_s[i2] = buf.g2();
+        this.recol_d[i2] = buf.g2();
+      }
+    } else if (code === 41) {
+      const count = buf.g1();
+      this.retex_d = new Int16Array(count);
+      this.retex_s = new Int16Array(count);
+      for (let i2 = 0;i2 < count; i2++) {
+        this.retex_s[i2] = buf.g2();
+        this.retex_d[i2] = buf.g2();
+      }
+    } else if (code === 42) {
+      const count = buf.g1();
+      this.recol_d_palette = new Int8Array(count);
+      for (let i2 = 0;i2 < count; i2++) {
+        this.recol_d_palette[i2] = buf.g1b();
+      }
+    } else if (code === 60) {
+      const count = buf.g1();
+      this.head = new Int32Array(count);
+      for (let i2 = 0;i2 < count; i2++) {
+        this.head[i2] = buf.g2();
+      }
+    } else if (code === 93) {
+      this.minimap = false;
+    } else if (code === 95) {
+      this.vislevel = buf.g2();
+    } else if (code === 97) {
+      this.resizeh = buf.g2();
+    } else if (code === 98) {
+      this.resizev = buf.g2();
+    } else if (code === 99) {
+      this.alwaysontop = true;
+    } else if (code === 100) {
+      this.ambient = buf.g1b();
+    } else if (code === 101) {
+      this.contrast = buf.g1b() * 5;
+    } else if (code === 102) {
+      this.headicon = buf.g2();
+    } else if (code === 103) {
+      this.turnspeed = buf.g2();
+    } else if (code === 106 || code === 118) {
+      let var13 = -1;
+      this.multivarbit = buf.g2();
+      if (this.multivarbit === 65535) {
+        this.multivarbit = -1;
+      }
+      this.multivarp = buf.g2();
+      if (this.multivarp === 65535) {
+        this.multivarp = -1;
+      }
+      if (code === 118) {
+        var13 = buf.g2();
+        if (var13 === 65535) {
+          var13 = -1;
+        }
+      }
+      const var14 = buf.g1();
+      this.multinpc = new Int32Array(var14 + 2);
+      for (let var15 = 0;var15 <= var14; var15++) {
+        this.multinpc[var15] = buf.g2();
+        if (this.multinpc[var15] === 65535) {
+          this.multinpc[var15] = -1;
+        }
+      }
+      this.multinpc[var14 + 1] = var13;
+    } else if (code === 107) {
+      this.active = false;
+    } else if (code === 109) {
+      this.walksmoothing = false;
+    } else if (code === 111) {} else if (code === 113) {
+      buf.g2();
+      buf.g2();
+    } else if (code === 114) {
+      buf.g1b();
+      buf.g1b();
+    } else if (code === 115) {
+      this.field2350 = buf.g1() * 4;
+      this.field2329 = buf.g1() * 4;
+    } else if (code === 119) {
+      buf.g1b();
+    } else if (code === 249) {
+      const var7 = buf.g1();
+      if (this.params === null) {
+        const var8 = IntMath.bitceil(var7);
+        this.params = new HashTable(var8);
+      }
+      for (let var9 = 0;var9 < var7; var9++) {
+        const var10 = buf.g1() === 1;
+        const var11 = buf.g3();
+        let var12;
+        if (var10) {
+          var12 = new StringNode(buf.gjstr());
+        } else {
+          var12 = new IntNode(buf.g4());
+        }
+        this.params.put(BigInt(var11), var12);
+      }
     }
   }
   postDecode() {}
-  getParamString(arg0, arg1) {
-    if (this.params === null) {
-      return arg1;
-    } else {
-      const var3 = this.params.find(BigInt(arg0));
-      return var3 === null ? arg1 : var3.value;
-    }
-  }
-  getMultiNpc() {
-    let var1 = -1;
-    if (this.multivarbit !== -1) {
-      var1 = VarCache.getVarbit(this.multivarbit);
-    } else if (this.multivarp !== -1) {
-      var1 = VarCache.var[this.multivarp];
-    }
-    if (var1 < 0 || this.multinpc.length - 1 <= var1 || this.multinpc[var1] === -1) {
-      const var2 = this.multinpc[this.multinpc.length - 1];
-      return var2 === -1 ? null : NpcType.list(var2);
-    } else {
-      return NpcType.list(this.multinpc[var1]);
-    }
-  }
-  getHeadModelLit(arg0, arg1) {
-    if (this.multinpc !== null) {
-      const var3 = this.getMultiNpc();
-      return var3 === null ? null : var3.getHeadModelLit(arg0, arg1);
-    } else if (this.head === null) {
-      return null;
-    } else {
-      let var4 = NpcType.headModelCache.find(BigInt(this.id));
-      if (var4 === null) {
-        let var5 = false;
-        for (let var6 = 0;var6 < this.head.length; var6++) {
-          if (!NpcType.models.requestDownload(this.head[var6], 0)) {
-            var5 = true;
-          }
-        }
-        if (var5) {
-          return null;
-        }
-        const var7 = new Array(this.head.length);
-        for (let var8 = 0;var8 < this.head.length; var8++) {
-          var7[var8] = ModelUnlit.load(NpcType.models, this.head[var8]);
-        }
-        let var9;
-        if (var7.length === 1) {
-          var9 = var7[0];
-        } else {
-          var9 = new ModelUnlit(var7, var7.length);
-        }
-        if (this.recol_s !== null) {
-          for (let var10 = 0;var10 < this.recol_s.length; var10++) {
-            if (this.recol_d_palette === null || this.recol_d_palette.length <= var10) {
-              var9.recolour(this.recol_s[var10], this.recol_d[var10]);
-            } else {
-              var9.recolour(this.recol_s[var10], NpcType.clientpalette[this.recol_d_palette[var10] & 255]);
-            }
-          }
-        }
-        if (this.retex_s !== null) {
-          for (let var11 = 0;var11 < this.retex_s.length; var11++) {
-            var9.retexture(this.retex_s[var11], this.retex_d[var11]);
-          }
-        }
-        var4 = var9.light(64, 768, -50, -10, -50);
-        NpcType.headModelCache.put(BigInt(this.id), var4);
-      }
-      if (arg1 !== null) {
-        var4 = arg1.animateModelWithExtra(arg0, var4);
-      }
-      return var4;
-    }
-  }
   getTempModel(arg0, arg1, arg2, arg3) {
     if (this.multinpc !== null) {
       const var5 = this.getMultiNpc();
@@ -24003,6 +23883,115 @@ class NpcType extends Linkable2 {
       var14.resize(this.resizeh, this.resizev, this.resizeh);
     }
     return var14;
+  }
+  getHead(arg0, arg1) {
+    if (this.multinpc !== null) {
+      const var3 = this.getMultiNpc();
+      return var3 === null ? null : var3.getHead(arg0, arg1);
+    } else if (this.head === null) {
+      return null;
+    } else {
+      let var4 = NpcType.headModelCache.find(BigInt(this.id));
+      if (var4 === null) {
+        let var5 = false;
+        for (let var6 = 0;var6 < this.head.length; var6++) {
+          if (!NpcType.models.requestDownload(this.head[var6], 0)) {
+            var5 = true;
+          }
+        }
+        if (var5) {
+          return null;
+        }
+        const var7 = new Array(this.head.length);
+        for (let var8 = 0;var8 < this.head.length; var8++) {
+          var7[var8] = ModelUnlit.load(NpcType.models, this.head[var8]);
+        }
+        let var9;
+        if (var7.length === 1) {
+          var9 = var7[0];
+        } else {
+          var9 = new ModelUnlit(var7, var7.length);
+        }
+        if (this.recol_s !== null) {
+          for (let var10 = 0;var10 < this.recol_s.length; var10++) {
+            if (this.recol_d_palette === null || this.recol_d_palette.length <= var10) {
+              var9.recolour(this.recol_s[var10], this.recol_d[var10]);
+            } else {
+              var9.recolour(this.recol_s[var10], NpcType.clientpalette[this.recol_d_palette[var10] & 255]);
+            }
+          }
+        }
+        if (this.retex_s !== null) {
+          for (let var11 = 0;var11 < this.retex_s.length; var11++) {
+            var9.retexture(this.retex_s[var11], this.retex_d[var11]);
+          }
+        }
+        var4 = var9.light(64, 768, -50, -10, -50);
+        NpcType.headModelCache.put(BigInt(this.id), var4);
+      }
+      if (arg1 !== null) {
+        var4 = arg1.animateModelWithExtra(arg0, var4);
+      }
+      return var4;
+    }
+  }
+  getParamInt(arg0, arg1) {
+    if (this.params === null) {
+      return arg0;
+    } else {
+      const var3 = this.params.find(BigInt(arg1));
+      return var3 === null ? arg0 : var3.value;
+    }
+  }
+  getParamString(arg0, arg1) {
+    if (this.params === null) {
+      return arg1;
+    } else {
+      const var3 = this.params.find(BigInt(arg0));
+      return var3 === null ? arg1 : var3.value;
+    }
+  }
+  getMultiNpc() {
+    let var1 = -1;
+    if (this.multivarbit !== -1) {
+      var1 = VarCache.getVarbit(this.multivarbit);
+    } else if (this.multivarp !== -1) {
+      var1 = VarCache.var[this.multivarp];
+    }
+    if (var1 < 0 || this.multinpc.length - 1 <= var1 || this.multinpc[var1] === -1) {
+      const var2 = this.multinpc[this.multinpc.length - 1];
+      return var2 === -1 ? null : NpcType.list(var2);
+    } else {
+      return NpcType.list(this.multinpc[var1]);
+    }
+  }
+  isMultiNpcVisible() {
+    if (this.multinpc === null) {
+      return true;
+    }
+    let var1 = -1;
+    if (this.multivarbit !== -1) {
+      var1 = VarCache.getVarbit(this.multivarbit);
+    } else if (this.multivarp !== -1) {
+      var1 = VarCache.var[this.multivarp];
+    }
+    if (var1 < 0 || var1 >= this.multinpc.length - 1 || this.multinpc[var1] === -1) {
+      const var2 = this.multinpc[this.multinpc.length - 1];
+      return var2 !== -1;
+    } else {
+      return true;
+    }
+  }
+  static resetCache() {
+    NpcType.recentUse.clear();
+    NpcType.modelCache.clear();
+    NpcType.headModelCache.clear();
+  }
+  static resetModelCache() {
+    NpcType.modelCache.clear();
+  }
+  static resetHeadModelCache() {
+    NpcType.headModelCache.clear();
   }
 }
 
@@ -24283,7 +24272,7 @@ class IfType {
       }
       return var7;
     } else if (var5 === 2) {
-      const var9 = NpcType.list(var6).getHeadModelLit(arg2, arg0);
+      const var9 = NpcType.list(var6).getHead(arg2, arg0);
       if (var9 === null) {
         IfType.loadingAsset = true;
         return null;
@@ -25010,103 +24999,102 @@ class QuickChatCatType extends Linkable2 {
 
 // src/config/ServerActive.ts
 class ServerActive {
-  static isUseTarget(arg0) {
-    return (arg0 >> 21 & 1) !== 0;
+  static pauseButton(eventCode) {
+    return (eventCode & 1) !== 0;
   }
-  static serverDraggable(arg0) {
-    return arg0 >> 17 & 7;
+  static hasOp(eventCode, arg1) {
+    return (arg1 >> eventCode + 1 & 1) !== 0;
   }
-  static isDragTarget(arg0) {
-    return (arg0 >> 20 & 1) !== 0;
+  static targetMask(eventCode) {
+    return eventCode >> 11 & 63;
   }
-  static isObjOpsEnabled(arg0) {
-    return (arg0 >> 30 & 1) !== 0;
+  static serverDraggable(eventCode) {
+    return eventCode >> 17 & 7;
   }
-  static isObjReplaceEnabled(arg0) {
-    return (arg0 >> 29 & 1) !== 0;
+  static isDragTarget(eventCode) {
+    return (eventCode >> 20 & 1) !== 0;
   }
-  static isObjUseEnabled(arg0) {
-    return (arg0 >> 31 & 1) !== 0;
+  static isUseTarget(eventCode) {
+    return (eventCode >> 21 & 1) !== 0;
   }
-  static pauseButton(arg0) {
-    return (arg0 & 1) !== 0;
+  static isObjSwapEnabled(eventCode) {
+    return (eventCode >> 28 & 1) !== 0;
   }
-  static hasOp(arg0, arg1) {
-    return (arg1 >> arg0 + 1 & 1) !== 0;
+  static isObjReplaceEnabled(eventCode) {
+    return (eventCode >> 29 & 1) !== 0;
   }
-  static isObjSwapEnabled(arg0) {
-    return (arg0 >> 28 & 1) !== 0;
+  static isObjOpsEnabled(eventCode) {
+    return (eventCode >> 30 & 1) !== 0;
   }
-  static targetMask(arg0) {
-    return arg0 >> 11 & 63;
+  static isObjUseEnabled(eventCode) {
+    return (eventCode >> 31 & 1) !== 0;
   }
 }
 
 // src/config/StructType.ts
 class StructType extends Linkable2 {
-  static recentUse = new LruCache(64);
   static configClient;
+  static recentUse = new LruCache(64);
   params = null;
-  static list(arg0) {
-    const var1 = StructType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
-    }
-    const var2 = StructType.configClient.getFile(arg0, 26);
-    const var3 = new StructType;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
-    }
-    StructType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+  static init(config) {
+    StructType.configClient = config;
   }
-  static init(arg0) {
-    StructType.configClient = arg0;
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      if (arg0 === 249) {
-        const var3 = arg1.g1();
-        if (this.params === null) {
-          const var4 = IntMath.bitceil(var3);
-          this.params = new HashTable(var4);
-        }
-        for (let var5 = 0;var5 < var3; var5++) {
-          const var6 = arg1.g1() === 1;
-          const var7 = arg1.g3();
-          let var8;
-          if (var6) {
-            var8 = new StringNode(arg1.gjstr());
-          } else {
-            var8 = new IntNode(arg1.g4());
-          }
-          this.params.put(BigInt(var7), var8);
-        }
-      }
-      return;
+  static list(id) {
+    const cached = StructType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
+    const data = StructType.configClient.getFile(id, 26);
+    const config = new StructType;
+    if (data !== null) {
+      config.decode(new Packet(data));
+    }
+    StructType.recentUse.put(BigInt(id), config);
+    return config;
+  }
+  decode(buf) {
     while (true) {
-      const var2 = arg0.g1();
-      if (var2 === 0) {
+      const code = buf.g1();
+      if (code === 0) {
         return;
       }
-      this.decode(var2, arg0);
+      this.decodeInner(code, buf);
     }
   }
-  getParamString(arg0, arg1) {
-    if (this.params === null) {
-      return arg0;
-    } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
+  decodeInner(code, buf) {
+    if (code === 249) {
+      const var3 = buf.g1();
+      if (this.params === null) {
+        const var4 = IntMath.bitceil(var3);
+        this.params = new HashTable(var4);
+      }
+      for (let var5 = 0;var5 < var3; var5++) {
+        const var6 = buf.g1() === 1;
+        const var7 = buf.g3();
+        let var8;
+        if (var6) {
+          var8 = new StringNode(buf.gjstr());
+        } else {
+          var8 = new IntNode(buf.g4());
+        }
+        this.params.put(BigInt(var7), var8);
+      }
     }
   }
-  getParamInt(arg0, arg1) {
+  getParamInt(fallback, key) {
     if (this.params === null) {
-      return arg0;
+      return fallback;
     } else {
-      const var3 = this.params.find(BigInt(arg1));
-      return var3 === null ? arg0 : var3.value;
+      const node = this.params.find(BigInt(key));
+      return node === null ? fallback : node.value;
+    }
+  }
+  getParamString(fallback, key) {
+    if (this.params === null) {
+      return fallback;
+    } else {
+      const node = this.params.find(BigInt(key));
+      return node === null ? fallback : node.value;
     }
   }
 }
@@ -29936,21 +29924,21 @@ class ScriptRunner {
             if (var337.isDecimal()) {
               var338 = var337.toInt();
             }
-            Client.out.p1Enc(152);
+            Client.out.p1Enc(152 /* RESUME_P_COUNTDIALOG */);
             Client.out.p4(var338);
             continue;
           }
           if (opcode === 3105) {
             ssp--;
             const var339 = this.stringStack[ssp];
-            Client.out.p1Enc(54);
+            Client.out.p1Enc(54 /* RESUME_P_NAMEDIALOG */);
             Client.out.p8(JagString.fromLatin1String(var339).toUserhash());
             continue;
           }
           if (opcode === 3106) {
             ssp--;
             const var340 = this.stringStack[ssp];
-            Client.out.p1Enc(60);
+            Client.out.p1Enc(60 /* RESUME_P_STRINGDIALOG */);
             Client.out.p1(Packet.pjstrlen(var340));
             Client.out.pjstr(var340);
             continue;
@@ -29983,7 +29971,7 @@ class ScriptRunner {
           if (opcode === 3110) {
             isp--;
             const var350 = this.intStack[isp];
-            Client.out.p1Enc(194);
+            Client.out.p1Enc(194 /* RESUME_P_OBJDIALOG */);
             Client.out.p2(var350);
             continue;
           }
@@ -31017,7 +31005,7 @@ class ScriptRunner {
             Client.chatPublicMode = this.intStack[isp];
             Client.chatPrivateMode = this.intStack[isp + 1];
             Client.chatTradeMode = this.intStack[isp + 2];
-            Client.out.p1Enc(115);
+            Client.out.p1Enc(115 /* SET_CHATFILTERSETTINGS */);
             Client.out.p1(Client.chatPublicMode);
             Client.out.p1(Client.chatPrivateMode);
             Client.out.p1(Client.chatTradeMode);
@@ -31029,7 +31017,7 @@ class ScriptRunner {
             ssp--;
             const var183 = this.stringStack[ssp];
             const var184 = this.intStack[isp + 1];
-            Client.out.p1Enc(99);
+            Client.out.p1Enc(99 /* SEND_SNAPSHOT */);
             Client.out.p8(JagString.fromLatin1String(var183).toUserhash());
             Client.out.p1(var182 - 1);
             Client.out.p1(var184);
@@ -31184,7 +31172,7 @@ class ScriptRunner {
                 var189 = var189.substring(Text.chateffect5_ger.length);
               }
             }
-            Client.out.p1Enc(189);
+            Client.out.p1Enc(189 /* MESSAGE_PUBLIC */);
             Client.out.p1(0);
             const var194 = Client.out.pos;
             Client.out.p1(var191);
@@ -31198,7 +31186,7 @@ class ScriptRunner {
             const var195 = this.stringStack[ssp];
             const var196 = this.stringStack[ssp + 1];
             if (Client.staffmodlevel !== 0 || Client.underage !== 1 && Client.mapQuickchat !== 1) {
-              Client.out.p1Enc(80);
+              Client.out.p1Enc(80 /* MESSAGE_PRIVATE */);
               Client.out.p1(0);
               const var197 = Client.out.pos;
               Client.out.p8(JagString.fromLatin1String(var195).toUserhash());
@@ -31338,7 +31326,7 @@ class ScriptRunner {
             continue;
           }
           if (opcode === 5059) {
-            Client.out.p1Enc(197);
+            Client.out.p1Enc(197 /* MESSAGE_QUICKCHAT_PUBLIC */);
             Client.out.p1(0);
             const var221 = Client.out.pos;
             Client.out.p1(0);
@@ -31350,7 +31338,7 @@ class ScriptRunner {
           if (opcode === 5060) {
             ssp--;
             const var222 = this.stringStack[ssp];
-            Client.out.p1Enc(242);
+            Client.out.p1Enc(242 /* MESSAGE_QUICKCHAT_PRIVATE */);
             Client.out.p1(0);
             const var223 = Client.out.pos;
             Client.out.p8(JagString.fromLatin1String(var222).toUserhash());
@@ -31360,7 +31348,7 @@ class ScriptRunner {
             continue;
           }
           if (opcode === 5061) {
-            Client.out.p1Enc(197);
+            Client.out.p1Enc(197 /* MESSAGE_QUICKCHAT_PUBLIC */);
             Client.out.p1(0);
             const var224 = Client.out.pos;
             Client.out.p1(1);
@@ -31507,7 +31495,7 @@ class ScriptRunner {
             const var246 = this.stringStack[ssp + 1];
             isp--;
             const var247 = this.intStack[isp];
-            Client.out.p1Enc(85);
+            Client.out.p1Enc(85 /* URL_REQUEST */);
             Client.out.p1(Packet.pjstrlen(var245) + Packet.pjstrlen(var246) + 1);
             Client.out.pjstr(var245);
             Client.out.pjstr(var246);
@@ -31765,94 +31753,89 @@ class IdkType extends Linkable2 {
 
 // src/config/SpotType.ts
 class SpotType extends Linkable2 {
+  static configClient;
+  static models;
   static recentUse = new LruCache(64);
   static modelCache = new ModelSourceCache(30);
-  static models;
-  static configClient;
-  recol_d = null;
-  ambient = 0;
-  resizev = 128;
-  contrast = 0;
-  resizeh = 128;
-  hillskew = false;
-  angle = 0;
-  anim = -1;
   id = 0;
   model = 0;
-  retex_s = null;
+  anim = -1;
   recol_s = null;
+  recol_d = null;
+  retex_s = null;
   retex_d = null;
-  static list(arg0) {
-    const var1 = SpotType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
+  resizeh = 128;
+  resizev = 128;
+  angle = 0;
+  ambient = 0;
+  contrast = 0;
+  hillskew = false;
+  static init(models, config) {
+    SpotType.models = models;
+    SpotType.configClient = config;
+  }
+  static getGroupId(id) {
+    return id & 255;
+  }
+  static getFileId(id) {
+    return id >>> 8;
+  }
+  static list(id) {
+    const cached = SpotType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
-    const var2 = SpotType.configClient.getFile(SpotType.getGroupId(arg0), SpotType.getFileId(arg0));
-    const var3 = new SpotType;
-    var3.id = arg0;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
+    const data = SpotType.configClient.getFile(SpotType.getGroupId(id), SpotType.getFileId(id));
+    const type = new SpotType;
+    type.id = id;
+    if (data !== null) {
+      type.decode(new Packet(data));
     }
-    SpotType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+    SpotType.recentUse.put(BigInt(id), type);
+    return type;
   }
-  static resetCache() {
-    SpotType.recentUse.clear();
-    SpotType.modelCache.clear();
-  }
-  static init(arg0, arg1) {
-    SpotType.models = arg0;
-    SpotType.configClient = arg1;
-  }
-  static getFileId(arg0) {
-    return arg0 >>> 8;
-  }
-  static getGroupId(arg0) {
-    return arg0 & 255;
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      if (arg0 === 1) {
-        this.model = arg1.g2();
-      } else if (arg0 === 2) {
-        this.anim = arg1.g2();
-      } else if (arg0 === 4) {
-        this.resizeh = arg1.g2();
-      } else if (arg0 === 5) {
-        this.resizev = arg1.g2();
-      } else if (arg0 === 6) {
-        this.angle = arg1.g2();
-      } else if (arg0 === 7) {
-        this.ambient = arg1.g1();
-      } else if (arg0 === 8) {
-        this.contrast = arg1.g1();
-      } else if (arg0 === 9) {
-        this.hillskew = true;
-      } else if (arg0 === 40) {
-        const var5 = arg1.g1();
-        this.recol_s = new Int16Array(var5);
-        this.recol_d = new Int16Array(var5);
-        for (let var6 = 0;var6 < var5; var6++) {
-          this.recol_s[var6] = arg1.g2();
-          this.recol_d[var6] = arg1.g2();
-        }
-      } else if (arg0 === 41) {
-        const var3 = arg1.g1();
-        this.retex_d = new Int16Array(var3);
-        this.retex_s = new Int16Array(var3);
-        for (let var4 = 0;var4 < var3; var4++) {
-          this.retex_s[var4] = arg1.g2();
-          this.retex_d[var4] = arg1.g2();
-        }
-      }
-      return;
-    }
+  decode(buf) {
     while (true) {
-      const var2 = arg0.g1();
-      if (var2 === 0) {
+      const code = buf.g1();
+      if (code === 0) {
         return;
       }
-      this.decode(var2, arg0);
+      this.decodeInner(code, buf);
+    }
+  }
+  decodeInner(code, buf) {
+    if (code === 1) {
+      this.model = buf.g2();
+    } else if (code === 2) {
+      this.anim = buf.g2();
+    } else if (code === 4) {
+      this.resizeh = buf.g2();
+    } else if (code === 5) {
+      this.resizev = buf.g2();
+    } else if (code === 6) {
+      this.angle = buf.g2();
+    } else if (code === 7) {
+      this.ambient = buf.g1();
+    } else if (code === 8) {
+      this.contrast = buf.g1();
+    } else if (code === 9) {
+      this.hillskew = true;
+    } else if (code === 40) {
+      const count = buf.g1();
+      this.recol_s = new Int16Array(count);
+      this.recol_d = new Int16Array(count);
+      for (let var6 = 0;var6 < count; var6++) {
+        this.recol_s[var6] = buf.g2();
+        this.recol_d[var6] = buf.g2();
+      }
+    } else if (code === 41) {
+      const count = buf.g1();
+      this.retex_d = new Int16Array(count);
+      this.retex_s = new Int16Array(count);
+      for (let var4 = 0;var4 < count; var4++) {
+        this.retex_s[var4] = buf.g2();
+        this.retex_d[var4] = buf.g2();
+      }
     }
   }
   getTempModel2(arg0) {
@@ -31897,110 +31880,113 @@ class SpotType extends Linkable2 {
     }
     return var6;
   }
+  static resetCache() {
+    SpotType.recentUse.clear();
+    SpotType.modelCache.clear();
+  }
 }
 
 // src/config/VarpType.ts
 class VarpType extends Linkable2 {
-  static recentUse = new LruCache(64);
   static configClient;
   static numDefinitions = 0;
+  static recentUse = new LruCache(64);
   clientcode = 0;
-  static list(arg0) {
-    const var1 = VarpType.recentUse.find(BigInt(arg0));
-    if (var1 !== null) {
-      return var1;
+  static init(config) {
+    VarpType.configClient = config;
+    VarpType.numDefinitions = VarpType.configClient.getFileIdLimit(16);
+  }
+  static list(id) {
+    const cached = VarpType.recentUse.find(BigInt(id));
+    if (cached !== null) {
+      return cached;
     }
-    const var2 = VarpType.configClient.getFile(arg0, 16);
-    const var3 = new VarpType;
-    if (var2 !== null) {
-      var3.decode(new Packet(var2));
+    const data = VarpType.configClient.getFile(id, 16);
+    const type = new VarpType;
+    if (data !== null) {
+      type.decode(new Packet(data));
     }
-    VarpType.recentUse.put(BigInt(arg0), var3);
-    return var3;
+    VarpType.recentUse.put(BigInt(id), type);
+    return type;
+  }
+  decode(buf) {
+    while (true) {
+      const code = buf.g1();
+      if (code === 0) {
+        return;
+      }
+      this.decodeInner(code, buf);
+    }
+  }
+  decodeInner(code, buf) {
+    if (code === 5) {
+      this.clientcode = buf.g2();
+    }
   }
   static resetCache() {
     VarpType.recentUse.clear();
-  }
-  static init(arg0) {
-    VarpType.configClient = arg0;
-    VarpType.numDefinitions = VarpType.configClient.getFileIdLimit(16);
-  }
-  decode(arg0, arg1) {
-    if (typeof arg0 === "number") {
-      if (arg0 === 5) {
-        this.clientcode = arg1.g2();
-      }
-      return;
-    }
-    while (true) {
-      const var2 = arg0.g1();
-      if (var2 === 0) {
-        return;
-      }
-      this.decode(var2, arg0);
-    }
   }
 }
 
 // src/dash3d/ClientEntity.ts
 class ClientEntity extends ModelSource {
-  secondarySeqCycle = 0;
-  chatTimer = 100;
-  exactStartX = 0;
-  targetId = -1;
-  combatCycle = -1000;
-  dstYaw = 0;
-  spotanimCycle = 0;
-  z = 0;
-  walkanim_r = -1;
-  chat = null;
-  walkanim_b = -1;
-  exactEndZ = 0;
-  damageCycles = new Int32Array(4);
-  spotanimHeight = 0;
-  routeRun = new Array(10).fill(false);
-  spotanimFrame = 0;
-  secondarySeqFrame = 0;
-  turnrightanim = -1;
-  primarySeqId = -1;
-  damageTypes = new Int32Array(4);
-  exactMoveStart = 0;
-  damageValues = new Int32Array(4);
-  spotanimId = -1;
-  primarySeqLoop = 0;
-  walkanim_l = -1;
-  chatColour = 0;
-  needsForwardDrawPadding = false;
-  primarySeqCycle = 0;
-  cycle = 0;
-  runanim = -1;
-  turnCycle = 0;
-  height = -32768;
-  size = 1;
-  primarySeqFrame = 0;
-  routeX = new Int32Array(10);
-  turnleftanim = -1;
-  turnspeed = 32;
-  secondarySeqId = -1;
-  targetTileX = 0;
-  readyanim = -1;
-  animDelayMove = 0;
-  chatEffect = 0;
-  preanimRouteLength = 0;
-  primarySeqDelay = 0;
-  walkanim = -1;
-  routeLength = 0;
-  targetTileZ = 0;
-  routeZ = new Int32Array(10);
-  spotanimLastCycle = 0;
-  yaw = 0;
-  exactStartZ = 0;
-  y = 0;
-  exactEndX = 0;
-  field4109 = 0;
-  exactMoveEnd = 0;
   x = 0;
+  z = 0;
+  yaw = 0;
+  needsForwardDrawPadding = false;
+  size = 1;
+  readyanim = -1;
+  turnleftanim = -1;
+  turnrightanim = -1;
+  walkanim = -1;
+  walkanim_b = -1;
+  walkanim_l = -1;
+  walkanim_r = -1;
+  runanim = -1;
+  chat = null;
+  chatTimer = 100;
+  chatColour = 0;
+  chatEffect = 0;
+  damageValues = new Int32Array(4);
+  damageTypes = new Int32Array(4);
+  damageCycles = new Int32Array(4);
+  combatCycle = -1000;
+  targetId = -1;
+  targetTileX = 0;
+  targetTileZ = 0;
+  secondarySeqId = -1;
+  secondarySeqFrame = 0;
+  secondarySeqCycle = 0;
+  primarySeqId = -1;
+  primarySeqFrame = 0;
+  primarySeqCycle = 0;
+  primarySeqDelay = 0;
+  primarySeqLoop = 0;
+  spotanimId = -1;
+  spotanimFrame = 0;
+  spotanimCycle = 0;
+  spotanimLastCycle = 0;
+  spotanimHeight = 0;
+  exactStartX = 0;
+  exactEndX = 0;
+  exactStartZ = 0;
+  exactEndZ = 0;
+  exactMoveEnd = 0;
+  exactMoveStart = 0;
   exactMoveFacing = 0;
+  cycle = 0;
+  height = -32768;
+  dstYaw = 0;
+  turnCycle = 0;
+  turnspeed = 32;
+  routeLength = 0;
+  routeX = new Int32Array(10);
+  routeZ = new Int32Array(10);
+  routeRun = new Array(10).fill(false);
+  animDelayMove = 0;
+  preanimRouteLength = 0;
+  y = 0;
+  field4109 = 0;
   teleport(arg0, arg1, arg2) {
     if (this.primarySeqId !== -1 && SeqType.list(this.primarySeqId).postanim_move === 1) {
       this.primarySeqId = -1;
@@ -32030,9 +32016,6 @@ class ClientEntity extends ModelSource {
     this.animDelayMove = 0;
     this.x = this.size * 64 + this.routeX[0] * 128;
     this.routeLength = 0;
-  }
-  getHeight() {
-    return this.height === -32768 ? 200 : -this.height;
   }
   moveCode(arg0, arg1) {
     let var3 = this.routeX[0];
@@ -32080,6 +32063,13 @@ class ClientEntity extends ModelSource {
     this.routeX[0] = var3;
     this.routeZ[0] = var4;
   }
+  abortRoute() {
+    this.routeLength = 0;
+    this.preanimRouteLength = 0;
+  }
+  ready() {
+    return false;
+  }
   addHitmark(arg0, arg1, arg2) {
     for (let var4 = 0;var4 < 4; var4++) {
       if (this.damageCycles[var4] <= arg0) {
@@ -32090,24 +32080,14 @@ class ClientEntity extends ModelSource {
       }
     }
   }
-  abortRoute() {
-    this.routeLength = 0;
-    this.preanimRouteLength = 0;
-  }
-  ready() {
-    return false;
+  getHeight() {
+    return this.height === -32768 ? 200 : -this.height;
   }
 }
 
 // src/dash3d/ClientNpc.ts
 class ClientNpc extends ClientEntity {
   type = null;
-  ready() {
-    return this.type !== null;
-  }
-  method88() {
-    return this.height;
-  }
   method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     if (this.type == null) {
       return;
@@ -32195,26 +32175,32 @@ class ClientNpc extends ClientEntity {
     }
     var13.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
   }
+  ready() {
+    return this.type !== null;
+  }
+  method88() {
+    return this.height;
+  }
 }
 
 // src/dash3d/ClientObj.ts
 class ClientObj extends ModelSource {
-  field2022 = -32768;
-  count = 0;
   id = 0;
-  method88() {
-    return this.field2022;
-  }
+  count = 0;
+  height = -32768;
   method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     const var11 = ObjType.list(this.id).getModelLit(this.count, 0, null);
     if (var11 != null) {
       var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-      this.field2022 = var11.method88();
+      this.height = var11.method88();
     }
+  }
+  method88() {
+    return this.height;
   }
 }
 
-// src/datastruct/ClientObjNode.ts
+// src/dash3d/ClientObjNode.ts
 class ClientObjNode extends Linkable2 {
   obj;
   constructor(arg0) {
@@ -32223,22 +32209,92 @@ class ClientObjNode extends Linkable2 {
   }
 }
 
+// src/dash3d/RecolsRunescape.ts
+class RecolsRunescape {
+  static recol1s = [6798, 8741, 25238, 4626, 4550];
+  static recol2s = [-10304, 9104, -1, -1, -1];
+  static recol1d = [
+    [6798, 107, 10283, 16, 4797, 7744, 5799, 4634, -31839, 22433, 2983, -11343, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
+    [8741, 12, -1506, -22374, 7735, 8404, 1701, -27106, 24094, 10153, -8915, 4783, 1341, 16578, -30533, 25239, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
+    [25238, 8742, 12, -1506, -22374, 7735, 8404, 1701, -27106, 24094, 10153, -8915, 4783, 1341, 16578, -30533, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
+    [4626, 11146, 6439, 12, 4758, 10270],
+    [4550, 4537, 5681, 5673, 5790, 6806, 8076, 4574]
+  ];
+  static recol2d = [
+    [6554, 115, 10304, 28, 5702, 7756, 5681, 4510, -31835, 22437, 2859, -11339, 16, 5157, 10446, 3658, -27314, -21965, 472, 580, 784, 21966, 28950, -15697, -14002],
+    [9104, 10275, 7595, 3610, 7975, 8526, 918, -26734, 24466, 10145, -6882, 5027, 1457, 16565, -30545, 25486, 24, 5392, 10429, 3673, -27335, -21957, 192, 687, 412, 21821, 28835, -15460, -14019],
+    [],
+    [],
+    []
+  ];
+}
+
 // src/dash3d/PlayerModel.ts
 class PlayerModel {
-  static modelCache = new ModelSourceCache(260);
-  static field2616 = new ModelSourceCache(5);
-  static basePartMap = [8, 11, 4, 6, 9, 7, 10];
-  gender = false;
   appearance = new Int32Array(12);
+  colour = new Int32Array(5);
+  gender = false;
   transmog = 0;
   baseId = 0n;
   headModelHashToModelCacheID = 0n;
-  colour = new Int32Array(5);
-  static resetCache() {
-    PlayerModel.modelCache.clear();
+  static recol1s = RecolsRunescape.recol1s;
+  static recol1d = RecolsRunescape.recol1d;
+  static recol2s = RecolsRunescape.recol2s;
+  static recol2d = RecolsRunescape.recol2d;
+  static basePartMap = [8, 11, 4, 6, 9, 7, 10];
+  static modelCache = new ModelSourceCache(260);
+  static field2616 = new ModelSourceCache(5);
+  setAppearance(arg0, arg1, arg2, arg3) {
+    if (arg1 === null) {
+      arg1 = new Int32Array(12);
+      for (let var5 = 0;var5 < 7; var5++) {
+        for (let var6 = 0;var6 < IdkType.numDefinitions; var6++) {
+          const var7 = IdkType.list(var6);
+          if (var7 !== null && !var7.disable && var5 + (arg3 ? 7 : 0) === var7.type) {
+            arg1[PlayerModel.basePartMap[var5]] = var6 | -2147483648;
+            break;
+          }
+        }
+      }
+    }
+    this.appearance = arg1;
+    this.colour = arg2;
+    this.gender = arg3;
+    this.transmog = arg0;
+    this.calcBaseId();
   }
-  method1427() {
-    return this.transmog === -1 ? (this.appearance[11] << 5) + (this.colour[0] << 25) + (this.colour[4] << 20) + (this.appearance[0] << 15) + (this.appearance[8] << 10) + this.appearance[1] : 305419896 - -NpcType.list(this.transmog).id;
+  idkChangePart(arg0, arg1) {
+    const var3 = PlayerModel.basePartMap[arg0];
+    if (this.appearance[var3] !== 0 && IdkType.list(arg1) !== null) {
+      this.appearance[var3] = -2147483648 | arg1;
+      this.calcBaseId();
+    }
+  }
+  idkChangeColour(arg0, arg1) {
+    this.colour[arg1] = arg0;
+    this.calcBaseId();
+  }
+  idkChangeGender(arg0) {
+    this.gender = arg0;
+    this.calcBaseId();
+  }
+  calcBaseId() {
+    const var1 = this.baseId;
+    this.baseId = -1n;
+    const var3 = Packet.crctable64;
+    for (let var4 = 0;var4 < 12; var4++) {
+      this.baseId = var3[Number((BigInt(this.appearance[var4] >> 24) ^ this.baseId) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
+      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4] >> 16) ^ this.baseId) & 0xffn)];
+      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4] >> 8) ^ this.baseId) & 0xffn)];
+      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4]) ^ this.baseId) & 0xffn)];
+    }
+    for (let var5 = 0;var5 < 5; var5++) {
+      this.baseId = var3[Number((BigInt(this.colour[var5]) ^ this.baseId) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
+    }
+    this.baseId = var3[Number((this.baseId ^ BigInt(this.gender ? 1 : 0)) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
+    if (var1 !== 0n && var1 !== this.baseId) {
+      PlayerModel.modelCache.remove(var1);
+    }
   }
   getTempModel(arg0, arg1, arg2, arg3) {
     if (this.transmog !== -1) {
@@ -32326,11 +32382,11 @@ class PlayerModel {
         }
         const var28 = new ModelUnlit(var13, var14);
         for (let var29 = 0;var29 < 5; var29++) {
-          if (this.colour[var29] < Client.field96[var29].length) {
-            var28.recolour(Client.field219[var29], Client.field96[var29][this.colour[var29]]);
+          if (this.colour[var29] < PlayerModel.recol1d[var29].length) {
+            var28.recolour(PlayerModel.recol1s[var29], PlayerModel.recol1d[var29][this.colour[var29]]);
           }
-          if (Client.field1596[var29].length > this.colour[var29]) {
-            var28.recolour(Client.field2750[var29], Client.field1596[var29][this.colour[var29]]);
+          if (PlayerModel.recol2d[var29].length > this.colour[var29]) {
+            var28.recolour(PlayerModel.recol2s[var29], PlayerModel.recol2d[var29][this.colour[var29]]);
           }
         }
         var9 = var28.light(64, 850, -30, -50, -30);
@@ -32351,27 +32407,9 @@ class PlayerModel {
     }
     return var30;
   }
-  calcBaseId() {
-    const var1 = this.baseId;
-    this.baseId = -1n;
-    const var3 = Packet.crctable64;
-    for (let var4 = 0;var4 < 12; var4++) {
-      this.baseId = var3[Number((BigInt(this.appearance[var4] >> 24) ^ this.baseId) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
-      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4] >> 16) ^ this.baseId) & 0xffn)];
-      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4] >> 8) ^ this.baseId) & 0xffn)];
-      this.baseId = BigInt.asUintN(64, this.baseId) >> 8n ^ var3[Number((BigInt(this.appearance[var4]) ^ this.baseId) & 0xffn)];
-    }
-    for (let var5 = 0;var5 < 5; var5++) {
-      this.baseId = var3[Number((BigInt(this.colour[var5]) ^ this.baseId) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
-    }
-    this.baseId = var3[Number((this.baseId ^ BigInt(this.gender ? 1 : 0)) & 0xffn)] ^ BigInt.asUintN(64, this.baseId) >> 8n;
-    if (var1 !== 0n && var1 !== this.baseId) {
-      PlayerModel.modelCache.method133(var1);
-    }
-  }
   getHeadModel(arg0 = null, arg1 = 0) {
     if (this.transmog !== -1) {
-      return NpcType.list(this.transmog).getHeadModelLit(arg1, arg0);
+      return NpcType.list(this.transmog).getHead(arg1, arg0);
     }
     let var3 = PlayerModel.field2616.find(this.baseId);
     if (var3 === null) {
@@ -32407,11 +32445,11 @@ class PlayerModel {
       }
       const var13 = new ModelUnlit(var8, var7);
       for (let var14 = 0;var14 < 5; var14++) {
-        if (this.colour[var14] < Client.field96[var14].length) {
-          var13.recolour(Client.field219[var14], Client.field96[var14][this.colour[var14]]);
+        if (this.colour[var14] < PlayerModel.recol1d[var14].length) {
+          var13.recolour(PlayerModel.recol1s[var14], PlayerModel.recol1d[var14][this.colour[var14]]);
         }
-        if (this.colour[var14] < Client.field1596[var14].length) {
-          var13.recolour(Client.field2750[var14], Client.field1596[var14][this.colour[var14]]);
+        if (this.colour[var14] < PlayerModel.recol2d[var14].length) {
+          var13.recolour(PlayerModel.recol2s[var14], PlayerModel.recol2d[var14][this.colour[var14]]);
         }
       }
       var3 = var13.light(64, 768, -50, -10, -50);
@@ -32422,54 +32460,22 @@ class PlayerModel {
     }
     return var3;
   }
-  setAppearance(arg0, arg1, arg2, arg3) {
-    if (arg1 === null) {
-      arg1 = new Int32Array(12);
-      for (let var5 = 0;var5 < 7; var5++) {
-        for (let var6 = 0;var6 < IdkType.numDefinitions; var6++) {
-          const var7 = IdkType.list(var6);
-          if (var7 !== null && !var7.disable && var5 + (arg3 ? 7 : 0) === var7.type) {
-            arg1[PlayerModel.basePartMap[var5]] = var6 | -2147483648;
-            break;
-          }
-        }
-      }
-    }
-    this.appearance = arg1;
-    this.colour = arg2;
-    this.gender = arg3;
-    this.transmog = arg0;
-    this.calcBaseId();
+  method1427() {
+    return this.transmog === -1 ? (this.appearance[11] << 5) + (this.colour[0] << 25) + (this.colour[4] << 20) + (this.appearance[0] << 15) + (this.appearance[8] << 10) + this.appearance[1] : 305419896 - -NpcType.list(this.transmog).id;
   }
-  idkChangeColour(arg0, arg1) {
-    this.colour[arg1] = arg0;
-    this.calcBaseId();
-  }
-  idkChangeGender(arg0) {
-    this.gender = arg0;
-    this.calcBaseId();
-  }
-  idkChangePart(arg0, arg1) {
-    const var3 = PlayerModel.basePartMap[arg0];
-    if (this.appearance[var3] !== 0 && IdkType.list(arg1) !== null) {
-      this.appearance[var3] = -2147483648 | arg1;
-      this.calcBaseId();
-    }
+  static resetCache() {
+    PlayerModel.modelCache.clear();
   }
 }
 
 // src/dash3d/ClientPlayer.ts
 class ClientPlayer extends ClientEntity {
-  static field1956 = new ModelSourceCache(4);
   name = null;
-  headiconPrayer = -1;
-  headiconPk = -1;
-  team = 0;
-  combatLevel = 0;
-  lowMem = false;
-  field761 = 0;
-  field769 = 0;
   model = null;
+  headiconPk = -1;
+  headiconPrayer = -1;
+  combatLevel = 0;
+  skillLevel = 0;
   locStartCycle = 0;
   locEndCycle = 0;
   locOffsetX = 0;
@@ -32480,7 +32486,101 @@ class ClientPlayer extends ClientEntity {
   minTileZ = 0;
   maxTileX = 0;
   maxTileZ = 0;
-  skillLevel = 0;
+  lowMem = false;
+  team = 0;
+  field761 = 0;
+  field769 = 0;
+  static field1956 = new ModelSourceCache(4);
+  setAppearance(buf) {
+    buf.pos = 0;
+    const var2 = buf.g1();
+    if ((var2 & 2) === 2) {
+      this.field769 = buf.g1() << 2;
+      this.field761 = buf.g1() << 2;
+    } else {
+      this.field761 = 0;
+      this.field769 = 0;
+    }
+    this.size = (var2 >> 3) + 1;
+    const var3 = var2 & 1;
+    const var4 = (var2 & 4) !== 0;
+    let var5 = -1;
+    this.headiconPk = buf.g1b();
+    const var6 = new Int32Array(12);
+    this.headiconPrayer = buf.g1b();
+    this.team = 0;
+    for (let var7 = 0;var7 < 12; var7++) {
+      const var8 = buf.g1();
+      if (var8 === 0) {
+        var6[var7] = 0;
+      } else {
+        const var9 = buf.g1();
+        const var10 = var9 + (var8 << 8);
+        if (var7 === 0 && var10 === 65535) {
+          var5 = buf.g2();
+          break;
+        }
+        if (var10 >= 32768) {
+          const var11 = ObjType.wearable[var10 - 32768];
+          var6[var7] = var11 | 1073741824;
+          const var12 = ObjType.list(var11).team;
+          if (var12 !== 0) {
+            this.team = var12;
+          }
+        } else {
+          var6[var7] = -2147483648 | var10 - 256;
+        }
+      }
+    }
+    const var13 = new Int32Array(5);
+    for (let var14 = 0;var14 < 5; var14++) {
+      let var15 = buf.g1();
+      if (var15 < 0 || var15 >= PlayerModel.recol1d[var14].length) {
+        var15 = 0;
+      }
+      var13[var14] = var15;
+    }
+    this.readyanim = buf.g2();
+    if (this.readyanim === 65535) {
+      this.readyanim = -1;
+    }
+    this.turnleftanim = buf.g2();
+    if (this.turnleftanim === 65535) {
+      this.turnleftanim = -1;
+    }
+    this.turnrightanim = this.turnleftanim;
+    this.walkanim = buf.g2();
+    if (this.walkanim === 65535) {
+      this.walkanim = -1;
+    }
+    this.walkanim_b = buf.g2();
+    if (this.walkanim_b === 65535) {
+      this.walkanim_b = -1;
+    }
+    this.walkanim_l = buf.g2();
+    if (this.walkanim_l === 65535) {
+      this.walkanim_l = -1;
+    }
+    this.walkanim_r = buf.g2();
+    if (this.walkanim_r === 65535) {
+      this.walkanim_r = -1;
+    }
+    this.runanim = buf.g2();
+    if (this.runanim === 65535) {
+      this.runanim = -1;
+    }
+    this.name = JagString.toRawUsername(buf.g8()).toScreenName().toString();
+    this.combatLevel = buf.g1();
+    if (var4) {
+      this.skillLevel = buf.g2();
+    } else {
+      this.skillLevel = 0;
+    }
+    if (this.model === null) {
+      this.model = new PlayerModel;
+    }
+    this.model.setAppearance(var5, var6, var13, var3 === 1);
+  }
   static method897(arg0, arg1, arg2, arg3, arg4, arg5) {
     const var6 = BigInt(arg3);
     let var8 = ClientPlayer.field1956.find(var6);
@@ -32519,96 +32619,6 @@ class ClientPlayer extends ClientEntity {
     if (var15 !== null) {
       var15.method87(0, arg3, arg0, arg1, arg7, arg4, arg10, arg2, -1);
     }
-  }
-  setAppearance(arg0) {
-    arg0.pos = 0;
-    const var2 = arg0.g1();
-    if ((var2 & 2) === 2) {
-      this.field769 = arg0.g1() << 2;
-      this.field761 = arg0.g1() << 2;
-    } else {
-      this.field761 = 0;
-      this.field769 = 0;
-    }
-    this.size = (var2 >> 3) + 1;
-    const var3 = var2 & 1;
-    const var4 = (var2 & 4) !== 0;
-    let var5 = -1;
-    this.headiconPk = arg0.g1b();
-    const var6 = new Int32Array(12);
-    this.headiconPrayer = arg0.g1b();
-    this.team = 0;
-    for (let var7 = 0;var7 < 12; var7++) {
-      const var8 = arg0.g1();
-      if (var8 === 0) {
-        var6[var7] = 0;
-      } else {
-        const var9 = arg0.g1();
-        const var10 = var9 + (var8 << 8);
-        if (var7 === 0 && var10 === 65535) {
-          var5 = arg0.g2();
-          break;
-        }
-        if (var10 >= 32768) {
-          const var11 = ObjType.field1698[var10 - 32768];
-          var6[var7] = var11 | 1073741824;
-          const var12 = ObjType.list(var11).team;
-          if (var12 !== 0) {
-            this.team = var12;
-          }
-        } else {
-          var6[var7] = -2147483648 | var10 - 256;
-        }
-      }
-    }
-    const var13 = new Int32Array(5);
-    for (let var14 = 0;var14 < 5; var14++) {
-      let var15 = arg0.g1();
-      if (var15 < 0 || var15 >= Client.field96[var14].length) {
-        var15 = 0;
-      }
-      var13[var14] = var15;
-    }
-    this.readyanim = arg0.g2();
-    if (this.readyanim === 65535) {
-      this.readyanim = -1;
-    }
-    this.turnleftanim = arg0.g2();
-    if (this.turnleftanim === 65535) {
-      this.turnleftanim = -1;
-    }
-    this.turnrightanim = this.turnleftanim;
-    this.walkanim = arg0.g2();
-    if (this.walkanim === 65535) {
-      this.walkanim = -1;
-    }
-    this.walkanim_b = arg0.g2();
-    if (this.walkanim_b === 65535) {
-      this.walkanim_b = -1;
-    }
-    this.walkanim_l = arg0.g2();
-    if (this.walkanim_l === 65535) {
-      this.walkanim_l = -1;
-    }
-    this.walkanim_r = arg0.g2();
-    if (this.walkanim_r === 65535) {
-      this.walkanim_r = -1;
-    }
-    this.runanim = arg0.g2();
-    if (this.runanim === 65535) {
-      this.runanim = -1;
-    }
-    this.name = JagString.toRawUsername(arg0.g8()).toScreenName().toString();
-    this.combatLevel = arg0.g1();
-    if (var4) {
-      this.skillLevel = arg0.g2();
-    } else {
-      this.skillLevel = 0;
-    }
-    if (this.model === null) {
-      this.model = new PlayerModel;
-    }
-    this.model.setAppearance(var5, var6, var13, var3 === 1);
   }
   method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     if (this.model === null) {
@@ -32764,52 +32774,70 @@ class ClientPlayer extends ClientEntity {
 
 // src/dash3d/ClientProj.ts
 class ClientProj extends ModelSource {
-  x = 0;
-  t2;
-  anim;
-  t1;
-  field1372 = -32768;
-  velocityZ = 0;
-  velocity = 0;
-  y = 0;
-  mobile = false;
-  animCycle = 0;
-  animFrame = 0;
-  startpos;
-  h2;
-  angle;
   spotanim;
   level;
-  h1;
-  srcZ;
   srcX;
+  srcZ;
+  h1;
+  h2;
+  t1;
+  t2;
+  angle;
+  startpos;
   target;
-  velocityY = 0;
+  mobile = false;
+  x = 0;
   z = 0;
+  y = 0;
   velocityX = 0;
+  velocityZ = 0;
+  velocity = 0;
+  velocityY = 0;
   accelerationY = 0;
-  pitch = 0;
   yaw = 0;
-  constructor(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
+  pitch = 0;
+  anim;
+  animFrame = 0;
+  animCycle = 0;
+  height = -32768;
+  constructor(spotanim, level, srcX, srcZ, h1, t1, t2, angle, startpos, target, h2) {
     super();
-    this.startpos = arg8;
-    this.h2 = arg10;
-    this.angle = arg7;
-    this.spotanim = arg0;
-    this.t1 = arg5;
-    this.level = arg1;
-    this.t2 = arg6;
-    this.h1 = arg4;
+    this.startpos = startpos;
+    this.h2 = h2;
+    this.angle = angle;
+    this.spotanim = spotanim;
+    this.t1 = t1;
+    this.level = level;
+    this.t2 = t2;
+    this.h1 = h1;
     this.mobile = false;
-    this.srcZ = arg3;
-    this.srcX = arg2;
-    this.target = arg9;
-    const var12 = SpotType.list(this.spotanim).anim;
-    if (var12 === -1) {
+    this.srcZ = srcZ;
+    this.srcX = srcX;
+    this.target = target;
+    const seq = SpotType.list(this.spotanim).anim;
+    if (seq === -1) {
       this.anim = null;
     } else {
-      this.anim = SeqType.list(var12);
+      this.anim = SeqType.list(seq);
     }
+  }
+  setTarget(arg0, arg1, arg2, arg3) {
+    if (!this.mobile) {
+      const var5 = arg3 - this.srcZ;
+      const var7 = arg0 - this.srcX;
+      const var9 = Math.sqrt(var7 * var7 + var5 * var5);
+      this.x = var7 * this.startpos / var9 + this.srcX;
+      this.z = this.srcZ + this.startpos * var5 / var9;
+      this.y = this.h1;
+    }
+    const var11 = this.t2 + 1 - arg1;
+    this.velocityZ = (arg3 - this.z) / var11;
+    this.velocityX = (arg0 - this.x) / var11;
+    this.velocity = Math.sqrt(this.velocityX * this.velocityX + this.velocityZ * this.velocityZ);
+    if (!this.mobile) {
+      this.velocityY = -this.velocity * Math.tan(this.angle * 0.02454369);
+    }
+    this.accelerationY = (arg2 - this.velocityY * var11 - this.y) * 2 / (var11 * var11);
   }
   move(arg0) {
     this.mobile = true;
@@ -32851,38 +32879,20 @@ class ClientProj extends ModelSource {
     const var11 = this.getTempModel();
     if (var11 != null) {
       var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-      this.field1372 = var11.method88();
+      this.height = var11.method88();
     }
   }
   method88() {
-    return this.field1372;
-  }
-  setTarget(arg0, arg1, arg2, arg3) {
-    if (!this.mobile) {
-      const var5 = arg3 - this.srcZ;
-      const var7 = arg0 - this.srcX;
-      const var9 = Math.sqrt(var7 * var7 + var5 * var5);
-      this.x = var7 * this.startpos / var9 + this.srcX;
-      this.z = this.srcZ + this.startpos * var5 / var9;
-      this.y = this.h1;
-    }
-    const var11 = this.t2 + 1 - arg1;
-    this.velocityZ = (arg3 - this.z) / var11;
-    this.velocityX = (arg0 - this.x) / var11;
-    this.velocity = Math.sqrt(this.velocityX * this.velocityX + this.velocityZ * this.velocityZ);
-    if (!this.mobile) {
-      this.velocityY = -this.velocity * Math.tan(this.angle * 0.02454369);
-    }
-    this.accelerationY = (arg2 - this.velocityY * var11 - this.y) * 2 / (var11 * var11);
+    return this.height;
   }
 }
 
-// src/datastruct/ClientProjNode2.ts
-class ClientProjNode2 extends Linkable2 {
-  field315;
+// src/dash3d/ClientProjNode.ts
+class ClientProjNode extends Linkable2 {
+  proj;
   constructor(arg0) {
     super();
-    this.field315 = arg0;
+    this.proj = arg0;
   }
 }
 
@@ -33198,58 +33208,48 @@ class HintArrow {
 
 // src/dash3d/LocChange.ts
 class LocChange extends Linkable {
-  field3051 = 0;
-  field3052 = 0;
-  field3061 = -1;
-  field3054 = 0;
-  field3053 = 0;
-  field3055 = 0;
-  field3059 = 0;
-  field3060 = 0;
-  field3062 = 0;
-  field3063 = 0;
-  field3064 = 0;
-  field3068 = 0;
+  level = 0;
+  layer = 0;
+  x = 0;
+  z = 0;
+  oldType = 0;
+  oldAngle = 0;
+  oldShape = 0;
+  newType = 0;
+  newAngle = 0;
+  newShape = 0;
+  startTime = 0;
+  endTime = -1;
 }
 
 // src/dash3d/MapSpotAnim.ts
 class MapSpotAnim extends ModelSource {
-  anim = null;
-  field286 = -32768;
+  type;
+  y;
   startCycle;
+  level;
+  x;
+  z;
+  anim = null;
   animFrame = 0;
   animCycle = 0;
   animComplete = false;
-  z;
-  x;
-  y;
-  type;
-  level;
-  constructor(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+  height = -32768;
+  constructor(type, level, x2, z, y, arg5, arg6) {
     super();
-    this.z = arg3;
-    this.x = arg2;
-    this.y = arg4;
+    this.z = z;
+    this.x = x2;
+    this.y = y;
     this.startCycle = arg6 + arg5;
-    this.type = arg0;
-    this.level = arg1;
-    const var8 = SpotType.list(this.type).anim;
-    if (var8 === -1) {
+    this.type = type;
+    this.level = level;
+    const seq = SpotType.list(this.type).anim;
+    if (seq === -1) {
       this.animComplete = true;
     } else {
       this.animComplete = false;
-      this.anim = SeqType.list(var8);
+      this.anim = SeqType.list(seq);
     }
-  }
-  method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
-    const var11 = this.getTempModel();
-    if (var11 != null) {
-      var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-      this.field286 = var11.method88();
-    }
-  }
-  method88() {
-    return this.field286;
   }
   getTempModel() {
     const var1 = SpotType.list(this.type);
@@ -33275,14 +33275,24 @@ class MapSpotAnim extends ModelSource {
       }
     }
   }
+  method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
+    const var11 = this.getTempModel();
+    if (var11 != null) {
+      var11.method87(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+      this.height = var11.method88();
+    }
+  }
+  method88() {
+    return this.height;
+  }
 }
 
 // src/dash3d/MapSpotAnimNode.ts
 class MapSpotAnimNode extends Linkable2 {
-  field4474;
+  spotanim;
   constructor(arg0) {
     super();
-    this.field4474 = arg0;
+    this.spotanim = arg0;
   }
 }
 
@@ -36484,19 +36494,19 @@ class TextureOpRemap extends TextureOp {
   }
 }
 
-// src/datastruct/ByteArrayNode2.ts
-class ByteArrayNode2 extends Linkable2 {
-  static field388 = new LruCache(16);
-  field3658;
+// src/dash3d/TextureNoiseTable.ts
+class TextureNoiseTable extends Linkable2 {
+  static cache = new LruCache(16);
+  table;
   constructor(arg0) {
     super();
-    this.field3658 = arg0;
+    this.table = arg0;
   }
-  static method1072(arg0) {
-    let var1 = ByteArrayNode2.field388.find(BigInt(arg0));
+  static get(seed) {
+    let var1 = TextureNoiseTable.cache.find(BigInt(seed));
     if (var1 === null) {
       const var2 = new Int8Array(512);
-      const var3 = new JavaRandom(arg0);
+      const var3 = new JavaRandom(seed);
       for (let var4 = 0;var4 < 255; var4++) {
         var2[var4] = var4;
       }
@@ -36507,10 +36517,10 @@ class ByteArrayNode2 extends Linkable2 {
         var2[var7] = var2[var6];
         var2[var6] = var2[511 - var5] = var8;
       }
-      var1 = new ByteArrayNode2(var2);
-      ByteArrayNode2.field388.put(BigInt(arg0), var1);
+      var1 = new TextureNoiseTable(var2);
+      TextureNoiseTable.cache.put(BigInt(seed), var1);
     }
-    return var1.field3658;
+    return var1.table;
   }
 }
 
@@ -36695,7 +36705,7 @@ class TextureOpSineWaves extends TextureOp {
     }
   }
   postDecode() {
-    this.permTable = ByteArrayNode2.method1072(this.seed);
+    this.permTable = TextureNoiseTable.get(this.seed);
     this.computeHarmonics();
     for (let var1 = this.octaves - 1;var1 >= 1; var1--) {
       const var2 = this.amplitudes[var1];
@@ -38482,7 +38492,7 @@ class TextureOpVoronoi extends TextureOp {
     return var2;
   }
   postDecode() {
-    this.permTable = ByteArrayNode2.method1072(this.seed);
+    this.permTable = TextureNoiseTable.get(this.seed);
     this.generateJitter();
   }
   generateJitter() {
@@ -39361,29 +39371,9 @@ class TextureManager {
   }
 }
 
-// src/dash3d/RecolsRunescape.ts
-class RecolsRunescape {
-  static field3955 = [6798, 8741, 25238, 4626, 4550];
-  static field1601 = [-10304, 9104, -1, -1, -1];
-  static field4062 = [
-    [6798, 107, 10283, 16, 4797, 7744, 5799, 4634, -31839, 22433, 2983, -11343, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
-    [8741, 12, -1506, -22374, 7735, 8404, 1701, -27106, 24094, 10153, -8915, 4783, 1341, 16578, -30533, 25239, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
-    [25238, 8742, 12, -1506, -22374, 7735, 8404, 1701, -27106, 24094, 10153, -8915, 4783, 1341, 16578, -30533, 8, 5281, 10438, 3650, -27322, -21845, 200, 571, 908, 21830, 28946, -15701, -14010],
-    [4626, 11146, 6439, 12, 4758, 10270],
-    [4550, 4537, 5681, 5673, 5790, 6806, 8076, 4574]
-  ];
-  static field2611 = [
-    [6554, 115, 10304, 28, 5702, 7756, 5681, 4510, -31835, 22437, 2859, -11339, 16, 5157, 10446, 3658, -27314, -21965, 472, 580, 784, 21966, 28950, -15697, -14002],
-    [9104, 10275, 7595, 3610, 7975, 8526, 918, -26734, 24466, 10145, -6882, 5027, 1457, 16565, -30545, 25486, 24, 5392, 10429, 3673, -27335, -21957, 192, 687, 412, 21821, 28835, -15460, -14019],
-    [],
-    [],
-    []
-  ];
-}
-
 // src/dash3d/RecolsStellardawn.ts
 class RecolsStellardawn {
-  static field1810 = [
+  static recol1d = [
     [
       18322,
       17304,
@@ -40674,7 +40664,7 @@ class RecolsStellardawn {
       14866
     ]
   ];
-  static field3850 = [
+  static recol2d = [
     [
       0,
       0,
@@ -41966,8 +41956,8 @@ class RecolsStellardawn {
       13964
     ]
   ];
-  static field1265 = [-4160, -4163, -8256, -8259, 22461];
-  static field3853 = [960, 957, -21568, -21571, 22464];
+  static recol2s = [-4160, -4163, -8256, -8259, 22461];
+  static recol1s = [960, 957, -21568, -21571, 22464];
 }
 
 // src/wordfilter2/Huffman.ts
@@ -44202,10 +44192,6 @@ class Client extends GameShell {
   static mapQuickchat = 0;
   static clientpalette = new Int16Array(256);
   static settings = "";
-  static field96 = RecolsRunescape.field4062;
-  static field1596 = RecolsRunescape.field2611;
-  static field2750 = RecolsRunescape.field1601;
-  static field219 = RecolsRunescape.field3955;
   static field4179 = 32767;
   static userhash = 0n;
   static field1098 = 7162900525229798032761816791230527296329313291232324290237849263501208207972894053929065636522363163621000728841182238772712427862772219676577293600221789n;
@@ -44214,7 +44200,7 @@ class Client extends GameShell {
   static MENUACTION_PLAYER = [30, 58, 29, 45, 37, 16, 1, 50];
   static loginSeed = 0n;
   static stockTransmitNum = 0;
-  static objFont = null;
+  static countFont = null;
   static field2045 = 0;
   static field3861 = 0;
   static field2751 = 1;
@@ -44276,6 +44262,15 @@ class Client extends GameShell {
   static idkDesignButton1 = -1;
   static idkDesignButton2 = -1;
   static field941 = 0;
+  static dragging = false;
+  static setLowMem() {
+    Client.lowMem = true;
+    World.lowMem = true;
+  }
+  static setHighMem() {
+    Client.lowMem = false;
+    World.lowMem = false;
+  }
   onKilled() {}
   init() {
     if (!this.checkhost()) {
@@ -44333,15 +44328,147 @@ class Client extends GameShell {
     } catch {}
     Client.settings = this.getParameter("settings") ?? "";
     Client.loginHost = this.getCodeBase().hostname;
-    this.startCommon();
+    this.startCommon(765, 503, 500);
   }
-  static setLowMem() {
-    Client.lowMem = true;
-    World.lowMem = true;
+  async maininit() {
+    Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
+    if (Client.modegame === 1) {
+      PlayerModel.recol1d = RecolsStellardawn.recol1d;
+      PlayerModel.recol2d = RecolsStellardawn.recol2d;
+      PlayerModel.recol2s = RecolsStellardawn.recol2s;
+      PlayerModel.recol1s = RecolsStellardawn.recol1s;
+    } else {
+      PlayerModel.recol1s = RecolsRunescape.recol1s;
+      PlayerModel.recol2s = RecolsRunescape.recol2s;
+      PlayerModel.recol1d = RecolsRunescape.recol1d;
+      PlayerModel.recol2d = RecolsRunescape.recol2d;
+    }
+    ClientKeyboardListener.setupKeyCodeMap();
+    ClientKeyboardListener.addListeners(GameShell.canvas);
+    ClientMouseListener.addListeners(GameShell.canvas);
+    Client.mouseWheel = MouseWheelListener.getProvider();
+    Client.mouseWheel?.addListeners(GameShell.canvas);
+    try {
+      this.db = new Database(await Database.openDatabase());
+    } catch {
+      this.db = null;
+    }
+    Js5NetThread.db = this.db;
+    GameShell.loadingText = Text.loading_title;
+    if (Client.modewhere !== 0) {
+      Client.showFps = true;
+    }
+    Client.loadingStep = 0;
+    Client.setMainState(0 /* LOADING */);
   }
-  static setHighMem() {
-    Client.lowMem = false;
-    World.lowMem = false;
+  async mainloop() {
+    Client.loopCycle++;
+    if (Client.loopCycle % 1000 === 1) {
+      const now = new Date;
+      Client.feedbackSeed = now.getHours() * 600 + now.getMinutes() * 10 + (now.getSeconds() / 6 | 0);
+      Client.feedbackRand.setSeed(Client.feedbackSeed);
+    }
+    await this.serviceNetClient();
+    Js5NetThread.processCompleted();
+    MidiManager.updateFadeOut();
+    Client.doAudio();
+    ClientKeyboardListener.cycle();
+    ClientMouseListener.cycle();
+    if (Client.mouseWheel !== null) {
+      Client.mouseWheelRotation = Client.mouseWheel.getRotation();
+    }
+    if (Client.state === 0 /* LOADING */) {
+      await this.mainLoad();
+      GameShell.doneslowupdate();
+    } else if (Client.state === 5 /* TITLE_LOADING */) {
+      TitleScreen.loop(this);
+      await this.mainLoad();
+      GameShell.doneslowupdate();
+    } else if (Client.state === 10 /* TITLE */) {
+      TitleScreen.loop(this);
+    } else if (Client.state === 20 /* LOGIN */) {
+      TitleScreen.loop(this);
+      await this.loginPoll();
+    } else if (Client.state === 25 /* MAP_BUILD */) {
+      Client.mapBuildLoop();
+    }
+    if (Client.state === 30 /* GAME */) {
+      await this.gameLoop();
+    } else if (Client.state === 40 /* RECONNECT */) {
+      await this.loginPoll();
+    }
+  }
+  async mainredraw() {
+    let redraw = false;
+    const loaded = MidiManager.updateLoading();
+    if (loaded && Client.playingJingle && Client.midiPlayer !== null) {
+      Client.midiPlayer.play();
+    }
+    if (GameShell.fullredraw) {
+      redraw = true;
+      GameShell.fullredraw = false;
+    }
+    if (Client.state === 0 /* LOADING */) {
+      GameShell.drawProgress(null, TitleScreen.loadString, redraw, TitleScreen.loadPos);
+    } else if (Client.state === 5 /* TITLE_LOADING */ || Client.state === 10 /* TITLE */ || Client.state === 20 /* LOGIN */) {
+      TitleScreen.draw(Client.p11, Client.b12);
+    } else if (Client.state === 25 /* MAP_BUILD */) {
+      if (Client.field3861 === 1) {
+        if (Client.field3754 > Client.field2751) {
+          Client.field2751 = Client.field3754;
+        }
+        const progress = (Client.field2751 - Client.field3754) * 50 / Client.field2751 | 0;
+        Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
+      } else if (Client.field3861 === 2) {
+        if (Client.field2045 > Client.field2652) {
+          Client.field2652 = Client.field2045;
+        }
+        const progress = ((Client.field2652 - Client.field2045) * 50 / Client.field2652 | 0) + 50;
+        Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
+      } else {
+        Client.messageBox(Text.loading, false);
+      }
+    } else if (Client.state === 30 /* GAME */) {
+      this.gameDraw();
+    } else if (Client.state === 40 /* RECONNECT */) {
+      Client.messageBox(Text.conlost + "<br>" + Text.attempt_to_reestablish, false);
+    }
+    if (Client.state === 30 /* GAME */ && Client.componentRectDebug === 0 && !redraw) {
+      try {
+        for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
+          if (Client.componentBlitArea[i2]) {
+            GameShell.drawArea.draw2(Client.componentDrawHeight[i2], Client.componentDrawWidth[i2], Client.componentDrawY[i2], Client.componentDrawX[i2]);
+            Client.componentBlitArea[i2] = false;
+          }
+        }
+      } catch {}
+    } else if (Client.state > 0 /* LOADING */) {
+      try {
+        GameShell.drawArea.draw(0, 0);
+        for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
+          Client.componentBlitArea[i2] = false;
+        }
+      } catch {}
+    }
+  }
+  mainquit() {
+    Client.mouseTracking.active = false;
+    Client.stream?.close();
+    Client.stream = null;
+    ClientKeyboardListener.removeListeners(GameShell.canvas);
+    ClientMouseListener.removeListeners(GameShell.canvas);
+    Client.mouseWheel?.removeListeners(GameShell.canvas);
+    ClientKeyboardListener.shutdown();
+    ClientMouseListener.shutdown();
+    Client.mouseWheel = null;
+    Client.midiPlayer?.shutdown();
+    Client.midiPlayer = null;
+    Client.synthPlayer?.shutdown();
+    Client.synthPlayer = null;
+    Js5Net.close();
+    Js5NetThread.shutdown();
+    Client.js5Stream?.close();
+    Client.js5Stream = null;
   }
   static async setMainState(state) {
     if (Client.state === state) {
@@ -44372,36 +44499,144 @@ class Client extends GameShell {
     }
     Client.state = state;
   }
-  async maininit() {
-    Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
-    if (Client.modegame === 1) {
-      Client.field96 = RecolsStellardawn.field1810;
-      Client.field1596 = RecolsStellardawn.field3850;
-      Client.field2750 = RecolsStellardawn.field1265;
-      Client.field219 = RecolsStellardawn.field3853;
-    } else {
-      Client.field219 = RecolsRunescape.field3955;
-      Client.field2750 = RecolsRunescape.field1601;
-      Client.field96 = RecolsRunescape.field4062;
-      Client.field1596 = RecolsRunescape.field2611;
+  async serviceNetClient() {
+    if (Client.state === 1000 /* ERROR */) {
+      return;
     }
-    ClientKeyboardListener.setupKeyCodeMap();
-    ClientKeyboardListener.addListeners(GameShell.canvas);
-    ClientMouseListener.addListeners(GameShell.canvas);
-    Client.mouseWheel = MouseWheelListener.getProvider();
-    Client.mouseWheel?.addListeners(GameShell.canvas);
+    if (this.js5ServiceBusy) {
+      return;
+    }
+    this.js5ServiceBusy = true;
     try {
-      this.db = new Database(await Database.openDatabase());
+      const ok = await this.js5Net.loop();
+      if (!ok) {
+        await this.js5connect();
+      }
+    } finally {
+      this.js5ServiceBusy = false;
+    }
+  }
+  async js5connect() {
+    if (Js5Net.crcErrorCount >= 4) {
+      this.error("js5crc");
+      Client.state = 1000 /* ERROR */;
+      return;
+    }
+    if (Js5Net.ioErrorCount >= 4) {
+      if (Client.state <= 5 /* TITLE_LOADING */) {
+        this.error("js5io");
+        Client.state = 1000 /* ERROR */;
+        return;
+      }
+      Js5Net.ioErrorCount = 3;
+      Client.js5ConnectCooldown = 3000;
+    }
+    if (Client.js5ConnectCooldown-- > 0) {
+      return;
+    }
+    try {
+      if (Client.js5ConnectState === 0) {
+        this.js5Socket = null;
+        this.js5SocketError = null;
+        const token = this.js5SocketToken;
+        Client.js5SocketReq = new Promise((resolve, reject) => {
+          const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+          const socket = new WebSocket(`${protocol}://${window.location.host}`, "binary");
+          socket.addEventListener("open", () => {
+            resolve(socket);
+          });
+          socket.addEventListener("error", () => {
+            reject(socket);
+          });
+        }).then((socket) => {
+          if (token === this.js5SocketToken) {
+            this.js5Socket = socket;
+          } else {
+            socket.close();
+          }
+        }).catch((error) => {
+          if (token === this.js5SocketToken) {
+            this.js5SocketError = error;
+          }
+        });
+        Client.js5ConnectState++;
+      }
+      if (Client.js5ConnectState === 1) {
+        if (this.js5SocketError) {
+          this.js5error(-1);
+          return;
+        }
+        if (this.js5Socket) {
+          Client.js5ConnectState++;
+        }
+      }
+      if (Client.js5ConnectState === 2) {
+        Client.js5Stream = new ClientStream(this.js5Socket);
+        this.js5Socket = null;
+        const packet = new Packet(new Uint8Array(5));
+        packet.p1(15);
+        packet.p4(500);
+        Client.js5Stream.write(5, packet.data);
+        Client.js5ConnectState++;
+        Client.js5ConnectTime = performance.now();
+      }
+      if (Client.js5ConnectState === 3) {
+        const available = Client.js5Stream?.available() ?? 0;
+        if (available < 0) {
+          this.js5error(-2);
+          return;
+        }
+        if (Client.state <= 5 /* TITLE_LOADING */ || available > 0) {
+          const response = await Client.js5Stream.read();
+          if (response !== 0) {
+            this.js5error(response);
+            return;
+          }
+          Client.js5ConnectState++;
+        } else if (performance.now() - Client.js5ConnectTime > 30000) {
+          this.js5error(-2);
+          return;
+        }
+      }
+      if (Client.js5ConnectState === 4) {
+        this.js5Net.init(Client.js5Stream, Client.state > 20 /* LOGIN */);
+        Client.js5ConnectState = 0;
+        Client.js5Errors = 0;
+        Client.js5SocketReq = null;
+        Client.js5Stream = null;
+      }
     } catch {
-      this.db = null;
+      this.js5error(-3);
     }
-    Js5NetThread.db = this.db;
-    GameShell.loadingText = Text.loading_title;
-    if (Client.modewhere !== 0) {
-      Client.showFps = true;
+  }
+  js5error(code) {
+    Client.js5SocketReq = null;
+    Client.js5ConnectState = 0;
+    Client.js5Stream?.close();
+    Client.js5Stream = null;
+    this.js5Socket?.close();
+    this.js5Socket = null;
+    this.js5SocketError = null;
+    this.js5SocketToken++;
+    Client.js5Errors++;
+    if (Client.js5Errors >= 2 && (code === 7 || code === 9)) {
+      if (Client.state > 5 /* TITLE_LOADING */) {
+        Client.js5ConnectCooldown = 3000;
+      } else {
+        this.error("js5connect_full");
+        Client.state = 1000 /* ERROR */;
+      }
+    } else if (Client.js5Errors >= 2 && code === 6) {
+      this.error("js5connect_outofdate");
+      Client.state = 1000 /* ERROR */;
+    } else if (Client.js5Errors >= 4) {
+      if (Client.state <= 5 /* TITLE_LOADING */) {
+        this.error("js5connect");
+        Client.state = 1000 /* ERROR */;
+      } else {
+        Client.js5ConnectCooldown = 3000;
+      }
     }
-    Client.loadingStep = 0;
-    Client.setMainState(0 /* LOADING */);
   }
   async mainLoad() {
     if (Client.loadingStep === 0) {
@@ -44577,7 +44812,7 @@ class Client extends GameShell {
       const fontmetrics = Client.fontmetrics;
       const binary = Client.binary;
       Client.p11 = PixLoader.makePixFont(fontmetrics, sprites, "", "p11_full");
-      Client.objFont = Client.p11;
+      Client.countFont = Client.p11;
       Client.p12 = PixLoader.makePixFont(fontmetrics, sprites, "", "p12_full");
       Client.b12 = PixLoader.makePixFont(fontmetrics, sprites, "", "b12_full");
       TitleScreen.loadPos = 45;
@@ -44629,7 +44864,7 @@ class Client extends GameShell {
         IdkType.init(models, configs);
         LocType.init(configLoc, models, Client.memServer, Client.lowMem);
         NpcType.init(configNpc, models);
-        ObjType.init(Client.memServer, configObj, Client.objFont, models);
+        ObjType.init(Client.memServer, configObj, Client.countFont, models);
         StructType.init(configs);
         SeqType.init(configSeq, anims, bases);
         SpotType.init(models, configSpot);
@@ -44642,7 +44877,7 @@ class Client extends GameShell {
         QuickChatCatType.init(quickchat, quickchatGlobal);
         TitleScreen.loadString = Text.mainload70b;
         TitleScreen.loadPos = 50;
-        ObjType.method1416();
+        ObjType.initWearable();
         Client.loadingStep = 80;
       } else {
         TitleScreen.loadString = `${Text.mainload70}${progress / 10 | 0}%`;
@@ -44835,448 +45070,6 @@ class Client extends GameShell {
   openJs5(archive, remoteEnabled, discardUnpacked, discardPacked) {
     const loader = new Js5Loader(archive, this.js5Net, discardPacked, discardUnpacked, remoteEnabled);
     return loader;
-  }
-  static rebuildPacket(arg0) {
-    Client.regionmode = arg0;
-    if (!Client.regionmode) {
-      const var1 = (Client.psize - Client.in.pos) / 16 | 0;
-      Client.field268 = Array.from({ length: var1 }, () => new Int32Array(4));
-      for (let var2 = 0;var2 < var1; var2++) {
-        for (let var3 = 0;var3 < 4; var3++) {
-          Client.field268[var2][var3] = Client.in.g4_alt1();
-        }
-      }
-      const var4 = Client.in.g2_alt2();
-      let var5 = false;
-      const var6 = Client.in.g2_alt3();
-      const var7 = Client.in.g2();
-      const var8 = Client.in.g1_alt3();
-      const var9 = Client.in.g2();
-      Client.field2402 = new Int32Array(var1);
-      ClientBuild.field2731 = new Int32Array(var1);
-      ClientBuild.field774 = new Array(var1).fill(null);
-      Client.field453 = new Int32Array(var1);
-      ClientBuild.field3221 = new Array(var1).fill(null);
-      let var10 = 0;
-      if (((var7 / 8 | 0) === 48 || (var7 / 8 | 0) === 49) && (var4 / 8 | 0) === 48) {
-        var5 = true;
-      }
-      if ((var7 / 8 | 0) === 48 && (var4 / 8 | 0) === 148) {
-        var5 = true;
-      }
-      for (let var11 = (var7 - 6) / 8 | 0;var11 <= ((var7 + 6) / 8 | 0); var11++) {
-        for (let var12 = (var4 - 6) / 8 | 0;var12 <= ((var4 + 6) / 8 | 0); var12++) {
-          const var13 = (var11 << 8) + var12;
-          if (var5 && (var12 === 49 || var12 === 149 || var12 === 147 || var11 === 50 || var11 === 49 && var12 === 47)) {
-            ClientBuild.field2731[var10] = var13;
-            Client.field453[var10] = -1;
-            Client.field2402[var10] = -1;
-          } else {
-            ClientBuild.field2731[var10] = var13;
-            Client.field453[var10] = Client.maps.getGroupId(`m${var11}_${var12}`);
-            Client.field2402[var10] = Client.maps.getGroupId(`l${var11}_${var12}`);
-          }
-          var10++;
-        }
-      }
-      Client.startRebuild(var8, var9, var7, var4, var6);
-      return;
-    }
-    const var14 = Client.in.g1();
-    const var15 = Client.in.g2_alt1();
-    const var16 = Client.in.g2_alt3();
-    Client.in.gBitStart();
-    for (let var17 = 0;var17 < 4; var17++) {
-      for (let var18 = 0;var18 < 13; var18++) {
-        for (let var19 = 0;var19 < 13; var19++) {
-          const var20 = Client.in.gBit(1);
-          if (var20 === 1) {
-            ClientBuild.zoneMapArchiveIds[var17][var18][var19] = Client.in.gBit(26);
-          } else {
-            ClientBuild.zoneMapArchiveIds[var17][var18][var19] = -1;
-          }
-        }
-      }
-    }
-    Client.in.gBitEnd();
-    const var21 = (Client.psize - Client.in.pos) / 16 | 0;
-    Client.field268 = Array.from({ length: var21 }, () => new Int32Array(4));
-    for (let var22 = 0;var22 < var21; var22++) {
-      for (let var23 = 0;var23 < 4; var23++) {
-        Client.field268[var22][var23] = Client.in.g4();
-      }
-    }
-    const var24 = Client.in.g2_alt1();
-    const var25 = Client.in.g2();
-    Client.field453 = new Int32Array(var21);
-    Client.field2402 = new Int32Array(var21);
-    ClientBuild.field3221 = new Array(var21).fill(null);
-    ClientBuild.field2731 = new Int32Array(var21);
-    ClientBuild.field774 = new Array(var21).fill(null);
-    let var26 = 0;
-    for (let var27 = 0;var27 < 4; var27++) {
-      for (let var28 = 0;var28 < 13; var28++) {
-        for (let var29 = 0;var29 < 13; var29++) {
-          const var30 = ClientBuild.zoneMapArchiveIds[var27][var28][var29];
-          if (var30 !== -1) {
-            const var31 = var30 >> 3 & 2047;
-            const var32 = var30 >> 14 & 1023;
-            let var33 = (var31 / 8 | 0) + ((var32 / 8 | 0) << 8);
-            for (let var34 = 0;var34 < var26; var34++) {
-              if (var33 === ClientBuild.field2731[var34]) {
-                var33 = -1;
-                break;
-              }
-            }
-            if (var33 !== -1) {
-              ClientBuild.field2731[var26] = var33;
-              const var35 = var33 >> 8 & 255;
-              const var36 = var33 & 255;
-              Client.field453[var26] = Client.maps.getGroupId(`m${var35}_${var36}`);
-              Client.field2402[var26] = Client.maps.getGroupId(`l${var35}_${var36}`);
-              var26++;
-            }
-          }
-        }
-      }
-    }
-    Client.startRebuild(var14, var16, var15, var25, var24);
-  }
-  static startRebuild(arg0, arg1, arg2, arg3, arg4) {
-    if (arg2 === Client.mapBuildCentreZoneX && Client.mapBuildCentreZoneZ === arg3 && (arg0 === Client.lastBuiltLevel || !Client.lowMem)) {
-      return;
-    }
-    Client.lastBuiltLevel = arg0;
-    if (!Client.lowMem) {
-      Client.lastBuiltLevel = 0;
-    }
-    Client.mapBuildCentreZoneZ = arg3;
-    Client.mapBuildCentreZoneX = arg2;
-    Client.setMainState(25);
-    Client.messageBox(Text.loading, true);
-    const var5 = Client.mapBuildBaseX;
-    const var6 = Client.mapBuildBaseZ;
-    Client.mapBuildBaseZ = arg3 * 8 - 48;
-    const var7 = Client.mapBuildBaseZ - var6;
-    Client.mapBuildBaseX = (arg2 - 6) * 8;
-    const var8 = Client.mapBuildBaseX - var5;
-    for (let var9 = 0;var9 < 32768; var9++) {
-      const var10 = Client.npc[var9];
-      if (var10 !== null) {
-        for (let var11 = 0;var11 < 10; var11++) {
-          var10.routeX[var11] -= var8;
-          var10.routeZ[var11] -= var7;
-        }
-        var10.z -= var7 * 128;
-        var10.x -= var8 * 128;
-      }
-    }
-    for (let var12 = 0;var12 < 2048; var12++) {
-      const var13 = Client.players[var12];
-      if (var13 !== null) {
-        for (let var14 = 0;var14 < 10; var14++) {
-          var13.routeX[var14] -= var8;
-          var13.routeZ[var14] -= var7;
-        }
-        var13.x -= var8 * 128;
-        var13.z -= var7 * 128;
-      }
-    }
-    Client.minusedlevel = arg0;
-    let var15 = 0;
-    let var16 = 104;
-    Client.localPlayer.teleport(false, arg4, arg1);
-    let var17 = 0;
-    let var18 = 1;
-    if (var8 < 0) {
-      var16 = -1;
-      var18 = -1;
-      var15 = 103;
-    }
-    let var19 = 1;
-    let var20 = 104;
-    if (var7 < 0) {
-      var20 = -1;
-      var19 = -1;
-      var17 = 103;
-    }
-    for (let var21 = var15;var21 !== var16; var21 += var18) {
-      for (let var22 = var17;var22 !== var20; var22 += var19) {
-        const var23 = var8 + var21;
-        const var24 = var22 + var7;
-        for (let var25 = 0;var25 < 4; var25++) {
-          if (var23 >= 0 && var24 >= 0 && var23 < 104 && var24 < 104) {
-            Client.groundObj[var25][var21][var22] = Client.groundObj[var25][var23][var24];
-          } else {
-            Client.groundObj[var25][var21][var22] = null;
-          }
-        }
-      }
-    }
-    for (let var26 = Client.locChanges.head();var26 !== null; var26 = Client.locChanges.next()) {
-      var26.field3059 -= var8;
-      var26.field3052 -= var7;
-      if (var26.field3059 < 0 || var26.field3052 < 0 || var26.field3059 >= 104 || var26.field3052 >= 104) {
-        var26.unlink();
-      }
-    }
-    if (Client.minimapFlagX !== 0) {
-      Client.minimapFlagX -= var8;
-      Client.minimapFlagZ -= var7;
-    }
-    Client.minimapLevel = -1;
-    Client.cinemaCam = false;
-    Client.waveCount = 0;
-    Client.spotanims.clear();
-    Client.projectiles.clear();
-  }
-  async mainloop() {
-    Client.loopCycle++;
-    if (Client.loopCycle % 1000 === 1) {
-      const now = new Date;
-      Client.feedbackSeed = now.getHours() * 600 + now.getMinutes() * 10 + (now.getSeconds() / 6 | 0);
-      Client.feedbackRand.setSeed(Client.feedbackSeed);
-    }
-    await this.serviceNetClient();
-    Js5NetThread.processCompleted();
-    MidiManager.updateFadeOut();
-    Client.doAudio();
-    ClientKeyboardListener.cycle();
-    ClientMouseListener.cycle();
-    if (Client.mouseWheel !== null) {
-      Client.mouseWheelRotation = Client.mouseWheel.getRotation();
-    }
-    if (Client.state === 0 /* LOADING */) {
-      await this.mainLoad();
-      GameShell.doneslowupdate();
-    } else if (Client.state === 5 /* TITLE_LOADING */) {
-      TitleScreen.loop(this);
-      await this.mainLoad();
-      GameShell.doneslowupdate();
-    } else if (Client.state === 10 /* TITLE */) {
-      TitleScreen.loop(this);
-    } else if (Client.state === 20 /* LOGIN */) {
-      TitleScreen.loop(this);
-      await this.loginPoll();
-    } else if (Client.state === 25 /* MAP_BUILD */) {
-      Client.mapBuildLoop();
-    }
-    if (Client.state === 30 /* GAME */) {
-      await this.gameLoop();
-    } else if (Client.state === 40 /* RECONNECT */) {
-      await this.loginPoll();
-    }
-  }
-  async mainredraw() {
-    let redraw = false;
-    const loaded = MidiManager.updateLoading();
-    if (loaded && Client.playingJingle && Client.midiPlayer !== null) {
-      Client.midiPlayer.play();
-    }
-    if (GameShell.fullredraw) {
-      redraw = true;
-      GameShell.fullredraw = false;
-    }
-    if (Client.state === 0 /* LOADING */) {
-      GameShell.drawProgress(null, TitleScreen.loadString, redraw, TitleScreen.loadPos);
-    } else if (Client.state === 5 /* TITLE_LOADING */ || Client.state === 10 /* TITLE */ || Client.state === 20 /* LOGIN */) {
-      TitleScreen.draw(Client.p11, Client.b12);
-    } else if (Client.state === 25 /* MAP_BUILD */) {
-      if (Client.field3861 === 1) {
-        if (Client.field3754 > Client.field2751) {
-          Client.field2751 = Client.field3754;
-        }
-        const progress = (Client.field2751 - Client.field3754) * 50 / Client.field2751 | 0;
-        Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
-      } else if (Client.field3861 === 2) {
-        if (Client.field2045 > Client.field2652) {
-          Client.field2652 = Client.field2045;
-        }
-        const progress = ((Client.field2652 - Client.field2045) * 50 / Client.field2652 | 0) + 50;
-        Client.messageBox(`${Text.loading}<br>(${progress}%)`, false);
-      } else {
-        Client.messageBox(Text.loading, false);
-      }
-    } else if (Client.state === 30 /* GAME */) {
-      this.gameDraw();
-    } else if (Client.state === 40 /* RECONNECT */) {
-      Client.messageBox(Text.conlost + "<br>" + Text.attempt_to_reestablish, false);
-    }
-    if (Client.state === 30 /* GAME */ && Client.componentRectDebug === 0 && !redraw) {
-      try {
-        for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
-          if (Client.componentBlitArea[i2]) {
-            GameShell.drawArea.draw2(Client.componentDrawHeight[i2], Client.componentDrawWidth[i2], Client.componentDrawY[i2], Client.componentDrawX[i2]);
-            Client.componentBlitArea[i2] = false;
-          }
-        }
-      } catch {}
-    } else if (Client.state > 0 /* LOADING */) {
-      try {
-        GameShell.drawArea.draw(0, 0);
-        for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
-          Client.componentBlitArea[i2] = false;
-        }
-      } catch {}
-    }
-  }
-  mainquit() {
-    Client.mouseTracking.active = false;
-    Client.stream?.close();
-    Client.stream = null;
-    ClientKeyboardListener.removeListeners(GameShell.canvas);
-    ClientMouseListener.removeListeners(GameShell.canvas);
-    Client.mouseWheel?.removeListeners(GameShell.canvas);
-    ClientKeyboardListener.shutdown();
-    ClientMouseListener.shutdown();
-    Client.mouseWheel = null;
-    Client.midiPlayer?.shutdown();
-    Client.midiPlayer = null;
-    Client.synthPlayer?.shutdown();
-    Client.synthPlayer = null;
-    Js5Net.close();
-    Js5NetThread.shutdown();
-    Client.js5Stream?.close();
-    Client.js5Stream = null;
-  }
-  async serviceNetClient() {
-    if (Client.state === 1000 /* ERROR */) {
-      return;
-    }
-    if (this.js5ServiceBusy) {
-      return;
-    }
-    this.js5ServiceBusy = true;
-    try {
-      const ok = await this.js5Net.loop();
-      if (!ok) {
-        await this.js5connect();
-      }
-    } finally {
-      this.js5ServiceBusy = false;
-    }
-  }
-  js5error(code) {
-    Client.js5SocketReq = null;
-    Client.js5ConnectState = 0;
-    Client.js5Stream?.close();
-    Client.js5Stream = null;
-    this.js5Socket?.close();
-    this.js5Socket = null;
-    this.js5SocketError = null;
-    this.js5SocketToken++;
-    Client.js5Errors++;
-    if (Client.js5Errors >= 2 && (code === 7 || code === 9)) {
-      if (Client.state > 5 /* TITLE_LOADING */) {
-        Client.js5ConnectCooldown = 3000;
-      } else {
-        this.error("js5connect_full");
-        Client.state = 1000 /* ERROR */;
-      }
-    } else if (Client.js5Errors >= 2 && code === 6) {
-      this.error("js5connect_outofdate");
-      Client.state = 1000 /* ERROR */;
-    } else if (Client.js5Errors >= 4) {
-      if (Client.state <= 5 /* TITLE_LOADING */) {
-        this.error("js5connect");
-        Client.state = 1000 /* ERROR */;
-      } else {
-        Client.js5ConnectCooldown = 3000;
-      }
-    }
-  }
-  async js5connect() {
-    if (Js5Net.crcErrorCount >= 4) {
-      this.error("js5crc");
-      Client.state = 1000 /* ERROR */;
-      return;
-    }
-    if (Js5Net.ioErrorCount >= 4) {
-      if (Client.state <= 5 /* TITLE_LOADING */) {
-        this.error("js5io");
-        Client.state = 1000 /* ERROR */;
-        return;
-      }
-      Js5Net.ioErrorCount = 3;
-      Client.js5ConnectCooldown = 3000;
-    }
-    if (Client.js5ConnectCooldown-- > 0) {
-      return;
-    }
-    try {
-      if (Client.js5ConnectState === 0) {
-        this.js5Socket = null;
-        this.js5SocketError = null;
-        const token = this.js5SocketToken;
-        Client.js5SocketReq = new Promise((resolve, reject) => {
-          const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-          const socket = new WebSocket(`${protocol}://${window.location.host}`, "binary");
-          socket.addEventListener("open", () => {
-            resolve(socket);
-          });
-          socket.addEventListener("error", () => {
-            reject(socket);
-          });
-        }).then((socket) => {
-          if (token === this.js5SocketToken) {
-            this.js5Socket = socket;
-          } else {
-            socket.close();
-          }
-        }).catch((error) => {
-          if (token === this.js5SocketToken) {
-            this.js5SocketError = error;
-          }
-        });
-        Client.js5ConnectState++;
-      }
-      if (Client.js5ConnectState === 1) {
-        if (this.js5SocketError) {
-          this.js5error(-1);
-          return;
-        }
-        if (this.js5Socket) {
-          Client.js5ConnectState++;
-        }
-      }
-      if (Client.js5ConnectState === 2) {
-        Client.js5Stream = new ClientStream(this.js5Socket);
-        this.js5Socket = null;
-        const packet = new Packet(new Uint8Array(5));
-        packet.p1(15);
-        packet.p4(500);
-        Client.js5Stream.write(5, packet.data);
-        Client.js5ConnectState++;
-        Client.js5ConnectTime = performance.now();
-      }
-      if (Client.js5ConnectState === 3) {
-        const available = Client.js5Stream?.available() ?? 0;
-        if (available < 0) {
-          this.js5error(-2);
-          return;
-        }
-        if (Client.state <= 5 /* TITLE_LOADING */ || available > 0) {
-          const response = await Client.js5Stream.read();
-          if (response !== 0) {
-            this.js5error(response);
-            return;
-          }
-          Client.js5ConnectState++;
-        } else if (performance.now() - Client.js5ConnectTime > 30000) {
-          this.js5error(-2);
-          return;
-        }
-      }
-      if (Client.js5ConnectState === 4) {
-        this.js5Net.init(Client.js5Stream, Client.state > 20 /* LOGIN */);
-        Client.js5ConnectState = 0;
-        Client.js5Errors = 0;
-        Client.js5SocketReq = null;
-        Client.js5Stream = null;
-      }
-    } catch {
-      this.js5error(-3);
-    }
   }
   async loginPoll() {
     try {
@@ -45550,200 +45343,6 @@ class Client extends GameShell {
       }
     }
   }
-  static loginError(arg0) {
-    if (arg0 === -3) {
-      TitleScreen.loginMes(Text.loginm3_c, Text.loginm3_a, Text.loginm3_b);
-    } else if (arg0 === -2) {
-      TitleScreen.loginMes(Text.loginm2_c, Text.loginm2_a, Text.loginm2_b);
-    } else if (arg0 === -1) {
-      TitleScreen.loginMes(Text.loginm1_c, Text.loginm1_a, Text.loginm1_b);
-    } else if (arg0 === 3) {
-      TitleScreen.loginMes(Text.login3_c, Text.login3_a, Text.login3_b);
-    } else if (arg0 === 4) {
-      TitleScreen.loginMes(Text.login4_c, Text.login4_a, Text.login4_b);
-    } else if (arg0 === 5) {
-      TitleScreen.loginMes(Text.login5_c, Text.login5_a, Text.login5_b);
-    } else if (arg0 === 6) {
-      TitleScreen.loginMes(Text.login6_c, Text.login6_a, Text.login6_b);
-    } else if (arg0 === 7) {
-      TitleScreen.loginMes(Text.login7_c, Text.login7_a, Text.login7_b);
-    } else if (arg0 === 8) {
-      TitleScreen.loginMes(Text.login8_c, Text.login8_a, Text.login8_b);
-    } else if (arg0 === 9) {
-      TitleScreen.loginMes(Text.login9_c, Text.login9_a, Text.login9_b);
-    } else if (arg0 === 10) {
-      TitleScreen.loginMes(Text.login10_c, Text.login10_a, Text.login10_b);
-    } else if (arg0 === 11) {
-      TitleScreen.loginMes(Text.login11_c, Text.login11_a, Text.login11_b);
-    } else if (arg0 === 12) {
-      TitleScreen.loginMes(Text.login12_c, Text.login12_a, Text.login12_b);
-    } else if (arg0 === 13) {
-      TitleScreen.loginMes(Text.login13_c, Text.login13_a, Text.login13_b);
-    } else if (arg0 === 14) {
-      TitleScreen.loginMes(Text.login14_c, Text.login14_a, Text.login14_b);
-    } else if (arg0 === 16) {
-      TitleScreen.loginMes(Text.login16_c, Text.login16_a, Text.login16_b);
-    } else if (arg0 === 17) {
-      TitleScreen.loginMes(Text.login17_c, Text.login17_a, Text.login17_b);
-    } else if (arg0 === 18) {
-      TitleScreen.loginMes(Text.login18_c, Text.login18_a, Text.login18_b);
-    } else if (arg0 === 19) {
-      TitleScreen.loginMes(Text.login19_c, Text.login19_a, Text.login19_b);
-    } else if (arg0 === 20) {
-      TitleScreen.loginMes(Text.login20_c, Text.login20_a, Text.login20_b);
-    } else if (arg0 === 22) {
-      TitleScreen.loginMes(Text.login22_c, Text.login22_a, Text.login22_b);
-    } else if (arg0 === 23) {
-      TitleScreen.loginMes(Text.login23_c, Text.login23_a, Text.login23_b);
-    } else if (arg0 === 24) {
-      TitleScreen.loginMes(Text.login24_c, Text.login24_a, Text.login24_b);
-    } else if (arg0 === 25) {
-      TitleScreen.loginMes(Text.login25_c, Text.login25_a, Text.login25_b);
-    } else if (arg0 === 26) {
-      TitleScreen.loginMes(Text.login26_c, Text.login26_a, Text.login26_b);
-    } else if (arg0 === 27) {
-      TitleScreen.loginMes(Text.login27_c, Text.login27_a, Text.login27_b);
-    } else {
-      TitleScreen.loginMes(Text.loginmis_c, Text.loginmis_a, Text.loginmis_b);
-    }
-    Client.setMainState(10);
-  }
-  static loginDone() {
-    Client.prevMouseClickTime = 0;
-    Client.mouseTracking.length = 0;
-    Client.mouseTrackedDelta = 0;
-    Client.focusIn = true;
-    GameShell.focus = true;
-    Client.ptype2 = -1;
-    Client.out.pos = 0;
-    Client.ptype1 = -1;
-    Client.logoutTimer = 0;
-    Client.ptype0 = -1;
-    Client.rebootTimer = 0;
-    Client.timeoutTimer = 0;
-    Client.ptype = -1;
-    Client.in.pos = 0;
-    for (let var0 = 0;var0 < Client.field1171.length; var0++) {
-      Client.field1171[var0] = null;
-    }
-    Client.menuNumEntries = 0;
-    Client.isMenuOpen = false;
-    ClientMouseListener.setIdleTimer(0);
-    for (let var1 = 0;var1 < 100; var1++) {
-      Client.chatText[var1] = null;
-    }
-    Client.chatHistoryLength = 0;
-    Client.minimapFlagZ = 0;
-    Client.macroMinimapZoom = (Math.random() * 30 | 0) - 20;
-    Client.minimapFlagX = 0;
-    Client.macroMinimapAngle = (Math.random() * 120 | 0) - 60;
-    Client.playerCount = 0;
-    Client.macroCameraZ = (Math.random() * 110 | 0) - 55;
-    Client.orbitCameraYaw = (Math.random() * 20 | 0) - 10 & 2047;
-    Client.waveCount = 0;
-    Client.minimapState = 0;
-    Client.macroCameraAngle = (Math.random() * 80 | 0) - 40;
-    Client.macroCameraX = (Math.random() * 100 | 0) - 50;
-    Client.targetMode = false;
-    Client.minimapLevel = -1;
-    Client.npcCount = 0;
-    Client.useMode = 0;
-    for (let var2 = 0;var2 < 2048; var2++) {
-      Client.players[var2] = null;
-      Client.playerAppearanceBuffer[var2] = null;
-    }
-    for (let var3 = 0;var3 < 32768; var3++) {
-      Client.npc[var3] = null;
-    }
-    Client.localPlayer = Client.players[2047] = new ClientPlayer;
-    Client.projectiles.clear();
-    Client.spotanims.clear();
-    for (let var4 = 0;var4 < 4; var4++) {
-      for (let var5 = 0;var5 < 104; var5++) {
-        for (let var6 = 0;var6 < 104; var6++) {
-          Client.groundObj[var4][var5][var6] = null;
-        }
-      }
-    }
-    Client.locChanges = new LinkList;
-    Client.friendCount = 0;
-    Client.friendServerStatus = 0;
-    for (let var7 = 0;var7 < VarpType.numDefinitions; var7++) {
-      const var8 = VarpType.list(var7);
-      if (var8 !== null && var8.clientcode === 0) {
-        VarCache.varServ[var7] = 0;
-        VarCache.var[var7] = 0;
-      }
-    }
-    for (let var9 = 0;var9 < VarCache.varcInt.length; var9++) {
-      VarCache.varcInt[var9] = -1;
-    }
-    if (Client.toplevelinterface !== -1) {
-      IfType.unloadInterface(Client.toplevelinterface);
-    }
-    for (let var10 = Client.subinterfaces.search();var10 !== null; var10 = Client.subinterfaces.findnext()) {
-      Client.closeSubInterface(var10, true);
-    }
-    Client.toplevelinterface = -1;
-    Client.subinterfaces = new HashTable(8);
-    Client.menuNumEntries = 0;
-    Client.resumePauseCom = null;
-    Client.isMenuOpen = false;
-    Client.idkDesign.setAppearance(-1, null, new Int32Array(5), false);
-    for (let var11 = 0;var11 < 8; var11++) {
-      Client.playerOp[var11] = null;
-      Client.playerOpPriority[var11] = false;
-    }
-    ClientInvCache.deleteAll();
-    Client.js5Loading = true;
-    for (let var12 = 0;var12 < 100; var12++) {
-      Client.componentDirtyArea[var12] = true;
-    }
-    Client.friendChatCount = 0;
-    Client.chatDisplayName = null;
-    Client.friendChatList = null;
-    for (let var13 = 0;var13 < 6; var13++) {
-      Client.field140[var13] = new StockMarketSlot;
-    }
-    for (let var14 = 0;var14 < 25; var14++) {
-      Client.statEffectiveLevel[var14] = 0;
-      Client.statBaseLevel[var14] = 0;
-      Client.statXP[var14] = 0;
-    }
-    Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
-    Client.sendCamera = true;
-    Client.moveAction = Text.walkhere;
-  }
-  static reconnectDone() {
-    Client.ptype2 = -1;
-    Client.rebootTimer = 0;
-    Client.ptype = -1;
-    Client.out.pos = 0;
-    Client.timeoutTimer = 0;
-    Client.menuNumEntries = 0;
-    Client.minimapState = 0;
-    Client.ptype0 = -1;
-    Client.in.pos = 0;
-    Client.psize = 0;
-    Client.ptype1 = -1;
-    Client.minimapFlagX = 0;
-    Client.isMenuOpen = false;
-    for (let var0 = 0;var0 < Client.players.length; var0++) {
-      if (Client.players[var0] !== null) {
-        Client.players[var0].targetId = -1;
-      }
-    }
-    for (let var1 = 0;var1 < Client.npc.length; var1++) {
-      if (Client.npc[var1] !== null) {
-        Client.npc[var1].targetId = -1;
-      }
-    }
-    ClientInvCache.deleteAll();
-    Client.setMainState(30);
-    for (let var2 = 0;var2 < 100; var2++) {
-      Client.componentDirtyArea[var2] = true;
-    }
-  }
   async gameLoop() {
     if (Client.rebootTimer > 1) {
       Client.rebootTimer--;
@@ -45764,7 +45363,7 @@ class Client extends GameShell {
     if (!Client.mouseTracked) {
       Client.mouseTracking.length = 0;
     } else if (ClientMouseListener.mouseClickButton !== 0 || Client.mouseTracking.length >= 40) {
-      Client.out.p1Enc(111);
+      Client.out.p1Enc(111 /* EVENT_MOUSE_MOVE */);
       Client.out.p1(0);
       const start = Client.out.pos;
       let count = 0;
@@ -45843,7 +45442,7 @@ class Client extends GameShell {
       if (ClientMouseListener.mouseClickButton === 2) {
         button = 1;
       }
-      Client.out.p1Enc(63);
+      Client.out.p1Enc(63 /* EVENT_MOUSE_CLICK */);
       Client.out.p4_alt2((button << 19) + ((delta << 20) + pos));
     }
     if (Client.sendCameraDelay > 0) {
@@ -45855,17 +45454,17 @@ class Client extends GameShell {
     if (Client.sendCamera && Client.sendCameraDelay <= 0) {
       Client.sendCameraDelay = 20;
       Client.sendCamera = false;
-      Client.out.p1Enc(173);
+      Client.out.p1Enc(173 /* EVENT_CAMERA_POSITION */);
       Client.out.p2_alt2(Client.orbitCameraYaw);
       Client.out.p2(Client.orbitCameraPitch);
     }
     if (GameShell.focus && !Client.focusIn) {
       Client.focusIn = true;
-      Client.out.p1Enc(130);
+      Client.out.p1Enc(130 /* EVENT_APPLET_FOCUS */);
       Client.out.p1(1);
     } else if (!GameShell.focus && Client.focusIn) {
       Client.focusIn = false;
-      Client.out.p1Enc(130);
+      Client.out.p1Enc(130 /* EVENT_APPLET_FOCUS */);
       Client.out.p1(0);
     }
     Client.checkMinimap();
@@ -45896,7 +45495,7 @@ class Client extends GameShell {
         Client.selectedCom = null;
       }
     }
-    if (Client.objDragCom !== null || Client.dragCom !== null) {
+    if (Client.objDragCom !== null) {
       Client.componentUpdated(Client.objDragCom);
       Client.objDragCycles++;
       if (ClientMouseListener.mouseX > Client.objGrabX + 5 || ClientMouseListener.mouseX < Client.objGrabX - 5 || ClientMouseListener.mouseY > Client.objGrabY + 5 || ClientMouseListener.mouseY < Client.objGrabY - 5) {
@@ -45935,7 +45534,7 @@ class Client extends GameShell {
             } else {
               com.swapSlots(Client.objDragSlot, Client.hoveredSlot);
             }
-            Client.out.p1Enc(207);
+            Client.out.p1Enc(207 /* INV_BUTTOND */);
             Client.out.p4_alt1(com.parentId);
             Client.out.p2_alt1(Client.objDragSlot);
             Client.out.p1_alt3(mode);
@@ -46061,7 +45660,7 @@ class Client extends GameShell {
     if (mouseIdle > 4500 && keyboardIdle > 4500) {
       Client.logoutTimer = 250;
       ClientMouseListener.setIdleTimer(4000);
-      Client.out.p1Enc(226);
+      Client.out.p1Enc(226 /* IDLE_TIMER */);
     }
     Client.macroCameraCycle++;
     Client.macroMinimapCycle++;
@@ -46120,7 +45719,7 @@ class Client extends GameShell {
       Client.macroCameraXModifier = -2;
     }
     if (Client.noTimeoutTimer > 50) {
-      Client.out.p1Enc(19);
+      Client.out.p1Enc(19 /* NO_TIMEOUT */);
     }
     try {
       if (Client.stream && Client.out.pos > 0) {
@@ -46135,6 +45734,244 @@ class Client extends GameShell {
       } else {
         Client.logout();
       }
+    }
+  }
+  gameDraw() {
+    if (!Client.isMenuOpen) {
+      Client.menuAction[0] = 1007;
+      Client.menuVerb[0] = Text.cancel;
+      Client.menuNumEntries = 1;
+      Client.menuSubject[0] = "";
+    }
+    if (Client.toplevelinterface !== -1) {
+      Client.animateInterface(Client.toplevelinterface);
+    }
+    for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
+      if (Client.componentDirtyArea[i2]) {
+        Client.componentBlitArea[i2] = true;
+      }
+      Client.componentRedraw[i2] = Client.componentDirtyArea[i2];
+      Client.componentDirtyArea[i2] = false;
+    }
+    Client.hoveredSlotCom = null;
+    Client.menuMouseY = -1;
+    Client.componentDrawTime = Client.loopCycle;
+    Client.menuMouseX = -1;
+    if (Client.toplevelinterface !== -1) {
+      Client.componentDrawCount = 0;
+      this.drawInterface(GameShell.sHei, Client.toplevelinterface, 0, -1, 0, 0, 0, GameShell.sWid);
+    }
+    Pix2D.resetClipping();
+    Client.sortMinimenu();
+    if (Client.isMenuOpen) {
+      this.drawMinimenu();
+    } else if (Client.menuMouseY !== -1) {
+      Client.drawFeedback(Client.menuMouseX, Client.menuMouseY);
+    }
+    if (Client.componentRectDebug === 3) {
+      for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
+        if (Client.componentRedraw[i2]) {
+          Pix2D.fillRectTrans(Client.componentDrawX[i2], Client.componentDrawY[i2], Client.componentDrawWidth[i2], Client.componentDrawHeight[i2], 16711935, 128);
+        } else if (Client.componentBlitArea[i2]) {
+          Pix2D.fillRectTrans(Client.componentDrawX[i2], Client.componentDrawY[i2], Client.componentDrawWidth[i2], Client.componentDrawHeight[i2], 16711680, 128);
+        }
+      }
+    }
+    BgSound.doMix(Client.localPlayer.z, Client.worldUpdateNum, Client.localPlayer.x, Client.minusedlevel);
+    Client.worldUpdateNum = 0;
+  }
+  static loginDone() {
+    Client.prevMouseClickTime = 0;
+    Client.mouseTracking.length = 0;
+    Client.mouseTrackedDelta = 0;
+    Client.focusIn = true;
+    GameShell.focus = true;
+    Client.ptype2 = -1;
+    Client.out.pos = 0;
+    Client.ptype1 = -1;
+    Client.logoutTimer = 0;
+    Client.ptype0 = -1;
+    Client.rebootTimer = 0;
+    Client.timeoutTimer = 0;
+    Client.ptype = -1;
+    Client.in.pos = 0;
+    for (let var0 = 0;var0 < Client.field1171.length; var0++) {
+      Client.field1171[var0] = null;
+    }
+    Client.menuNumEntries = 0;
+    Client.isMenuOpen = false;
+    ClientMouseListener.setIdleTimer(0);
+    for (let var1 = 0;var1 < 100; var1++) {
+      Client.chatText[var1] = null;
+    }
+    Client.chatHistoryLength = 0;
+    Client.minimapFlagZ = 0;
+    Client.macroMinimapZoom = (Math.random() * 30 | 0) - 20;
+    Client.minimapFlagX = 0;
+    Client.macroMinimapAngle = (Math.random() * 120 | 0) - 60;
+    Client.playerCount = 0;
+    Client.macroCameraZ = (Math.random() * 110 | 0) - 55;
+    Client.orbitCameraYaw = (Math.random() * 20 | 0) - 10 & 2047;
+    Client.waveCount = 0;
+    Client.minimapState = 0;
+    Client.macroCameraAngle = (Math.random() * 80 | 0) - 40;
+    Client.macroCameraX = (Math.random() * 100 | 0) - 50;
+    Client.targetMode = false;
+    Client.minimapLevel = -1;
+    Client.npcCount = 0;
+    Client.useMode = 0;
+    for (let var2 = 0;var2 < 2048; var2++) {
+      Client.players[var2] = null;
+      Client.playerAppearanceBuffer[var2] = null;
+    }
+    for (let var3 = 0;var3 < 32768; var3++) {
+      Client.npc[var3] = null;
+    }
+    Client.localPlayer = Client.players[2047] = new ClientPlayer;
+    Client.projectiles.clear();
+    Client.spotanims.clear();
+    for (let var4 = 0;var4 < 4; var4++) {
+      for (let var5 = 0;var5 < 104; var5++) {
+        for (let var6 = 0;var6 < 104; var6++) {
+          Client.groundObj[var4][var5][var6] = null;
+        }
+      }
+    }
+    Client.locChanges = new LinkList;
+    Client.friendCount = 0;
+    Client.friendServerStatus = 0;
+    for (let var7 = 0;var7 < VarpType.numDefinitions; var7++) {
+      const var8 = VarpType.list(var7);
+      if (var8 !== null && var8.clientcode === 0) {
+        VarCache.varServ[var7] = 0;
+        VarCache.var[var7] = 0;
+      }
+    }
+    for (let var9 = 0;var9 < VarCache.varcInt.length; var9++) {
+      VarCache.varcInt[var9] = -1;
+    }
+    if (Client.toplevelinterface !== -1) {
+      IfType.unloadInterface(Client.toplevelinterface);
+    }
+    for (let var10 = Client.subinterfaces.search();var10 !== null; var10 = Client.subinterfaces.findnext()) {
+      Client.closeSubInterface(var10, true);
+    }
+    Client.toplevelinterface = -1;
+    Client.subinterfaces = new HashTable(8);
+    Client.menuNumEntries = 0;
+    Client.resumePauseCom = null;
+    Client.isMenuOpen = false;
+    Client.idkDesign.setAppearance(-1, null, new Int32Array(5), false);
+    for (let var11 = 0;var11 < 8; var11++) {
+      Client.playerOp[var11] = null;
+      Client.playerOpPriority[var11] = false;
+    }
+    ClientInvCache.deleteAll();
+    Client.js5Loading = true;
+    for (let var12 = 0;var12 < 100; var12++) {
+      Client.componentDirtyArea[var12] = true;
+    }
+    Client.friendChatCount = 0;
+    Client.chatDisplayName = null;
+    Client.friendChatList = null;
+    for (let var13 = 0;var13 < 6; var13++) {
+      Client.field140[var13] = new StockMarketSlot;
+    }
+    for (let var14 = 0;var14 < 25; var14++) {
+      Client.statEffectiveLevel[var14] = 0;
+      Client.statBaseLevel[var14] = 0;
+      Client.statXP[var14] = 0;
+    }
+    Client.clientpalette = LocType.clientpalette = NpcType.clientpalette = ObjType.clientpalette = new Int16Array(256);
+    Client.sendCamera = true;
+    Client.moveAction = Text.walkhere;
+  }
+  static loginError(arg0) {
+    if (arg0 === -3) {
+      TitleScreen.loginMes(Text.loginm3_c, Text.loginm3_a, Text.loginm3_b);
+    } else if (arg0 === -2) {
+      TitleScreen.loginMes(Text.loginm2_c, Text.loginm2_a, Text.loginm2_b);
+    } else if (arg0 === -1) {
+      TitleScreen.loginMes(Text.loginm1_c, Text.loginm1_a, Text.loginm1_b);
+    } else if (arg0 === 3) {
+      TitleScreen.loginMes(Text.login3_c, Text.login3_a, Text.login3_b);
+    } else if (arg0 === 4) {
+      TitleScreen.loginMes(Text.login4_c, Text.login4_a, Text.login4_b);
+    } else if (arg0 === 5) {
+      TitleScreen.loginMes(Text.login5_c, Text.login5_a, Text.login5_b);
+    } else if (arg0 === 6) {
+      TitleScreen.loginMes(Text.login6_c, Text.login6_a, Text.login6_b);
+    } else if (arg0 === 7) {
+      TitleScreen.loginMes(Text.login7_c, Text.login7_a, Text.login7_b);
+    } else if (arg0 === 8) {
+      TitleScreen.loginMes(Text.login8_c, Text.login8_a, Text.login8_b);
+    } else if (arg0 === 9) {
+      TitleScreen.loginMes(Text.login9_c, Text.login9_a, Text.login9_b);
+    } else if (arg0 === 10) {
+      TitleScreen.loginMes(Text.login10_c, Text.login10_a, Text.login10_b);
+    } else if (arg0 === 11) {
+      TitleScreen.loginMes(Text.login11_c, Text.login11_a, Text.login11_b);
+    } else if (arg0 === 12) {
+      TitleScreen.loginMes(Text.login12_c, Text.login12_a, Text.login12_b);
+    } else if (arg0 === 13) {
+      TitleScreen.loginMes(Text.login13_c, Text.login13_a, Text.login13_b);
+    } else if (arg0 === 14) {
+      TitleScreen.loginMes(Text.login14_c, Text.login14_a, Text.login14_b);
+    } else if (arg0 === 16) {
+      TitleScreen.loginMes(Text.login16_c, Text.login16_a, Text.login16_b);
+    } else if (arg0 === 17) {
+      TitleScreen.loginMes(Text.login17_c, Text.login17_a, Text.login17_b);
+    } else if (arg0 === 18) {
+      TitleScreen.loginMes(Text.login18_c, Text.login18_a, Text.login18_b);
+    } else if (arg0 === 19) {
+      TitleScreen.loginMes(Text.login19_c, Text.login19_a, Text.login19_b);
+    } else if (arg0 === 20) {
+      TitleScreen.loginMes(Text.login20_c, Text.login20_a, Text.login20_b);
+    } else if (arg0 === 22) {
+      TitleScreen.loginMes(Text.login22_c, Text.login22_a, Text.login22_b);
+    } else if (arg0 === 23) {
+      TitleScreen.loginMes(Text.login23_c, Text.login23_a, Text.login23_b);
+    } else if (arg0 === 24) {
+      TitleScreen.loginMes(Text.login24_c, Text.login24_a, Text.login24_b);
+    } else if (arg0 === 25) {
+      TitleScreen.loginMes(Text.login25_c, Text.login25_a, Text.login25_b);
+    } else if (arg0 === 26) {
+      TitleScreen.loginMes(Text.login26_c, Text.login26_a, Text.login26_b);
+    } else if (arg0 === 27) {
+      TitleScreen.loginMes(Text.login27_c, Text.login27_a, Text.login27_b);
+    } else {
+      TitleScreen.loginMes(Text.loginmis_c, Text.loginmis_a, Text.loginmis_b);
+    }
+    Client.setMainState(10);
+  }
+  static reconnectDone() {
+    Client.ptype2 = -1;
+    Client.rebootTimer = 0;
+    Client.ptype = -1;
+    Client.out.pos = 0;
+    Client.timeoutTimer = 0;
+    Client.menuNumEntries = 0;
+    Client.minimapState = 0;
+    Client.ptype0 = -1;
+    Client.in.pos = 0;
+    Client.psize = 0;
+    Client.ptype1 = -1;
+    Client.minimapFlagX = 0;
+    Client.isMenuOpen = false;
+    for (let var0 = 0;var0 < Client.players.length; var0++) {
+      if (Client.players[var0] !== null) {
+        Client.players[var0].targetId = -1;
+      }
+    }
+    for (let var1 = 0;var1 < Client.npc.length; var1++) {
+      if (Client.npc[var1] !== null) {
+        Client.npc[var1].targetId = -1;
+      }
+    }
+    ClientInvCache.deleteAll();
+    Client.setMainState(30);
+    for (let var2 = 0;var2 < 100; var2++) {
+      Client.componentDirtyArea[var2] = true;
     }
   }
   static logout() {
@@ -46189,59 +46026,67 @@ class Client extends GameShell {
       Client.stream = null;
     }
   }
-  static sortMinimenu() {
-    let var0 = false;
-    while (!var0) {
-      var0 = true;
-      for (let var1 = 0;var1 < Client.menuNumEntries - 1; var1++) {
-        if (Client.menuAction[var1] < 1000 && Client.menuAction[var1 + 1] > 1000) {
-          var0 = false;
-          const var2 = Client.menuSubject[var1];
-          Client.menuSubject[var1] = Client.menuSubject[var1 + 1];
-          Client.menuSubject[var1 + 1] = var2;
-          const var3 = Client.menuVerb[var1];
-          Client.menuVerb[var1] = Client.menuVerb[var1 + 1];
-          Client.menuVerb[var1 + 1] = var3;
-          const var4 = Client.menuParamB[var1];
-          Client.menuParamB[var1] = Client.menuParamB[var1 + 1];
-          Client.menuParamB[var1 + 1] = var4;
-          const var5 = Client.menuParamC[var1];
-          Client.menuParamC[var1] = Client.menuParamC[var1 + 1];
-          Client.menuParamC[var1 + 1] = var5;
-          const var6 = Client.menuAction[var1];
-          Client.menuAction[var1] = Client.menuAction[var1 + 1];
-          Client.menuAction[var1 + 1] = var6;
-          const var7 = Client.menuParamA[var1];
-          Client.menuParamA[var1] = Client.menuParamA[var1 + 1];
-          Client.menuParamA[var1 + 1] = var7;
-        }
-      }
+  static doAudio() {
+    if (Client.synthPlayer !== null) {
+      Client.synthPlayer.cycle();
+    }
+    if (Client.midiPlayer !== null) {
+      Client.midiPlayer.cycle();
     }
   }
-  static addMenuOption(arg0, arg1, arg2, arg3, arg4, arg5) {
-    if (Client.isMenuOpen || Client.menuNumEntries >= 500) {
+  static triggerSeqSound(arg0, arg1, arg2, arg3, arg4) {
+    if (Client.waveCount >= 50 || arg4.sound === null || arg4.sound.length < 1 || arg2 >= arg4.sound.length || arg4.sound[arg2] === null) {
       return;
     }
-    Client.menuVerb[Client.menuNumEntries] = arg1;
-    Client.menuSubject[Client.menuNumEntries] = arg4;
-    Client.menuAction[Client.menuNumEntries] = arg2;
-    Client.menuParamA[Client.menuNumEntries] = arg3;
-    Client.menuParamB[Client.menuNumEntries] = arg0;
-    Client.menuParamC[Client.menuNumEntries] = arg5;
-    Client.menuNumEntries++;
-  }
-  static getLine(arg0) {
-    return Client.menuSubject[arg0].length <= 0 ? Client.menuVerb[arg0] : JagString.join([JagString.wrap(Client.menuVerb[arg0]), JagString.wrap(Text.miniseperator), JagString.wrap(Client.menuSubject[arg0])]).toString();
-  }
-  static prependOpIndex(arg0) {
-    const var1 = new Array(5);
-    for (let var2 = 0;var2 < 5; var2++) {
-      var1[var2] = JagString.join([JagString.parseInt(var2), JagString.wrap(": ")]).toString();
-      if (arg0 !== null && arg0[var2] !== null) {
-        var1[var2] = JagString.join([JagString.wrap(var1[var2]), JagString.wrap(arg0[var2])]).toString();
+    const var5 = arg4.sound[arg2][0];
+    let var6 = var5 >> 8;
+    const var7 = var5 >> 4 & 7;
+    const var8 = var5 & 15;
+    if (arg4.sound[arg2].length > 1) {
+      const var9 = Math.random() * arg4.sound[arg2].length | 0;
+      if (var9 > 0) {
+        var6 = arg4.sound[arg2][var9];
       }
     }
-    return var1;
+    if (var8 === 0) {
+      if (arg0) {
+        Client.playSynth(var7, 0, var6);
+      }
+    } else if (Client.ambientVolume !== 0) {
+      Client.waveSoundIds[Client.waveCount] = var6;
+      Client.waveLoops[Client.waveCount] = var7;
+      Client.waveDelay[Client.waveCount] = 0;
+      const var10 = (arg3 - 64) / 128 | 0;
+      Client.waveSounds[Client.waveCount] = null;
+      const var11 = (arg1 - 64) / 128 | 0;
+      Client.waveAmbient[Client.waveCount] = (var10 << 16) + (var11 << 8) + var8;
+      Client.waveCount++;
+    }
+  }
+  static playSongs(arg0) {
+    if (arg0 === -1 && !Client.playingJingle) {
+      MidiManager.stop();
+    } else if (arg0 !== -1 && (arg0 !== Client.nextMidiSong || !MidiManager.isInitialised()) && Client.midiVolume !== 0 && !Client.playingJingle) {
+      MidiManager.swapSongs(Client.midiVolume, arg0, Client.songs);
+    }
+    Client.nextMidiSong = arg0;
+  }
+  static playJingle(arg0, arg1) {
+    if (Client.midiVolume !== 0 && arg0 !== -1) {
+      MidiManager.play(Client.jingles, arg0, Client.midiVolume);
+      Client.playingJingle = true;
+    }
+  }
+  static playSynth(arg0, arg1, arg2) {
+    if (Client.waveVolume === 0 || arg0 === 0 || Client.waveCount >= 50 || arg2 === -1) {
+      return;
+    }
+    Client.waveSoundIds[Client.waveCount] = arg2;
+    Client.waveLoops[Client.waveCount] = arg0;
+    Client.waveDelay[Client.waveCount] = arg1;
+    Client.waveSounds[Client.waveCount] = null;
+    Client.waveAmbient[Client.waveCount] = 0;
+    Client.waveCount++;
   }
   static minimapLoop(arg0, arg1, arg2) {
     if (Client.minimapState !== 0 && Client.minimapState !== 3) {
@@ -46301,6 +46146,51 @@ class Client extends GameShell {
       }
     }
   }
+  static doCheat(arg0) {
+    if (Client.staffmodlevel >= 2) {
+      if (arg0.toLowerCase() === "::gc") {
+        const memory = globalThis.performance.memory;
+        const usedKb = memory !== undefined && memory.usedJSHeapSize !== undefined ? memory.usedJSHeapSize / 1024 | 0 : 0;
+        Client.addChat("mem=" + usedKb + "k", 0, "");
+      }
+      if (arg0.toLowerCase() === "::clientdrop") {
+        Client.lostCon();
+      }
+      if (arg0.toLowerCase() === "::fpson") {
+        Client.showFps = true;
+      }
+      if (arg0.toLowerCase() === "::fpsoff") {
+        Client.showFps = false;
+      }
+      if (arg0.toLowerCase() === "::autoshadow on") {}
+      if (arg0.toLowerCase() === "::autoshadow off") {}
+      if (arg0.toLowerCase() === "::noclip") {
+        for (let var4 = 0;var4 < 4; var4++) {
+          for (let var5 = 1;var5 < 103; var5++) {
+            for (let var6 = 1;var6 < 103; var6++) {
+              Client.collision[var4].flags[var5][var6] = 0;
+            }
+          }
+        }
+      }
+      if (arg0.startsWith("::fps") && Client.modewhere !== 0) {
+        GameShell.setFramerate(Number.parseInt(arg0.substring(6), 10));
+      }
+      if (arg0.toLowerCase() === "::errortest" && Client.modewhere === 2) {
+        throw new Error;
+      }
+      if (arg0.startsWith("::rect_debug")) {
+        Client.componentRectDebug = Number.parseInt(arg0.substring(12).trim(), 10);
+        Client.addChat("rect_debug=" + Client.componentRectDebug, 0, "");
+      }
+      if (arg0.toLowerCase() === "::qa_op_test") {
+        Client.qaOpTest = true;
+      }
+    }
+    Client.out.p1Enc(175 /* CLIENT_CHEAT */);
+    Client.out.p1(arg0.length - 1);
+    Client.out.pjstr(arg0.substring(2));
+  }
   static followCamera() {
     const var0 = Client.localPlayer.z + Client.macroCameraZ;
     if (ClientKeyboardListener.keyHeld[96]) {
@@ -46331,45 +46221,6 @@ class Client extends GameShell {
       Client.orbitCameraZ += (var0 - Client.orbitCameraZ) / 16 | 0;
     }
     Client.clampCameraAngle();
-  }
-  static clampCameraAngle() {
-    const var0 = Client.orbitCameraX >> 7;
-    Client.orbitCameraYaw &= 2047;
-    const var1 = Client.orbitCameraZ >> 7;
-    let var2 = 0;
-    if (Client.orbitCameraPitch < 128) {
-      Client.orbitCameraPitch = 128;
-    }
-    if (Client.orbitCameraPitch > 383) {
-      Client.orbitCameraPitch = 383;
-    }
-    const var3 = Client.getAvH(Client.orbitCameraX, Client.orbitCameraZ, Client.minusedlevel);
-    if (var0 > 3 && var1 > 3 && var0 < 100 && var1 < 100) {
-      for (let var4 = var0 - 4;var4 <= var0 + 4; var4++) {
-        for (let var5 = var1 - 4;var5 <= var1 + 4; var5++) {
-          let var6 = Client.minusedlevel;
-          if (var6 < 3 && (ClientBuild.mapl[1][var4][var5] & 2) === 2) {
-            var6++;
-          }
-          const var7 = var3 - ClientBuild.groundh[var6][var4][var5];
-          if (var2 < var7) {
-            var2 = var7;
-          }
-        }
-      }
-    }
-    let var8 = var2 * 192;
-    if (var8 > 98048) {
-      var8 = 98048;
-    }
-    if (var8 < 32768) {
-      var8 = 32768;
-    }
-    if (Client.cameraPitchClamp < var8) {
-      Client.cameraPitchClamp += (var8 - Client.cameraPitchClamp) / 24 | 0;
-    } else if (var8 < Client.cameraPitchClamp) {
-      Client.cameraPitchClamp += (var8 - Client.cameraPitchClamp) / 80 | 0;
-    }
   }
   static cinemaCamera() {
     const var0 = Client.camMoveToLx * 128 + 64;
@@ -46532,46 +46383,9 @@ class Client extends GameShell {
       }
       Client.playingJingle = false;
     } else if (Client.midiVolume !== 0 && Client.nextMidiSong !== -1 && !MidiManager.isInitialised()) {
-      Client.out.p1Enc(133);
+      Client.out.p1Enc(133 /* SOUND_SONGEND */);
       Client.out.p4(Client.nextMidiSong);
       Client.nextMidiSong = -1;
-    }
-  }
-  static doAudio() {
-    if (Client.synthPlayer !== null) {
-      Client.synthPlayer.cycle();
-    }
-    if (Client.midiPlayer !== null) {
-      Client.midiPlayer.cycle();
-    }
-  }
-  static triggerSeqSound(arg0, arg1, arg2, arg3, arg4) {
-    if (Client.waveCount >= 50 || arg4.sound === null || arg4.sound.length < 1 || arg2 >= arg4.sound.length || arg4.sound[arg2] === null) {
-      return;
-    }
-    const var5 = arg4.sound[arg2][0];
-    let var6 = var5 >> 8;
-    const var7 = var5 >> 4 & 7;
-    const var8 = var5 & 15;
-    if (arg4.sound[arg2].length > 1) {
-      const var9 = Math.random() * arg4.sound[arg2].length | 0;
-      if (var9 > 0) {
-        var6 = arg4.sound[arg2][var9];
-      }
-    }
-    if (var8 === 0) {
-      if (arg0) {
-        Client.playSynth(var7, 0, var6);
-      }
-    } else if (Client.ambientVolume !== 0) {
-      Client.waveSoundIds[Client.waveCount] = var6;
-      Client.waveLoops[Client.waveCount] = var7;
-      Client.waveDelay[Client.waveCount] = 0;
-      const var10 = (arg3 - 64) / 128 | 0;
-      Client.waveSounds[Client.waveCount] = null;
-      const var11 = (arg1 - 64) / 128 | 0;
-      Client.waveAmbient[Client.waveCount] = (var10 << 16) + (var11 << 8) + var8;
-      Client.waveCount++;
     }
   }
   static movePlayers() {
@@ -46957,6 +46771,32 @@ class Client extends GameShell {
       arg0.primarySeqDelay--;
     }
   }
+  static triggerPlayerAnim(arg0, arg1, arg2) {
+    if (arg0 === arg2.primarySeqId && arg0 !== -1) {
+      const var3 = SeqType.list(arg0);
+      const var4 = var3.duplicatebehaviour;
+      if (var4 === 1) {
+        arg2.primarySeqCycle = 0;
+        arg2.primarySeqLoop = 0;
+        arg2.primarySeqFrame = 0;
+        arg2.primarySeqDelay = arg1;
+        Client.triggerSeqSound(arg2 === Client.localPlayer, arg2.z, arg2.primarySeqFrame, arg2.x, var3);
+      }
+      if (var4 === 2) {
+        arg2.primarySeqLoop = 0;
+      }
+    } else if (arg0 === -1 || arg2.primarySeqId === -1 || SeqType.list(arg0).priority >= SeqType.list(arg2.primarySeqId).priority) {
+      arg2.primarySeqFrame = 0;
+      arg2.primarySeqDelay = arg1;
+      arg2.preanimRouteLength = arg2.routeLength;
+      arg2.primarySeqId = arg0;
+      arg2.primarySeqLoop = 0;
+      arg2.primarySeqCycle = 0;
+      if (arg2.primarySeqId !== -1) {
+        Client.triggerSeqSound(Client.localPlayer === arg2, arg2.z, arg2.primarySeqFrame, arg2.x, SeqType.list(arg2.primarySeqId));
+      }
+    }
+  }
   static messageBox(message, redraw) {
     const width = Client.p12.predictWidthMultiline(message, 250);
     const height = Client.p12.predictLinesMultiline(message, 250) * 13;
@@ -46969,95 +46809,6 @@ class Client extends GameShell {
     } else {
       GameShell.drawArea.draw(0, 0);
     }
-  }
-  static doCheat(arg0) {
-    if (Client.staffmodlevel >= 2) {
-      if (arg0.toLowerCase() === "::gc") {
-        const memory = globalThis.performance.memory;
-        const usedKb = memory !== undefined && memory.usedJSHeapSize !== undefined ? memory.usedJSHeapSize / 1024 | 0 : 0;
-        Client.addChat("mem=" + usedKb + "k", 0, "");
-      }
-      if (arg0.toLowerCase() === "::clientdrop") {
-        Client.lostCon();
-      }
-      if (arg0.toLowerCase() === "::fpson") {
-        Client.showFps = true;
-      }
-      if (arg0.toLowerCase() === "::fpsoff") {
-        Client.showFps = false;
-      }
-      if (arg0.toLowerCase() === "::autoshadow on") {}
-      if (arg0.toLowerCase() === "::autoshadow off") {}
-      if (arg0.toLowerCase() === "::noclip") {
-        for (let var4 = 0;var4 < 4; var4++) {
-          for (let var5 = 1;var5 < 103; var5++) {
-            for (let var6 = 1;var6 < 103; var6++) {
-              Client.collision[var4].flags[var5][var6] = 0;
-            }
-          }
-        }
-      }
-      if (arg0.startsWith("::fps") && Client.modewhere !== 0) {
-        GameShell.setFramerate(Number.parseInt(arg0.substring(6), 10));
-      }
-      if (arg0.toLowerCase() === "::errortest" && Client.modewhere === 2) {
-        throw new Error;
-      }
-      if (arg0.startsWith("::rect_debug")) {
-        Client.componentRectDebug = Number.parseInt(arg0.substring(12).trim(), 10);
-        Client.addChat("rect_debug=" + Client.componentRectDebug, 0, "");
-      }
-      if (arg0.toLowerCase() === "::qa_op_test") {
-        Client.qaOpTest = true;
-      }
-    }
-    Client.out.p1Enc(175);
-    Client.out.p1(arg0.length - 1);
-    Client.out.pjstr(arg0.substring(2));
-  }
-  gameDraw() {
-    if (!Client.isMenuOpen) {
-      Client.menuAction[0] = 1007;
-      Client.menuVerb[0] = Text.cancel;
-      Client.menuNumEntries = 1;
-      Client.menuSubject[0] = "";
-    }
-    if (Client.toplevelinterface !== -1) {
-      Client.animateInterface(Client.toplevelinterface);
-    }
-    for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
-      if (Client.componentDirtyArea[i2]) {
-        Client.componentBlitArea[i2] = true;
-      }
-      Client.componentRedraw[i2] = Client.componentDirtyArea[i2];
-      Client.componentDirtyArea[i2] = false;
-    }
-    Client.hoveredSlotCom = null;
-    Client.menuMouseY = -1;
-    Client.componentDrawTime = Client.loopCycle;
-    Client.menuMouseX = -1;
-    if (Client.toplevelinterface !== -1) {
-      Client.componentDrawCount = 0;
-      this.drawInterface(GameShell.sHei, Client.toplevelinterface, 0, -1, 0, 0, 0, GameShell.sWid);
-    }
-    Pix2D.resetClipping();
-    Client.sortMinimenu();
-    if (Client.isMenuOpen) {
-      this.drawMinimenu();
-    } else if (Client.menuMouseY !== -1) {
-      Client.drawFeedback(Client.menuMouseX, Client.menuMouseY);
-    }
-    if (Client.componentRectDebug === 3) {
-      for (let i2 = 0;i2 < Client.componentDrawCount; i2++) {
-        if (Client.componentRedraw[i2]) {
-          Pix2D.fillRectTrans(Client.componentDrawX[i2], Client.componentDrawY[i2], Client.componentDrawWidth[i2], Client.componentDrawHeight[i2], 16711935, 128);
-        } else if (Client.componentBlitArea[i2]) {
-          Pix2D.fillRectTrans(Client.componentDrawX[i2], Client.componentDrawY[i2], Client.componentDrawWidth[i2], Client.componentDrawHeight[i2], 16711680, 128);
-        }
-      }
-    }
-    BgSound.doMix(Client.localPlayer.z, Client.worldUpdateNum, Client.localPlayer.x, Client.minusedlevel);
-    Client.worldUpdateNum = 0;
   }
   gameDrawMain(width, x2, height, y) {
     Client.sceneCycle++;
@@ -47223,7 +46974,7 @@ class Client extends GameShell {
   }
   static addProjectiles() {
     for (let var0 = Client.projectiles.head();var0 !== null; var0 = Client.projectiles.next()) {
-      const var1 = var0.field315;
+      const var1 = var0.proj;
       if (var1.level !== Client.minusedlevel || Client.loopCycle > var1.t2) {
         var0.unlink();
       } else if (var1.t1 <= Client.loopCycle) {
@@ -47252,7 +47003,7 @@ class Client extends GameShell {
   }
   static addMapAnim() {
     for (let var0 = Client.spotanims.head();var0 !== null; var0 = Client.spotanims.next()) {
-      const var1 = var0.field4474;
+      const var1 = var0.spotanim;
       if (var1.level !== Client.minusedlevel || var1.animComplete) {
         var0.unlink();
       } else if (var1.startCycle <= Client.loopCycle) {
@@ -47682,13 +47433,199 @@ class Client extends GameShell {
     const var9 = ClientBuild.groundh[var6][var4 + 1][var3 + 1] * var7 + ClientBuild.groundh[var6][var4][var3 + 1] * (128 - var7) >> 7;
     return var5 * var9 + (128 - var5) * var8 >> 7;
   }
-  static checkMinimap() {
-    if (Client.lowMem && Client.minusedlevel !== Client.lastBuiltLevel) {
-      Client.startRebuild(Client.minusedlevel, Client.localPlayer.routeZ[0], Client.mapBuildCentreZoneX, Client.mapBuildCentreZoneZ, Client.localPlayer.routeX[0]);
-    } else if (Client.minusedlevel !== Client.minimapLevel) {
-      Client.minimapLevel = Client.minusedlevel;
-      Client.minimapBuildBuffer(Client.minusedlevel);
+  static rebuildPacket(arg0) {
+    Client.regionmode = arg0;
+    if (!Client.regionmode) {
+      const var1 = (Client.psize - Client.in.pos) / 16 | 0;
+      Client.field268 = Array.from({ length: var1 }, () => new Int32Array(4));
+      for (let var2 = 0;var2 < var1; var2++) {
+        for (let var3 = 0;var3 < 4; var3++) {
+          Client.field268[var2][var3] = Client.in.g4_alt1();
+        }
+      }
+      const var4 = Client.in.g2_alt2();
+      let var5 = false;
+      const var6 = Client.in.g2_alt3();
+      const var7 = Client.in.g2();
+      const var8 = Client.in.g1_alt3();
+      const var9 = Client.in.g2();
+      Client.field2402 = new Int32Array(var1);
+      ClientBuild.field2731 = new Int32Array(var1);
+      ClientBuild.field774 = new Array(var1).fill(null);
+      Client.field453 = new Int32Array(var1);
+      ClientBuild.field3221 = new Array(var1).fill(null);
+      let var10 = 0;
+      if (((var7 / 8 | 0) === 48 || (var7 / 8 | 0) === 49) && (var4 / 8 | 0) === 48) {
+        var5 = true;
+      }
+      if ((var7 / 8 | 0) === 48 && (var4 / 8 | 0) === 148) {
+        var5 = true;
+      }
+      for (let var11 = (var7 - 6) / 8 | 0;var11 <= ((var7 + 6) / 8 | 0); var11++) {
+        for (let var12 = (var4 - 6) / 8 | 0;var12 <= ((var4 + 6) / 8 | 0); var12++) {
+          const var13 = (var11 << 8) + var12;
+          if (var5 && (var12 === 49 || var12 === 149 || var12 === 147 || var11 === 50 || var11 === 49 && var12 === 47)) {
+            ClientBuild.field2731[var10] = var13;
+            Client.field453[var10] = -1;
+            Client.field2402[var10] = -1;
+          } else {
+            ClientBuild.field2731[var10] = var13;
+            Client.field453[var10] = Client.maps.getGroupId(`m${var11}_${var12}`);
+            Client.field2402[var10] = Client.maps.getGroupId(`l${var11}_${var12}`);
+          }
+          var10++;
+        }
+      }
+      Client.startRebuild(var8, var9, var7, var4, var6);
+      return;
     }
+    const var14 = Client.in.g1();
+    const var15 = Client.in.g2_alt1();
+    const var16 = Client.in.g2_alt3();
+    Client.in.gBitStart();
+    for (let var17 = 0;var17 < 4; var17++) {
+      for (let var18 = 0;var18 < 13; var18++) {
+        for (let var19 = 0;var19 < 13; var19++) {
+          const var20 = Client.in.gBit(1);
+          if (var20 === 1) {
+            ClientBuild.zoneMapArchiveIds[var17][var18][var19] = Client.in.gBit(26);
+          } else {
+            ClientBuild.zoneMapArchiveIds[var17][var18][var19] = -1;
+          }
+        }
+      }
+    }
+    Client.in.gBitEnd();
+    const var21 = (Client.psize - Client.in.pos) / 16 | 0;
+    Client.field268 = Array.from({ length: var21 }, () => new Int32Array(4));
+    for (let var22 = 0;var22 < var21; var22++) {
+      for (let var23 = 0;var23 < 4; var23++) {
+        Client.field268[var22][var23] = Client.in.g4();
+      }
+    }
+    const var24 = Client.in.g2_alt1();
+    const var25 = Client.in.g2();
+    Client.field453 = new Int32Array(var21);
+    Client.field2402 = new Int32Array(var21);
+    ClientBuild.field3221 = new Array(var21).fill(null);
+    ClientBuild.field2731 = new Int32Array(var21);
+    ClientBuild.field774 = new Array(var21).fill(null);
+    let var26 = 0;
+    for (let var27 = 0;var27 < 4; var27++) {
+      for (let var28 = 0;var28 < 13; var28++) {
+        for (let var29 = 0;var29 < 13; var29++) {
+          const var30 = ClientBuild.zoneMapArchiveIds[var27][var28][var29];
+          if (var30 !== -1) {
+            const var31 = var30 >> 3 & 2047;
+            const var32 = var30 >> 14 & 1023;
+            let var33 = (var31 / 8 | 0) + ((var32 / 8 | 0) << 8);
+            for (let var34 = 0;var34 < var26; var34++) {
+              if (var33 === ClientBuild.field2731[var34]) {
+                var33 = -1;
+                break;
+              }
+            }
+            if (var33 !== -1) {
+              ClientBuild.field2731[var26] = var33;
+              const var35 = var33 >> 8 & 255;
+              const var36 = var33 & 255;
+              Client.field453[var26] = Client.maps.getGroupId(`m${var35}_${var36}`);
+              Client.field2402[var26] = Client.maps.getGroupId(`l${var35}_${var36}`);
+              var26++;
+            }
+          }
+        }
+      }
+    }
+    Client.startRebuild(var14, var16, var15, var25, var24);
+  }
+  static startRebuild(arg0, arg1, arg2, arg3, arg4) {
+    if (arg2 === Client.mapBuildCentreZoneX && Client.mapBuildCentreZoneZ === arg3 && (arg0 === Client.lastBuiltLevel || !Client.lowMem)) {
+      return;
+    }
+    Client.lastBuiltLevel = arg0;
+    if (!Client.lowMem) {
+      Client.lastBuiltLevel = 0;
+    }
+    Client.mapBuildCentreZoneZ = arg3;
+    Client.mapBuildCentreZoneX = arg2;
+    Client.setMainState(25);
+    Client.messageBox(Text.loading, true);
+    const var5 = Client.mapBuildBaseX;
+    const var6 = Client.mapBuildBaseZ;
+    Client.mapBuildBaseZ = arg3 * 8 - 48;
+    const var7 = Client.mapBuildBaseZ - var6;
+    Client.mapBuildBaseX = (arg2 - 6) * 8;
+    const var8 = Client.mapBuildBaseX - var5;
+    for (let var9 = 0;var9 < 32768; var9++) {
+      const var10 = Client.npc[var9];
+      if (var10 !== null) {
+        for (let var11 = 0;var11 < 10; var11++) {
+          var10.routeX[var11] -= var8;
+          var10.routeZ[var11] -= var7;
+        }
+        var10.z -= var7 * 128;
+        var10.x -= var8 * 128;
+      }
+    }
+    for (let var12 = 0;var12 < 2048; var12++) {
+      const var13 = Client.players[var12];
+      if (var13 !== null) {
+        for (let var14 = 0;var14 < 10; var14++) {
+          var13.routeX[var14] -= var8;
+          var13.routeZ[var14] -= var7;
+        }
+        var13.x -= var8 * 128;
+        var13.z -= var7 * 128;
+      }
+    }
+    Client.minusedlevel = arg0;
+    let var15 = 0;
+    let var16 = 104;
+    Client.localPlayer.teleport(false, arg4, arg1);
+    let var17 = 0;
+    let var18 = 1;
+    if (var8 < 0) {
+      var16 = -1;
+      var18 = -1;
+      var15 = 103;
+    }
+    let var19 = 1;
+    let var20 = 104;
+    if (var7 < 0) {
+      var20 = -1;
+      var19 = -1;
+      var17 = 103;
+    }
+    for (let var21 = var15;var21 !== var16; var21 += var18) {
+      for (let var22 = var17;var22 !== var20; var22 += var19) {
+        const var23 = var8 + var21;
+        const var24 = var22 + var7;
+        for (let var25 = 0;var25 < 4; var25++) {
+          if (var23 >= 0 && var24 >= 0 && var23 < 104 && var24 < 104) {
+            Client.groundObj[var25][var21][var22] = Client.groundObj[var25][var23][var24];
+          } else {
+            Client.groundObj[var25][var21][var22] = null;
+          }
+        }
+      }
+    }
+    for (let var26 = Client.locChanges.head();var26 !== null; var26 = Client.locChanges.next()) {
+      var26.x -= var8;
+      var26.z -= var7;
+      if (var26.x < 0 || var26.z < 0 || var26.x >= 104 || var26.z >= 104) {
+        var26.unlink();
+      }
+    }
+    if (Client.minimapFlagX !== 0) {
+      Client.minimapFlagX -= var8;
+      Client.minimapFlagZ -= var7;
+    }
+    Client.minimapLevel = -1;
+    Client.cinemaCam = false;
+    Client.waveCount = 0;
+    Client.spotanims.clear();
+    Client.projectiles.clear();
   }
   static preventTimeout(arg0) {
     Client.doAudio();
@@ -47700,12 +47637,20 @@ class Client extends GameShell {
     if (Client.networkError || Client.stream === null) {
       return;
     }
-    Client.out.p1Enc(19);
+    Client.out.p1Enc(19 /* NO_TIMEOUT */);
     try {
       Client.stream.write(Client.out.pos, Client.out.data);
       Client.out.pos = 0;
     } catch (var1) {
       Client.networkError = true;
+    }
+  }
+  static checkMinimap() {
+    if (Client.lowMem && Client.minusedlevel !== Client.lastBuiltLevel) {
+      Client.startRebuild(Client.minusedlevel, Client.localPlayer.routeZ[0], Client.mapBuildCentreZoneX, Client.mapBuildCentreZoneZ, Client.localPlayer.routeX[0]);
+    } else if (Client.minusedlevel !== Client.minimapLevel) {
+      Client.minimapLevel = Client.minusedlevel;
+      Client.minimapBuildBuffer(Client.minusedlevel);
     }
   }
   static mapBuildLoop() {
@@ -47823,84 +47768,8 @@ class Client extends GameShell {
     }
     Client.setMainState(30);
     Client.doAudio();
-    Client.out.p1Enc(213);
+    Client.out.p1Enc(213 /* MAP_BUILD_COMPLETE */);
     GameShell.doneslowupdate();
-  }
-  static minimapBuildBuffer(arg0) {
-    let var1;
-    if (Client.field2010 === null) {
-      var1 = new SoftwarePix32(512, 512);
-    } else {
-      var1 = Client.field2010;
-    }
-    const var2 = var1.data;
-    const var3 = var2.length;
-    for (let var4 = 0;var4 < var3; var4++) {
-      var2[var4] = 1;
-    }
-    for (let var5 = 1;var5 < 103; var5++) {
-      let var6 = (103 - var5) * 2048 + 24628;
-      for (let var7 = 1;var7 < 103; var7++) {
-        if ((ClientBuild.mapl[arg0][var7][var5] & 24) === 0) {
-          World.render2DGround(var2, var6, arg0, var7, var5);
-        }
-        if (arg0 < 3 && (ClientBuild.mapl[arg0 + 1][var7][var5] & 8) !== 0) {
-          World.render2DGround(var2, var6, arg0 + 1, var7, var5);
-        }
-        var6 += 4;
-      }
-    }
-    var1.setPixels();
-    const var8 = (Math.random() * 20 | 0) + 228 << 16;
-    const var9 = ((Math.random() * 20 | 0) + 228 << 16) + (((Math.random() * 20 | 0) + 228 << 8) - (-(Math.random() * 20 | 0) - 238)) - 10;
-    for (let var10 = 1;var10 < 103; var10++) {
-      for (let var11 = 1;var11 < 103; var11++) {
-        if ((ClientBuild.mapl[arg0][var11][var10] & 24) === 0) {
-          Client.drawDetail(var10, var8, arg0, var9, var11);
-        }
-        if (arg0 < 3 && (ClientBuild.mapl[arg0 + 1][var11][var10] & 8) !== 0) {
-          Client.drawDetail(var10, var8, arg0 + 1, var9, var11);
-        }
-      }
-    }
-    Client.field930 = 0;
-    for (let var12 = 0;var12 < 104; var12++) {
-      for (let var13 = 0;var13 < 104; var13++) {
-        const var14 = World.gdType(Client.minusedlevel, var12, var13);
-        if (BigInt(var14) !== 0n) {
-          const var16 = LocType.list(Number(BigInt(var14) >> 32n & 0x7fffffffn));
-          const var17 = var16.mapfunction;
-          if (var17 >= 0) {
-            let var18 = var12;
-            let var19 = var13;
-            if (var17 !== 22 && var17 !== 29 && var17 !== 34 && var17 !== 36 && var17 !== 46 && var17 !== 47 && var17 !== 48) {
-              const var20 = Client.collision[Client.minusedlevel].flags;
-              for (let var21 = 0;var21 < 10; var21++) {
-                const var22 = Math.random() * 4 | 0;
-                if (var22 === 0 && var18 > 0 && var12 - 3 < var18 && (var20[var18 - 1][var19] & 19661064) === 0) {
-                  var18--;
-                }
-                if (var22 === 1 && var18 < 103 && var12 + 3 > var18 && (var20[var18 + 1][var19] & 19661184) === 0) {
-                  var18++;
-                }
-                if (var22 === 2 && var19 > 0 && var19 > var13 - 3 && (var20[var18][var19 - 1] & 19661058) === 0) {
-                  var19--;
-                }
-                if (var22 === 3 && var19 < 103 && var19 < var13 + 3 && (var20[var18][var19 + 1] & 19661088) === 0) {
-                  var19++;
-                }
-              }
-            }
-            Client.field2745[Client.field930] = var16.id;
-            Client.field2577[Client.field930] = var18;
-            Client.field2501[Client.field930] = var19;
-            Client.field930++;
-          }
-        }
-      }
-    }
-    Client.field2010 = var1;
-    GameShell.drawArea.bind();
   }
   static drawDetail(arg0, arg1, arg2, arg3, arg4) {
     const var5 = World.wallType(arg2, arg4, arg0);
@@ -48058,77 +47927,6 @@ class Client extends GameShell {
     Client.crossX = ClientMouseListener.mouseClickX;
     Client.crossCycle = 0;
     return true;
-  }
-  static ifButtonX(arg0, arg1, arg2, arg3) {
-    const var4 = IfType.get(arg2, arg3);
-    if (var4 === null) {
-      return;
-    }
-    if (var4.onop !== null) {
-      const var5 = new HookReq;
-      var5.opindex = arg0;
-      var5.component = var4;
-      var5.onop = var4.onop;
-      var5.opbase = arg1;
-      ScriptRunner.executeScript(var5);
-    }
-    let var6 = true;
-    if (var4.clientCode > 0) {
-      var6 = Client.clientButton(var4);
-    }
-    if (!var6 || !ServerActive.hasOp(arg0 - 1, Client.getActive(var4))) {
-      return;
-    }
-    if (arg0 === 1) {
-      Client.out.p1Enc(44);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 2) {
-      Client.out.p1Enc(50);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 3) {
-      Client.out.p1Enc(103);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 4) {
-      Client.out.p1Enc(64);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 5) {
-      Client.out.p1Enc(178);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 6) {
-      Client.out.p1Enc(81);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 7) {
-      Client.out.p1Enc(236);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 8) {
-      Client.out.p1Enc(188);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 9) {
-      Client.out.p1Enc(128);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
-    if (arg0 === 10) {
-      Client.out.p1Enc(254);
-      Client.out.p4(arg3);
-      Client.out.p2(arg2);
-    }
   }
   static tryMove(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10) {
     if (Client.localPlayer.size === 2) {
@@ -48737,15 +48535,15 @@ class Client extends GameShell {
     let var5 = arg2[arg3];
     let var6 = arg1[arg3];
     if (arg0 === 0) {
-      Client.out.p1Enc(200);
+      Client.out.p1Enc(200 /* MOVE_GAMECLICK */);
       Client.out.p1(var4 + var4 + 3);
     }
     if (arg0 === 1) {
-      Client.out.p1Enc(199);
+      Client.out.p1Enc(199 /* MOVE_MINIMAPCLICK */);
       Client.out.p1(var4 + var4 + 17);
     }
     if (arg0 === 2) {
-      Client.out.p1Enc(159);
+      Client.out.p1Enc(159 /* MOVE_OPCLICK */);
       Client.out.p1(var4 + var4 + 3);
     }
     Client.out.p2(var5 + Client.mapBuildBaseZ);
@@ -50161,8 +49959,8 @@ class Client extends GameShell {
           }
         }
         for (let loc = Client.locChanges.head();loc !== null; loc = Client.locChanges.next()) {
-          if (loc.field3059 >= Client.zoneUpdateX && loc.field3059 < Client.zoneUpdateX + 8 && loc.field3052 >= Client.zoneUpdateZ && loc.field3052 < Client.zoneUpdateZ + 8 && loc.field3055 === Client.minusedlevel) {
-            loc.field3061 = 0;
+          if (loc.x >= Client.zoneUpdateX && loc.x < Client.zoneUpdateX + 8 && loc.z >= Client.zoneUpdateZ && loc.z < Client.zoneUpdateZ + 8 && loc.level === Client.minusedlevel) {
+            loc.endTime = 0;
           }
         }
         Client.ptype = -1;
@@ -50211,54 +50009,6 @@ class Client extends GameShell {
     }
     return true;
   }
-  static animateLocation(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-    if (arg1 < 0 || arg5 < 0 || arg1 >= 103 || arg5 >= 103) {
-      return;
-    }
-    if (arg2 === 0) {
-      const var7 = World.getWall(arg4, arg1, arg5);
-      if (var7 !== null) {
-        const var8 = Number(BigInt(var7.typecode) >> 32n & 0x7fffffffn);
-        if (arg0 === 2) {
-          var7.modelA = new ClientLocAnim(var8, 2, arg3 + 4, arg4, arg1, arg5, arg6, false, var7.modelA);
-          var7.modelB = new ClientLocAnim(var8, 2, arg3 + 1 & 3, arg4, arg1, arg5, arg6, false, var7.modelB);
-        } else {
-          var7.modelA = new ClientLocAnim(var8, arg0, arg3, arg4, arg1, arg5, arg6, false, var7.modelA);
-        }
-      }
-    }
-    if (arg2 === 1) {
-      const var9 = World.getDecor(arg4, arg1, arg5);
-      if (var9 !== null) {
-        const var10 = Number(BigInt(var9.typecode) >> 32n & 0x7fffffffn);
-        if (arg0 === 4 || arg0 === 5) {
-          var9.model = new ClientLocAnim(var10, 4, arg3, arg4, arg1, arg5, arg6, false, var9.model);
-        } else if (arg0 === 6) {
-          var9.model = new ClientLocAnim(var10, 4, arg3 + 4, arg4, arg1, arg5, arg6, false, var9.model);
-        } else if (arg0 === 7) {
-          var9.model = new ClientLocAnim(var10, 4, (arg3 + 2 & 3) + 4, arg4, arg1, arg5, arg6, false, var9.model);
-        } else if (arg0 === 8) {
-          var9.model = new ClientLocAnim(var10, 4, arg3 + 4, arg4, arg1, arg5, arg6, false, var9.model);
-          var9.model2 = new ClientLocAnim(var10, 4, (arg3 + 2 & 3) + 4, arg4, arg1, arg5, arg6, false, var9.model2);
-        }
-      }
-    }
-    if (arg2 === 2) {
-      if (arg0 === 11) {
-        arg0 = 10;
-      }
-      const var11 = World.getScene(arg4, arg1, arg5);
-      if (var11 !== null) {
-        var11.model = new ClientLocAnim(Number(BigInt(var11.typecode) >> 32n & 0x7fffffffn), arg0, arg3, arg4, arg1, arg5, arg6, false, var11.model);
-      }
-    }
-    if (arg2 === 3) {
-      const var12 = World.getGd(arg4, arg1, arg5);
-      if (var12 !== null) {
-        var12.model = new ClientLocAnim(Number(BigInt(var12.typecode) >> 32n & 0x7fffffffn), 22, arg3, arg4, arg1, arg5, arg6, false, var12.model);
-      }
-    }
-  }
   static zonePacket() {
     if (Client.ptype === 123) {
       const var0 = Client.in.g1();
@@ -50281,7 +50031,7 @@ class Client extends GameShell {
         const var16 = new ClientProj(var6, Client.minusedlevel, var14, var13, Client.getAvH(var14, var13, Client.minusedlevel) - var7, var9 - -Client.loopCycle, Client.loopCycle + var10, var11, var12, var5, var8);
         const var17 = var3 * 64;
         var16.setTarget(var17, var9 + Client.loopCycle, Client.getAvH(var17, var15, Client.minusedlevel) + -var8, var15);
-        Client.projectiles.push(new ClientProjNode2(var16));
+        Client.projectiles.push(new ClientProjNode(var16));
       }
     } else if (Client.ptype === 135) {
       const var18 = Client.in.g1_alt1();
@@ -50410,7 +50160,7 @@ class Client extends GameShell {
             var74.locOffsetY = var84;
             var74.locStartCycle = Client.loopCycle + var69;
             var74.locOffsetZ = var76 * 64 + var71 * 128;
-            var74.locModel = var87.field3984;
+            var74.locModel = var87.model;
             var74.locOffsetX = var72 * 128 + var77 * 64;
             if (var66 > var67) {
               const var88 = var66;
@@ -50467,7 +50217,7 @@ class Client extends GameShell {
           const var112 = var98 * 128 + 64;
           const var113 = new ClientProj(var102, Client.minusedlevel, var109, var112, Client.getAvH(var109, var112, Client.minusedlevel) - var103, Client.loopCycle + var105, var106 + Client.loopCycle, var107, var108, var101, var104);
           var113.setTarget(var111, var105 + Client.loopCycle, Client.getAvH(var111, var110, Client.minusedlevel) + -var104, var110);
-          Client.projectiles.push(new ClientProjNode2(var113));
+          Client.projectiles.push(new ClientProjNode(var113));
         }
       } else if (Client.ptype === 198) {
         const var114 = Client.in.g1_alt1();
@@ -50529,30 +50279,30 @@ class Client extends GameShell {
   static locChangeCreate(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
     let var9 = null;
     for (let var10 = Client.locChanges.head();var10 !== null; var10 = Client.locChanges.next()) {
-      if (arg6 === var10.field3055 && arg7 === var10.field3059 && var10.field3052 === arg1 && var10.field3063 === arg2) {
+      if (arg6 === var10.level && arg7 === var10.x && var10.z === arg1 && var10.layer === arg2) {
         var9 = var10;
         break;
       }
     }
     if (var9 === null) {
       var9 = new LocChange;
-      var9.field3052 = arg1;
-      var9.field3063 = arg2;
-      var9.field3059 = arg7;
-      var9.field3055 = arg6;
+      var9.z = arg1;
+      var9.layer = arg2;
+      var9.x = arg7;
+      var9.level = arg6;
       Client.locChangeSetOld(var9);
       Client.locChanges.push(var9);
     }
-    var9.field3062 = arg5;
-    var9.field3068 = arg3;
-    var9.field3061 = arg4;
-    var9.field3051 = arg8;
-    var9.field3054 = arg0;
+    var9.newShape = arg5;
+    var9.newAngle = arg3;
+    var9.endTime = arg4;
+    var9.newType = arg8;
+    var9.startTime = arg0;
   }
   static locChangePostBuildCorrect() {
     for (let var0 = Client.locChanges.head();var0 !== null; var0 = Client.locChanges.next()) {
-      if (var0.field3061 === -1) {
-        var0.field3054 = 0;
+      if (var0.endTime === -1) {
+        var0.startTime = 0;
         Client.locChangeSetOld(var0);
       } else {
         var0.unlink();
@@ -50561,50 +50311,50 @@ class Client extends GameShell {
   }
   static locChangeSetOld(arg0) {
     let var1 = 0n;
-    if (arg0.field3063 === 0) {
-      var1 = World.wallType(arg0.field3055, arg0.field3059, arg0.field3052);
+    if (arg0.layer === 0) {
+      var1 = World.wallType(arg0.level, arg0.x, arg0.z);
     }
     let var3 = 0;
     let var4 = 0;
     let var5 = -1;
-    if (arg0.field3063 === 1) {
-      var1 = World.decorType(arg0.field3055, arg0.field3059, arg0.field3052);
+    if (arg0.layer === 1) {
+      var1 = World.decorType(arg0.level, arg0.x, arg0.z);
     }
-    if (arg0.field3063 === 2) {
-      var1 = World.sceneType(arg0.field3055, arg0.field3059, arg0.field3052);
+    if (arg0.layer === 2) {
+      var1 = World.sceneType(arg0.level, arg0.x, arg0.z);
     }
-    if (arg0.field3063 === 3) {
-      var1 = World.gdType(arg0.field3055, arg0.field3059, arg0.field3052);
+    if (arg0.layer === 3) {
+      var1 = World.gdType(arg0.level, arg0.x, arg0.z);
     }
     if (BigInt(var1) !== 0n) {
       var4 = Number(BigInt.asIntN(32, BigInt(var1))) >> 20 & 3;
       var5 = Number(BigInt(var1) >> 32n & 0x7fffffffn);
       var3 = Number(BigInt.asIntN(32, BigInt(var1))) >> 14 & 31;
     }
-    arg0.field3064 = var4;
-    arg0.field3053 = var5;
-    arg0.field3060 = var3;
+    arg0.oldAngle = var4;
+    arg0.oldType = var5;
+    arg0.oldShape = var3;
   }
   static locChangeDoQueue() {
     for (let var0 = Client.locChanges.head();var0 !== null; var0 = Client.locChanges.next()) {
-      if (var0.field3061 > 0) {
-        var0.field3061--;
+      if (var0.endTime > 0) {
+        var0.endTime--;
       }
-      if (var0.field3061 !== 0) {
-        if (var0.field3054 > 0) {
-          var0.field3054--;
+      if (var0.endTime !== 0) {
+        if (var0.startTime > 0) {
+          var0.startTime--;
         }
-        if (var0.field3054 === 0 && var0.field3059 >= 1 && var0.field3052 >= 1 && var0.field3059 <= 102 && var0.field3052 <= 102 && (var0.field3051 < 0 || ClientBuild.changeLocAvailable(var0.field3062, var0.field3051))) {
-          ClientBuild.changeLocUnchecked(var0.field3055, var0.field3063, var0.field3052, var0.field3062, var0.field3051, var0.field3068, var0.field3059);
-          var0.field3054 = -1;
-          if (var0.field3051 === var0.field3053 && var0.field3053 === -1) {
+        if (var0.startTime === 0 && var0.x >= 1 && var0.z >= 1 && var0.x <= 102 && var0.z <= 102 && (var0.newType < 0 || ClientBuild.changeLocAvailable(var0.newShape, var0.newType))) {
+          ClientBuild.changeLocUnchecked(var0.level, var0.layer, var0.z, var0.newShape, var0.newType, var0.newAngle, var0.x);
+          var0.startTime = -1;
+          if (var0.newType === var0.oldType && var0.oldType === -1) {
             var0.unlink();
-          } else if (var0.field3051 === var0.field3053 && var0.field3064 === var0.field3068 && var0.field3060 === var0.field3062) {
+          } else if (var0.newType === var0.oldType && var0.oldAngle === var0.newAngle && var0.oldShape === var0.newShape) {
             var0.unlink();
           }
         }
-      } else if (var0.field3053 < 0 || ClientBuild.changeLocAvailable(var0.field3060, var0.field3053)) {
-        ClientBuild.changeLocUnchecked(var0.field3055, var0.field3063, var0.field3052, var0.field3060, var0.field3053, var0.field3064, var0.field3059);
+      } else if (var0.oldType < 0 || ClientBuild.changeLocAvailable(var0.oldShape, var0.oldType)) {
+        ClientBuild.changeLocUnchecked(var0.level, var0.layer, var0.z, var0.oldShape, var0.oldType, var0.oldAngle, var0.x);
         var0.unlink();
       }
     }
@@ -50982,58 +50732,6 @@ class Client extends GameShell {
       return;
     }
   }
-  static triggerPlayerAnim(arg0, arg1, arg2) {
-    if (arg0 === arg2.primarySeqId && arg0 !== -1) {
-      const var3 = SeqType.list(arg0);
-      const var4 = var3.duplicatebehaviour;
-      if (var4 === 1) {
-        arg2.primarySeqCycle = 0;
-        arg2.primarySeqLoop = 0;
-        arg2.primarySeqFrame = 0;
-        arg2.primarySeqDelay = arg1;
-        Client.triggerSeqSound(arg2 === Client.localPlayer, arg2.z, arg2.primarySeqFrame, arg2.x, var3);
-      }
-      if (var4 === 2) {
-        arg2.primarySeqLoop = 0;
-      }
-    } else if (arg0 === -1 || arg2.primarySeqId === -1 || SeqType.list(arg0).priority >= SeqType.list(arg2.primarySeqId).priority) {
-      arg2.primarySeqFrame = 0;
-      arg2.primarySeqDelay = arg1;
-      arg2.preanimRouteLength = arg2.routeLength;
-      arg2.primarySeqId = arg0;
-      arg2.primarySeqLoop = 0;
-      arg2.primarySeqCycle = 0;
-      if (arg2.primarySeqId !== -1) {
-        Client.triggerSeqSound(Client.localPlayer === arg2, arg2.z, arg2.primarySeqFrame, arg2.x, SeqType.list(arg2.primarySeqId));
-      }
-    }
-  }
-  static triggerNpcAnim(arg0, arg1, arg2) {
-    if (arg0 === arg2.primarySeqId && arg0 !== -1) {
-      const var3 = SeqType.list(arg0);
-      const var4 = var3.duplicatebehaviour;
-      if (var4 === 1) {
-        arg2.primarySeqLoop = 0;
-        arg2.primarySeqCycle = 0;
-        arg2.primarySeqDelay = arg1;
-        arg2.primarySeqFrame = 0;
-        Client.triggerSeqSound(false, arg2.z, arg2.primarySeqFrame, arg2.x, var3);
-      }
-      if (var4 === 2) {
-        arg2.primarySeqLoop = 0;
-      }
-    } else if (arg0 === -1 || arg2.primarySeqId === -1 || SeqType.list(arg0).priority >= SeqType.list(arg2.primarySeqId).priority) {
-      arg2.primarySeqCycle = 0;
-      arg2.primarySeqDelay = arg1;
-      arg2.preanimRouteLength = arg2.routeLength;
-      arg2.primarySeqFrame = 0;
-      arg2.primarySeqLoop = 0;
-      arg2.primarySeqId = arg0;
-      if (arg2.primarySeqId !== -1) {
-        Client.triggerSeqSound(false, arg2.z, arg2.primarySeqFrame, arg2.x, SeqType.list(arg2.primarySeqId));
-      }
-    }
-  }
   static getNpcPos() {
     Client.entityRemovalCount = 0;
     Client.entityUpdateCount = 0;
@@ -51225,6 +50923,13 @@ class Client extends GameShell {
       }
     }
   }
+  static dirtyArea(arg0, arg1, arg2, arg3) {
+    for (let var4 = 0;var4 < Client.componentDrawCount; var4++) {
+      if (arg3 < Client.componentDrawX[var4] + Client.componentDrawWidth[var4] && arg3 + arg1 > Client.componentDrawX[var4] && arg2 < Client.componentDrawY[var4] + Client.componentDrawHeight[var4] && Client.componentDrawY[var4] < arg0 + arg2) {
+        Client.componentDirtyArea[var4] = true;
+      }
+    }
+  }
   mouseLoop() {
     if (Client.objDragCom !== null || Client.dragCom !== null) {
       return;
@@ -51286,6 +50991,35 @@ class Client extends GameShell {
         Client.doAction(Client.menuNumEntries - 1);
       } else if (button == 2 && Client.menuNumEntries > 0) {
         this.openMenu();
+      }
+    }
+  }
+  static sortMinimenu() {
+    let var0 = false;
+    while (!var0) {
+      var0 = true;
+      for (let var1 = 0;var1 < Client.menuNumEntries - 1; var1++) {
+        if (Client.menuAction[var1] < 1000 && Client.menuAction[var1 + 1] > 1000) {
+          var0 = false;
+          const var2 = Client.menuSubject[var1];
+          Client.menuSubject[var1] = Client.menuSubject[var1 + 1];
+          Client.menuSubject[var1 + 1] = var2;
+          const var3 = Client.menuVerb[var1];
+          Client.menuVerb[var1] = Client.menuVerb[var1 + 1];
+          Client.menuVerb[var1 + 1] = var3;
+          const var4 = Client.menuParamB[var1];
+          Client.menuParamB[var1] = Client.menuParamB[var1 + 1];
+          Client.menuParamB[var1 + 1] = var4;
+          const var5 = Client.menuParamC[var1];
+          Client.menuParamC[var1] = Client.menuParamC[var1 + 1];
+          Client.menuParamC[var1 + 1] = var5;
+          const var6 = Client.menuAction[var1];
+          Client.menuAction[var1] = Client.menuAction[var1 + 1];
+          Client.menuAction[var1 + 1] = var6;
+          const var7 = Client.menuParamA[var1];
+          Client.menuParamA[var1] = Client.menuParamA[var1 + 1];
+          Client.menuParamA[var1 + 1] = var7;
+        }
       }
     }
   }
@@ -51390,7 +51124,7 @@ class Client extends GameShell {
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossCycle = 0;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(192);
+        Client.out.p1Enc(192 /* OPPLAYERU */);
         Client.out.p2_alt2(Client.objComId);
         Client.out.p4_alt1(Client.objSelectedComId);
         Client.out.p2(Client.objSelectedSlot);
@@ -51402,12 +51136,12 @@ class Client extends GameShell {
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossY = ClientMouseListener.mouseClickY;
       Client.crossMode = 2;
-      Client.out.p1Enc(191);
+      Client.out.p1Enc(191 /* OPOBJ6 */);
       Client.out.p2(var6);
     }
     if (var3 === 7) {
       Client.interactWithLoc(var2, var4, var1);
-      Client.out.p1Enc(53);
+      Client.out.p1Enc(53 /* OPLOC1 */);
       Client.out.p2(Number(BigInt(var4) >> 32n & 0x7fffffffn));
       Client.out.p2_alt3(Client.mapBuildBaseZ + var2);
       Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -51438,12 +51172,12 @@ class Client extends GameShell {
         Client.crossMode = 2;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossX = ClientMouseListener.mouseClickX;
-        Client.out.p1Enc(65);
+        Client.out.p1Enc(65 /* OPPLAYER1 */);
         Client.out.p2_alt1(var6);
       }
     }
     if (var3 === 40) {
-      Client.out.p1Enc(196);
+      Client.out.p1Enc(196 /* IF_BUTTONT */);
       Client.out.p2_alt3(Client.targetCom);
       Client.out.p4(Client.targetSub);
       Client.out.p4_alt2(var2);
@@ -51457,7 +51191,7 @@ class Client extends GameShell {
         Client.crossMode = 2;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossX = ClientMouseListener.mouseClickX;
-        Client.out.p1Enc(78);
+        Client.out.p1Enc(78 /* OPNPC3 */);
         Client.out.p2_alt2(var6);
       }
     }
@@ -51469,7 +51203,7 @@ class Client extends GameShell {
         Client.crossMode = 2;
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(151);
+        Client.out.p1Enc(151 /* OPPLAYER2 */);
         Client.out.p2(var6);
       }
     }
@@ -51481,12 +51215,12 @@ class Client extends GameShell {
         Client.crossCycle = 0;
         Client.crossMode = 2;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(71);
+        Client.out.p1Enc(71 /* OPNPC5 */);
         Client.out.p2(var6);
       }
     }
     if (var3 === 39) {
-      Client.out.p1Enc(35);
+      Client.out.p1Enc(35 /* OPHELDT */);
       Client.out.p2_alt3(var6);
       Client.out.p2(Client.targetCom);
       Client.out.p4_alt3(Client.targetSub);
@@ -51497,7 +51231,7 @@ class Client extends GameShell {
       Client.selectedItem = var1;
     }
     if (var3 === 36) {
-      Client.out.p1Enc(109);
+      Client.out.p1Enc(109 /* IF_BUTTON */);
       Client.out.p4(var2);
       const var13 = IfType.get(var2);
       if (var13.scripts !== null && var13.scripts[0][0] === 5) {
@@ -51509,7 +51243,7 @@ class Client extends GameShell {
     if (var3 === 1001) {
       const var15 = IfType.get(var2);
       if (var15 === null || var15.linkObjNumber[var1] < 1e5) {
-        Client.out.p1Enc(191);
+        Client.out.p1Enc(191 /* OPOBJ6 */);
         Client.out.p2(var6);
       } else {
         Client.addChat(var15.linkObjNumber[var1] + " x " + ObjType.list(var6).name, 0, "");
@@ -51526,12 +51260,12 @@ class Client extends GameShell {
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossCycle = 0;
-        Client.out.p1Enc(47);
+        Client.out.p1Enc(47 /* OPPLAYER7 */);
         Client.out.p2_alt3(var6);
       }
     }
     if (var3 === 21) {
-      Client.out.p1Enc(160);
+      Client.out.p1Enc(160 /* OPHELD4 */);
       Client.out.p2_alt3(var1);
       Client.out.p4_alt1(var2);
       Client.out.p2_alt2(var6);
@@ -51540,7 +51274,7 @@ class Client extends GameShell {
       Client.selectedItem = var1;
     }
     if (var3 === 2) {
-      Client.out.p1Enc(216);
+      Client.out.p1Enc(216 /* OPHELD3 */);
       Client.out.p4_alt3(var2);
       Client.out.p2_alt1(var1);
       Client.out.p2_alt3(var6);
@@ -51550,14 +51284,14 @@ class Client extends GameShell {
     }
     if (var3 === 35) {
       Client.interactWithLoc(var2, var4, var1);
-      Client.out.p1Enc(13);
+      Client.out.p1Enc(13 /* OPLOC2 */);
       Client.out.p2_alt3(Number(BigInt(var4) >> 32n & 0x7fffffffn));
       Client.out.p2_alt1(Client.mapBuildBaseX + var1);
       Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
     }
     if (var3 === 51) {
       Client.interactWithLoc(var2, var4, var1);
-      Client.out.p1Enc(94);
+      Client.out.p1Enc(94 /* OPLOC3 */);
       Client.out.p2_alt2(var1 + Client.mapBuildBaseX);
       Client.out.p2(var2 + Client.mapBuildBaseZ);
       Client.out.p2_alt3(Number(BigInt(var4) >> 32n & 0x7fffffffn));
@@ -51570,7 +51304,7 @@ class Client extends GameShell {
         Client.crossMode = 2;
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(118);
+        Client.out.p1Enc(118 /* OPPLAYER3 */);
         Client.out.p2_alt2(var6);
       }
     }
@@ -51582,7 +51316,7 @@ class Client extends GameShell {
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossCycle = 0;
         Client.crossMode = 2;
-        Client.out.p1Enc(30);
+        Client.out.p1Enc(30 /* OPNPCU */);
         Client.out.p2_alt1(Client.objSelectedSlot);
         Client.out.p4_alt2(Client.objSelectedComId);
         Client.out.p2_alt1(var6);
@@ -51590,7 +51324,7 @@ class Client extends GameShell {
       }
     }
     if (var3 === 44) {
-      Client.out.p1Enc(112);
+      Client.out.p1Enc(112 /* INV_BUTTON4 */);
       Client.out.p2(var1);
       Client.out.p4_alt2(var2);
       Client.out.p2_alt3(var6);
@@ -51609,7 +51343,7 @@ class Client extends GameShell {
         Client.crossCycle = 0;
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(164);
+        Client.out.p1Enc(164 /* OPNPC1 */);
         Client.out.p2(var6);
       }
     }
@@ -51622,7 +51356,7 @@ class Client extends GameShell {
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossMode = 2;
       Client.crossCycle = 0;
-      Client.out.p1Enc(107);
+      Client.out.p1Enc(107 /* OPOBJ4 */);
       Client.out.p2_alt1(Client.mapBuildBaseZ + var2);
       Client.out.p2_alt1(var6);
       Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -51649,14 +51383,14 @@ class Client extends GameShell {
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossCycle = 0;
         Client.crossX = ClientMouseListener.mouseClickX;
-        Client.out.p1Enc(6);
+        Client.out.p1Enc(6 /* OPPLAYERT */);
         Client.out.p2_alt3(var6);
         Client.out.p2_alt2(Client.targetCom);
         Client.out.p4_alt2(Client.targetSub);
       }
     }
     if (var3 === 6) {
-      Client.out.p1Enc(150);
+      Client.out.p1Enc(150 /* INV_BUTTON1 */);
       Client.out.p4_alt3(var2);
       Client.out.p2_alt3(var1);
       Client.out.p2(var6);
@@ -51669,7 +51403,7 @@ class Client extends GameShell {
     }
     if (var3 === 1004) {
       Client.interactWithLoc(var2, var4, var1);
-      Client.out.p1Enc(97);
+      Client.out.p1Enc(97 /* OPLOC5 */);
       Client.out.p2_alt3(var2 + Client.mapBuildBaseZ);
       Client.out.p2_alt3(Number(BigInt(var4) >> 32n & 0x7fffffffn));
       Client.out.p2_alt1(var1 + Client.mapBuildBaseX);
@@ -51686,13 +51420,13 @@ class Client extends GameShell {
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossMode = 2;
       Client.crossCycle = 0;
-      Client.out.p1Enc(138);
+      Client.out.p1Enc(138 /* OPOBJ5 */);
       Client.out.p2_alt2(var2 + Client.mapBuildBaseZ);
       Client.out.p2(var6);
       Client.out.p2_alt2(Client.mapBuildBaseX + var1);
     }
     if (var3 === 8) {
-      Client.out.p1Enc(205);
+      Client.out.p1Enc(205 /* INV_BUTTON2 */);
       Client.out.p2_alt1(var6);
       Client.out.p2_alt2(var1);
       Client.out.p4_alt3(var2);
@@ -51701,7 +51435,7 @@ class Client extends GameShell {
       Client.selectedItem = var1;
     }
     if (var3 === 13) {
-      Client.out.p1Enc(26);
+      Client.out.p1Enc(26 /* INV_BUTTON5 */);
       Client.out.p2(var1);
       Client.out.p2(var6);
       Client.out.p4(var2);
@@ -51718,7 +51452,7 @@ class Client extends GameShell {
       Client.crossCycle = 0;
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossMode = 2;
-      Client.out.p1Enc(77);
+      Client.out.p1Enc(77 /* OPOBJ3 */);
       Client.out.p2_alt3(var6);
       Client.out.p2_alt3(var2 + Client.mapBuildBaseZ);
       Client.out.p2(var1 + Client.mapBuildBaseX);
@@ -51735,13 +51469,13 @@ class Client extends GameShell {
           var29 = var29.getMultiNpc();
         }
         if (var29 !== null) {
-          Client.out.p1Enc(127);
+          Client.out.p1Enc(127 /* OPNPC6 */);
           Client.out.p2_alt1(var29.id);
         }
       }
     }
     if (var3 === 49) {
-      Client.out.p1Enc(32);
+      Client.out.p1Enc(32 /* INV_BUTTON3 */);
       Client.out.p2_alt3(var6);
       Client.out.p4(var2);
       Client.out.p2_alt3(var1);
@@ -51750,7 +51484,7 @@ class Client extends GameShell {
       Client.selectedItem = var1;
     }
     if (var3 === 26 && Client.interactWithLoc(var2, var4, var1)) {
-      Client.out.p1Enc(170);
+      Client.out.p1Enc(170 /* OPLOCU */);
       Client.out.p2_alt2(Client.mapBuildBaseZ + var2);
       Client.out.p4(Client.objSelectedComId);
       Client.out.p2_alt3(var1 + Client.mapBuildBaseX);
@@ -51766,7 +51500,7 @@ class Client extends GameShell {
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossMode = 2;
-        Client.out.p1Enc(214);
+        Client.out.p1Enc(214 /* OPPLAYER4 */);
         Client.out.p2_alt2(var6);
       }
     }
@@ -51779,7 +51513,7 @@ class Client extends GameShell {
       Client.crossY = ClientMouseListener.mouseClickY;
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossCycle = 0;
-      Client.out.p1Enc(84);
+      Client.out.p1Enc(84 /* OPOBJT */);
       Client.out.p2(var1 + Client.mapBuildBaseX);
       Client.out.p2(var6);
       Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
@@ -51795,7 +51529,7 @@ class Client extends GameShell {
       Client.crossY = ClientMouseListener.mouseClickY;
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossCycle = 0;
-      Client.out.p1Enc(39);
+      Client.out.p1Enc(39 /* OPOBJ2 */);
       Client.out.p2_alt1(var1 + Client.mapBuildBaseX);
       Client.out.p2_alt2(var6);
       Client.out.p2_alt3(Client.mapBuildBaseZ + var2);
@@ -51808,12 +51542,12 @@ class Client extends GameShell {
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossMode = 2;
         Client.crossCycle = 0;
-        Client.out.p1Enc(33);
+        Client.out.p1Enc(33 /* OPNPC2 */);
         Client.out.p2_alt1(var6);
       }
     }
     if (var3 === 24 && Client.interactWithLoc(var2, var4, var1)) {
-      Client.out.p1Enc(234);
+      Client.out.p1Enc(234 /* OPLOCT */);
       Client.out.p2_alt1(Number(BigInt(var4) >> 32n & 0x7fffffffn));
       Client.out.p2_alt1(Client.targetCom);
       Client.out.p4_alt3(Client.targetSub);
@@ -51821,7 +51555,7 @@ class Client extends GameShell {
       Client.out.p2(Client.mapBuildBaseZ + var2);
     }
     if (var3 === 28) {
-      Client.out.p1Enc(154);
+      Client.out.p1Enc(154 /* OPHELD1 */);
       Client.out.p4(var2);
       Client.out.p2_alt3(var6);
       Client.out.p2_alt3(var1);
@@ -51830,7 +51564,7 @@ class Client extends GameShell {
       Client.selectedItem = var1;
     }
     if (var3 === 20) {
-      Client.out.p1Enc(109);
+      Client.out.p1Enc(109 /* IF_BUTTON */);
       Client.out.p4(var2);
       const var36 = IfType.get(var2);
       if (var36.scripts !== null && var36.scripts[0][0] === 5) {
@@ -51842,7 +51576,7 @@ class Client extends GameShell {
       }
     }
     if (var3 === 18) {
-      Client.out.p1Enc(251);
+      Client.out.p1Enc(251 /* OPHELD5 */);
       Client.out.p2(var1);
       Client.out.p2_alt2(var6);
       Client.out.p4(var2);
@@ -51863,13 +51597,13 @@ class Client extends GameShell {
         Client.crossMode = 2;
         Client.crossCycle = 0;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(195);
+        Client.out.p1Enc(195 /* OPNPC4 */);
         Client.out.p2(var6);
       }
     }
     if (var3 === 33) {
       Client.interactWithLoc(var2, var4, var1);
-      Client.out.p1Enc(169);
+      Client.out.p1Enc(169 /* OPLOC4 */);
       Client.out.p2(var2 + Client.mapBuildBaseZ);
       Client.out.p2_alt1(Number(BigInt(var4) >> 32n & 0x7fffffffn));
       Client.out.p2_alt3(Client.mapBuildBaseX + var1);
@@ -51881,12 +51615,12 @@ class Client extends GameShell {
         var40 = Client.clientButton(var39);
       }
       if (var40) {
-        Client.out.p1Enc(109);
+        Client.out.p1Enc(109 /* IF_BUTTON */);
         Client.out.p4(var2);
       }
     }
     if (var3 === 9) {
-      Client.out.p1Enc(55);
+      Client.out.p1Enc(55 /* OPHELD2 */);
       Client.out.p2_alt1(var1);
       Client.out.p4_alt1(var2);
       Client.out.p2_alt2(var6);
@@ -51903,13 +51637,13 @@ class Client extends GameShell {
       Client.crossMode = 2;
       Client.crossX = ClientMouseListener.mouseClickX;
       Client.crossY = ClientMouseListener.mouseClickY;
-      Client.out.p1Enc(211);
+      Client.out.p1Enc(211 /* OPOBJ1 */);
       Client.out.p2_alt3(Client.mapBuildBaseX + var1);
       Client.out.p2_alt1(var2 + Client.mapBuildBaseZ);
       Client.out.p2_alt3(var6);
     }
     if (var3 === 42) {
-      Client.out.p1Enc(4);
+      Client.out.p1Enc(4 /* OPHELDU */);
       Client.out.p2(Client.objComId);
       Client.out.p2_alt2(var6);
       Client.out.p2_alt2(Client.objSelectedSlot);
@@ -51928,7 +51662,7 @@ class Client extends GameShell {
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossMode = 2;
-        Client.out.p1Enc(114);
+        Client.out.p1Enc(114 /* OPPLAYER5 */);
         Client.out.p2(var6);
       }
     }
@@ -51940,7 +51674,7 @@ class Client extends GameShell {
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossMode = 2;
-        Client.out.p1Enc(161);
+        Client.out.p1Enc(161 /* OPPLAYER6 */);
         Client.out.p2_alt2(var6);
       }
     }
@@ -51949,7 +51683,7 @@ class Client extends GameShell {
       Client.crossY = ClientMouseListener.mouseClickY;
       Client.crossCycle = 0;
       Client.crossX = ClientMouseListener.mouseClickX;
-      Client.out.p1Enc(166);
+      Client.out.p1Enc(166 /* OPLOC6 */);
       Client.out.p2_alt2(var6);
     }
     if (var3 === 50) {
@@ -51960,7 +51694,7 @@ class Client extends GameShell {
         Client.crossCycle = 0;
         Client.crossY = ClientMouseListener.mouseClickY;
         Client.crossX = ClientMouseListener.mouseClickX;
-        Client.out.p1Enc(204);
+        Client.out.p1Enc(204 /* OPPLAYER8 */);
         Client.out.p2_alt3(var6);
       }
     }
@@ -51972,7 +51706,7 @@ class Client extends GameShell {
         Client.crossX = ClientMouseListener.mouseClickX;
         Client.crossMode = 2;
         Client.crossY = ClientMouseListener.mouseClickY;
-        Client.out.p1Enc(145);
+        Client.out.p1Enc(145 /* OPNPCT */);
         Client.out.p4_alt1(Client.targetSub);
         Client.out.p2_alt1(var6);
         Client.out.p2(Client.targetCom);
@@ -51987,7 +51721,7 @@ class Client extends GameShell {
       Client.crossCycle = 0;
       Client.crossY = ClientMouseListener.mouseClickY;
       Client.crossX = ClientMouseListener.mouseClickX;
-      Client.out.p1Enc(176);
+      Client.out.p1Enc(176 /* OPOBJU */);
       Client.out.p2_alt1(Client.mapBuildBaseZ + var2);
       Client.out.p4_alt3(Client.objSelectedComId);
       Client.out.p2_alt1(Client.objSelectedSlot);
@@ -52015,16 +51749,16 @@ class Client extends GameShell {
         Client.tryMove(1, 0, var5.routeZ[0], var5.routeX[0], Client.localPlayer.routeX[0], 1, 0, 2, false, 0, Client.localPlayer.routeZ[0]);
         var3 = true;
         if (arg1 === 1) {
-          Client.out.p1Enc(65);
+          Client.out.p1Enc(65 /* OPPLAYER1 */);
           Client.out.p2_alt1(Client.playerIds[var4]);
         } else if (arg1 === 4) {
-          Client.out.p1Enc(214);
+          Client.out.p1Enc(214 /* OPPLAYER4 */);
           Client.out.p2_alt2(Client.playerIds[var4]);
         } else if (arg1 === 6) {
-          Client.out.p1Enc(161);
+          Client.out.p1Enc(161 /* OPPLAYER6 */);
           Client.out.p2_alt2(Client.playerIds[var4]);
         } else if (arg1 === 7) {
-          Client.out.p1Enc(47);
+          Client.out.p1Enc(47 /* OPPLAYER7 */);
           Client.out.p2_alt3(Client.playerIds[var4]);
         }
         break;
@@ -52033,6 +51767,106 @@ class Client extends GameShell {
     if (!var3) {
       Client.addChat(Text.unabletofind + var2, 0, "");
     }
+  }
+  static endTargetMode() {
+    if (!Client.targetMode) {
+      return;
+    }
+    const var0 = IfType.get(Client.targetCom, Client.targetSub);
+    if (var0 !== null && var0.ontargetleave !== null) {
+      const var1 = new HookReq;
+      var1.component = var0;
+      var1.onop = var0.ontargetleave;
+      ScriptRunner.executeScript(var1);
+    }
+    Client.targetMode = false;
+    Client.componentUpdated(var0);
+  }
+  static ifButtonX(arg0, arg1, arg2, arg3) {
+    const var4 = IfType.get(arg2, arg3);
+    if (var4 === null) {
+      return;
+    }
+    if (var4.onop !== null) {
+      const var5 = new HookReq;
+      var5.opindex = arg0;
+      var5.component = var4;
+      var5.onop = var4.onop;
+      var5.opbase = arg1;
+      ScriptRunner.executeScript(var5);
+    }
+    let var6 = true;
+    if (var4.clientCode > 0) {
+      var6 = Client.clientButton(var4);
+    }
+    if (!var6 || !ServerActive.hasOp(arg0 - 1, Client.getActive(var4))) {
+      return;
+    }
+    if (arg0 === 1) {
+      Client.out.p1Enc(44 /* IF_BUTTON1 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 2) {
+      Client.out.p1Enc(50 /* IF_BUTTON2 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 3) {
+      Client.out.p1Enc(103 /* IF_BUTTON3 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 4) {
+      Client.out.p1Enc(64 /* IF_BUTTON4 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 5) {
+      Client.out.p1Enc(178 /* IF_BUTTON5 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 6) {
+      Client.out.p1Enc(81 /* IF_BUTTON6 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 7) {
+      Client.out.p1Enc(236 /* IF_BUTTON7 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 8) {
+      Client.out.p1Enc(188 /* IF_BUTTON8 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 9) {
+      Client.out.p1Enc(128 /* IF_BUTTON9 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+    if (arg0 === 10) {
+      Client.out.p1Enc(254 /* IF_BUTTON10 */);
+      Client.out.p4(arg3);
+      Client.out.p2(arg2);
+    }
+  }
+  static addMenuOption(arg0, arg1, arg2, arg3, arg4, arg5) {
+    if (Client.isMenuOpen || Client.menuNumEntries >= 500) {
+      return;
+    }
+    Client.menuVerb[Client.menuNumEntries] = arg1;
+    Client.menuSubject[Client.menuNumEntries] = arg4;
+    Client.menuAction[Client.menuNumEntries] = arg2;
+    Client.menuParamA[Client.menuNumEntries] = arg3;
+    Client.menuParamB[Client.menuNumEntries] = arg0;
+    Client.menuParamC[Client.menuNumEntries] = arg5;
+    Client.menuNumEntries++;
+  }
+  static getLine(arg0) {
+    return Client.menuSubject[arg0].length <= 0 ? Client.menuVerb[arg0] : JagString.join([JagString.wrap(Client.menuVerb[arg0]), JagString.wrap(Text.miniseperator), JagString.wrap(Client.menuSubject[arg0])]).toString();
   }
   static minimenuBuildSceneActions(arg0, arg1, arg2, arg3, arg4, arg5) {
     if (Client.useMode === 0 && !Client.targetMode) {
@@ -52308,355 +52142,6 @@ class Client extends GameShell {
       }
     }
   }
-  static loopInterface(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-    if (IfType.openInterface(arg5)) {
-      Client.loopLayer(arg2, arg4, arg6, -1, arg1, IfType.list[arg5], arg3, arg0);
-    }
-  }
-  static loopLayer(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-    for (let var8 = 0;var8 < arg5.length; var8++) {
-      const var9 = arg5[var8];
-      if (var9 !== null && (!var9.v3 || var9.type === 0 || var9.hashook || Client.getActive(var9) !== 0 || Client.dragLayer === var9 || var9.clientCode === 1338) && arg3 === var9.layerId && (!var9.v3 || !Client.hide(var9))) {
-        const var10 = arg2 + var9.renderX;
-        const var11 = arg7 + var9.renderY;
-        let var12;
-        let var15;
-        let var16;
-        let var17;
-        if (var9.type === 2) {
-          var16 = arg4;
-          var17 = arg1;
-          var12 = arg0;
-          var15 = arg6;
-        } else {
-          var12 = arg0 >= var11 ? arg0 : var11;
-          let var13 = var11 + var9.renderHeight;
-          let var14 = var9.renderWidth + var10;
-          var15 = arg6 >= var10 ? arg6 : var10;
-          if (var9.type === 9) {
-            var13++;
-            var14++;
-          }
-          var16 = arg4 <= var13 ? arg4 : var13;
-          var17 = var14 < arg1 ? var14 : arg1;
-        }
-        if (Client.dragCom === var9) {
-          Client.dragCurrentX = var10;
-          Client.dragParentFound = true;
-          Client.dragCurrentY = var11;
-        }
-        if (!var9.v3 || var15 < var17 && var12 < var16) {
-          if (var9.type === 0) {
-            if (!var9.v3 && Client.hide(var9) && Client.overCom !== var9) {
-              continue;
-            }
-            if (var9.noClickThrough && var15 <= ClientMouseListener.mouseX && ClientMouseListener.mouseY >= var12 && var17 > ClientMouseListener.mouseX && ClientMouseListener.mouseY < var16) {
-              for (let var18 = Client.hookRequests.head();var18 !== null; var18 = Client.hookRequests.next()) {
-                if (var18.field686) {
-                  var18.unlink();
-                }
-              }
-              for (let var19 = Client.hookRequestsMouseStop.head();var19 !== null; var19 = Client.hookRequestsMouseStop.next()) {
-                if (var19.field686) {
-                  var19.unlink();
-                }
-              }
-              if (Client.dragTime === 0) {
-                Client.dragCom = null;
-                Client.dragLayer = null;
-              }
-              Client.field3532 = false;
-            }
-          }
-          if (var9.v3) {
-            let var20 = false;
-            let var21 = false;
-            let var22;
-            if (ClientMouseListener.mouseX >= var15 && var12 <= ClientMouseListener.mouseY && var17 > ClientMouseListener.mouseX && var16 > ClientMouseListener.mouseY) {
-              var22 = true;
-            } else {
-              var22 = false;
-            }
-            if (ClientMouseListener.mouseClickButton === 1 && var15 <= ClientMouseListener.mouseClickX && ClientMouseListener.mouseClickY >= var12 && ClientMouseListener.mouseClickX < var17 && var16 > ClientMouseListener.mouseClickY) {
-              var21 = true;
-            }
-            if (ClientMouseListener.mouseButton === 1 && var22) {
-              var20 = true;
-            }
-            if (Client.keypresses > 0 && var9.hotkeys !== null) {
-              for (let var23 = 0;var23 < var9.hotkeys.length; var23++) {
-                for (let var24 = 0;var24 < Client.keypresses; var24++) {
-                  const var25 = var9.hotkeys[var23] & 255;
-                  if (Client.keypressKeycodes[var24] === var25) {
-                    Client.ifButtonX(var23 + 1, "", -1, var9.parentId);
-                  }
-                }
-              }
-            }
-            if (var21) {
-              Client.dragTryPickup(ClientMouseListener.mouseClickX - var10, ClientMouseListener.mouseClickY + -var11, var9);
-            }
-            if (Client.dragCom !== null && var9 !== Client.dragCom && var22 && ServerActive.isDragTarget(Client.getActive(var9))) {
-              Client.dropCom = var9;
-            }
-            if (var9 === Client.dragLayer) {
-              Client.dragging = true;
-              Client.dragParentY = var11;
-              Client.dragParentX = var10;
-            }
-            if (var9.hashook || var9.clientCode !== 0) {
-              if (var22 && Client.mouseWheelRotation !== 0 && var9.onscrollwheel !== null) {
-                const var26 = new HookReq;
-                var26.field686 = true;
-                var26.onop = var9.onscrollwheel;
-                var26.component = var9;
-                var26.mouseY = Client.mouseWheelRotation;
-                Client.hookRequests.push(var26);
-              }
-              if (Client.dragCom !== null || Client.objDragCom !== null || Client.isMenuOpen || var9.clientCode !== 1400 && Client.field3532) {
-                var22 = false;
-                var21 = false;
-                var20 = false;
-              }
-              if (var9.clientCode === 1337) {
-                Client.componentUpdated(var9);
-                continue;
-              }
-              if (var9.clientCode === 1338) {
-                if (var21) {
-                  Client.minimapLoop(ClientMouseListener.mouseClickX - var10, -var11 + ClientMouseListener.mouseClickY, var9);
-                }
-                continue;
-              }
-              if (var9.clientCode === 1400) {
-                continue;
-              }
-              if (var9.clientCode === 1401) {
-                if (var20) {}
-                continue;
-              }
-              if (!var9.clickTrigger && var21) {
-                var9.clickTrigger = true;
-                if (var9.onclick !== null) {
-                  const var30 = new HookReq;
-                  var30.mouseY = ClientMouseListener.mouseClickY - var11;
-                  var30.onop = var9.onclick;
-                  var30.component = var9;
-                  var30.field686 = true;
-                  var30.mouseX = ClientMouseListener.mouseClickX - var10;
-                  Client.hookRequests.push(var30);
-                }
-              }
-              if (var9.clickTrigger && var20 && var9.onclickrepeat !== null) {
-                const var31 = new HookReq;
-                var31.field686 = true;
-                var31.onop = var9.onclickrepeat;
-                var31.component = var9;
-                var31.mouseX = ClientMouseListener.mouseX - var10;
-                var31.mouseY = ClientMouseListener.mouseY - var11;
-                Client.hookRequests.push(var31);
-              }
-              if (var9.clickTrigger && !var20) {
-                var9.clickTrigger = false;
-                if (var9.onrelease !== null) {
-                  const var32 = new HookReq;
-                  var32.component = var9;
-                  var32.mouseY = ClientMouseListener.mouseY - var11;
-                  var32.onop = var9.onrelease;
-                  var32.mouseX = ClientMouseListener.mouseX - var10;
-                  var32.field686 = true;
-                  Client.hookRequestsMouseStop.push(var32);
-                }
-              }
-              if (var20 && var9.onhold !== null) {
-                const var33 = new HookReq;
-                var33.onop = var9.onhold;
-                var33.field686 = true;
-                var33.mouseY = ClientMouseListener.mouseY - var11;
-                var33.component = var9;
-                var33.mouseX = ClientMouseListener.mouseX - var10;
-                Client.hookRequests.push(var33);
-              }
-              if (!var9.mouseTrigger && var22) {
-                var9.mouseTrigger = true;
-                if (var9.onmouseover !== null) {
-                  const var34 = new HookReq;
-                  var34.mouseX = ClientMouseListener.mouseX - var10;
-                  var34.mouseY = ClientMouseListener.mouseY - var11;
-                  var34.field686 = true;
-                  var34.component = var9;
-                  var34.onop = var9.onmouseover;
-                  Client.hookRequests.push(var34);
-                }
-              }
-              if (var9.mouseTrigger && var22 && var9.onmouserepeat !== null) {
-                const var35 = new HookReq;
-                var35.component = var9;
-                var35.mouseY = ClientMouseListener.mouseY - var11;
-                var35.onop = var9.onmouserepeat;
-                var35.mouseX = ClientMouseListener.mouseX - var10;
-                var35.field686 = true;
-                Client.hookRequests.push(var35);
-              }
-              if (var9.mouseTrigger && !var22) {
-                var9.mouseTrigger = false;
-                if (var9.onmouseleave !== null) {
-                  const var36 = new HookReq;
-                  var36.onop = var9.onmouseleave;
-                  var36.component = var9;
-                  var36.field686 = true;
-                  var36.mouseX = ClientMouseListener.mouseX - var10;
-                  var36.mouseY = ClientMouseListener.mouseY - var11;
-                  Client.hookRequestsMouseStop.push(var36);
-                }
-              }
-              if (var9.ontimer !== null) {
-                const var37 = new HookReq;
-                var37.component = var9;
-                var37.onop = var9.ontimer;
-                Client.hookRequestsTimer.push(var37);
-              }
-              if (var9.onvartransmit !== null && Client.varTransmitNum > var9.varTransmitNum) {
-                if (var9.onvartransmitlist === null || Client.varTransmitNum - var9.varTransmitNum > 32) {
-                  const var42 = new HookReq;
-                  var42.component = var9;
-                  var42.onop = var9.onvartransmit;
-                  Client.hookRequests.push(var42);
-                } else {
-                  label439:
-                    for (let var38 = var9.varTransmitNum;var38 < Client.varTransmitNum; var38++) {
-                      const var39 = Client.varTransmit[var38 & 31];
-                      for (let var40 = 0;var40 < var9.onvartransmitlist.length; var40++) {
-                        if (var9.onvartransmitlist[var40] === var39) {
-                          const var41 = new HookReq;
-                          var41.onop = var9.onvartransmit;
-                          var41.component = var9;
-                          Client.hookRequests.push(var41);
-                          break label439;
-                        }
-                      }
-                    }
-                }
-                var9.varTransmitNum = Client.varTransmitNum;
-              }
-              if (var9.oninvtransmit !== null && Client.invTransmitNum > var9.invTransmitNum) {
-                if (var9.oninvtransmitlist === null || Client.invTransmitNum - var9.invTransmitNum > 32) {
-                  const var47 = new HookReq;
-                  var47.onop = var9.oninvtransmit;
-                  var47.component = var9;
-                  Client.hookRequests.push(var47);
-                } else {
-                  label415:
-                    for (let var43 = var9.invTransmitNum;var43 < Client.invTransmitNum; var43++) {
-                      const var44 = Client.invTransmit[var43 & 31];
-                      for (let var45 = 0;var45 < var9.oninvtransmitlist.length; var45++) {
-                        if (var44 === var9.oninvtransmitlist[var45]) {
-                          const var46 = new HookReq;
-                          var46.onop = var9.oninvtransmit;
-                          var46.component = var9;
-                          Client.hookRequests.push(var46);
-                          break label415;
-                        }
-                      }
-                    }
-                }
-                var9.invTransmitNum = Client.invTransmitNum;
-              }
-              if (var9.onstattransmit !== null && var9.statTransmitNum < Client.statTransmitNum) {
-                if (var9.onstattransmitlist === null || Client.statTransmitNum - var9.statTransmitNum > 32) {
-                  const var48 = new HookReq;
-                  var48.onop = var9.onstattransmit;
-                  var48.component = var9;
-                  Client.hookRequests.push(var48);
-                } else {
-                  label391:
-                    for (let var49 = var9.statTransmitNum;var49 < Client.statTransmitNum; var49++) {
-                      const var50 = Client.statTransmit[var49 & 31];
-                      for (let var51 = 0;var51 < var9.onstattransmitlist.length; var51++) {
-                        if (var9.onstattransmitlist[var51] === var50) {
-                          const var52 = new HookReq;
-                          var52.component = var9;
-                          var52.onop = var9.onstattransmit;
-                          Client.hookRequests.push(var52);
-                          break label391;
-                        }
-                      }
-                    }
-                }
-                var9.statTransmitNum = Client.statTransmitNum;
-              }
-              if (var9.transmitNum < Client.chatTransmitNum && var9.onchattransmit !== null) {
-                const var53 = new HookReq;
-                var53.component = var9;
-                var53.onop = var9.onchattransmit;
-                Client.hookRequests.push(var53);
-              }
-              if (var9.transmitNum < Client.friendTransmitNum && var9.onfriendtransmit !== null) {
-                const var54 = new HookReq;
-                var54.component = var9;
-                var54.onop = var9.onfriendtransmit;
-                Client.hookRequests.push(var54);
-              }
-              if (var9.transmitNum < Client.clanTransmitNum && var9.onclantransmit !== null) {
-                const var55 = new HookReq;
-                var55.component = var9;
-                var55.onop = var9.onclantransmit;
-                Client.hookRequests.push(var55);
-              }
-              if (Client.stockTransmitNum > var9.transmitNum && var9.onstocktransmit !== null) {
-                const var56 = new HookReq;
-                var56.component = var9;
-                var56.onop = var9.onstocktransmit;
-                Client.hookRequests.push(var56);
-              }
-              if (var9.transmitNum < Client.miscTransmitNum && var9.onmisctransmit !== null) {
-                const var57 = new HookReq;
-                var57.component = var9;
-                var57.onop = var9.onmisctransmit;
-                Client.hookRequests.push(var57);
-              }
-              var9.transmitNum = Client.transmitNum;
-              if (var9.onkey !== null) {
-                for (let var58 = 0;var58 < Client.keypresses; var58++) {
-                  const var59 = new HookReq;
-                  var59.component = var9;
-                  var59.keyCode = Client.keypressKeycodes[var58];
-                  var59.keyChar = Client.keypressKeychars[var58];
-                  var59.onop = var9.onkey;
-                  Client.hookRequests.push(var59);
-                }
-              }
-            }
-          }
-          if (!var9.v3 && Client.dragCom === null && Client.objDragCom === null && !Client.isMenuOpen) {
-            if ((var9.overLayerId >= 0 || var9.colourOver !== 0) && var15 <= ClientMouseListener.mouseX && ClientMouseListener.mouseY >= var12 && ClientMouseListener.mouseX < var17 && var16 > ClientMouseListener.mouseY) {
-              if (var9.overLayerId < 0) {
-                Client.overCom = var9;
-              } else {
-                Client.overCom = arg5[var9.overLayerId];
-              }
-            }
-            if (var9.type === 8 && var15 <= ClientMouseListener.mouseX && var12 <= ClientMouseListener.mouseY && var17 > ClientMouseListener.mouseX && ClientMouseListener.mouseY < var16) {
-              Client.tooltipCom = var9;
-            }
-            if (var9.renderHeight < var9.scrollHeight) {
-              Client.doScrollbar(var10 + var9.renderWidth, var9.scrollHeight, ClientMouseListener.mouseX, var9.renderHeight, ClientMouseListener.mouseY, var9, var11);
-            }
-          }
-          if (var9.type === 0) {
-            Client.loopLayer(var12, var17, var10 - var9.scrollPosX, var9.parentId, var16, arg5, var15, var11 - var9.scrollPosY);
-            if (var9.subcomponents !== null) {
-              Client.loopLayer(var12, var17, var10 - var9.scrollPosX, var9.parentId, var16, var9.subcomponents, var15, var11 - var9.scrollPosY);
-            }
-            const var60 = Client.subinterfaces.find(BigInt(var9.parentId));
-            if (var60 !== null) {
-              Client.loopInterface(var11, var16, var12, var15, var17, var60.id, var10);
-            }
-          }
-        }
-      }
-    }
-  }
   static addComponentOptions(arg0, arg1, arg2) {
     if (arg2.buttonType === 1) {
       Client.addMenuOption(0, arg2.buttonText, 11, 0, "", arg2.parentId);
@@ -52799,28 +52284,6 @@ class Client extends GameShell {
       } else if (ServerActive.isUseTarget(Client.getActive(arg2)) && (Client.targetMask & 32) === 32) {
         Client.addMenuOption(arg2.subId, Client.targetVerb, 40, 0, Client.targetOp + " -> " + arg2.baseOpName, arg2.parentId);
       }
-    }
-  }
-  static combatColourCode(arg0, arg1) {
-    const var2 = arg1 - arg0;
-    if (var2 < -9) {
-      return "<col=ff0000>";
-    } else if (var2 < -6) {
-      return "<col=ff3000>";
-    } else if (var2 < -3) {
-      return "<col=ff7000>";
-    } else if (var2 < 0) {
-      return "<col=ffb000>";
-    } else if (var2 > 9) {
-      return "<col=00ff00>";
-    } else if (var2 > 6) {
-      return "<col=40ff00>";
-    } else if (var2 > 3) {
-      return "<col=80ff00>";
-    } else if (var2 > 0) {
-      return "<col=c0ff00>";
-    } else {
-      return "<col=ffff00>";
     }
   }
   drawInterface(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
@@ -53391,485 +52854,6 @@ class Client extends GameShell {
     }
     return ready;
   }
-  static componentUpdated(arg0) {
-    if (Client.componentDrawTime === arg0.drawTime) {
-      Client.componentDirtyArea[arg0.drawCount] = true;
-    }
-  }
-  static dirtyArea(arg0, arg1, arg2, arg3) {
-    for (let var4 = 0;var4 < Client.componentDrawCount; var4++) {
-      if (arg3 < Client.componentDrawX[var4] + Client.componentDrawWidth[var4] && arg3 + arg1 > Client.componentDrawX[var4] && arg2 < Client.componentDrawY[var4] + Client.componentDrawHeight[var4] && Client.componentDrawY[var4] < arg0 + arg2) {
-        Client.componentDirtyArea[var4] = true;
-      }
-    }
-  }
-  static blitArea(arg0, arg1, arg2, arg3) {
-    for (let var4 = 0;var4 < Client.componentDrawCount; var4++) {
-      if (Client.componentDrawWidth[var4] + Client.componentDrawX[var4] > arg0 && Client.componentDrawX[var4] < arg2 + arg0 && Client.componentDrawY[var4] + Client.componentDrawHeight[var4] > arg3 && arg1 + arg3 > Client.componentDrawY[var4]) {
-        Client.componentBlitArea[var4] = true;
-      }
-    }
-  }
-  static redrawAllComponents() {
-    for (let var0 = 0;var0 < 100; var0++) {
-      Client.componentDirtyArea[var0] = true;
-    }
-  }
-  static legacyUpdated() {
-    for (let var0 = Client.subinterfaces.search();var0 !== null; var0 = Client.subinterfaces.findnext()) {
-      const var1 = var0.id;
-      if (IfType.openInterface(var1)) {
-        let var2 = true;
-        const var3 = IfType.list[var1];
-        for (let var4 = 0;var4 < var3.length; var4++) {
-          if (var3[var4] !== null) {
-            var2 = var3[var4].v3;
-            break;
-          }
-        }
-        if (!var2) {
-          const var5 = Number(var0.key);
-          const var6 = IfType.get(var5);
-          if (var6 !== null) {
-            Client.componentUpdated(var6);
-          }
-        }
-      }
-    }
-  }
-  static runHookImmediate(arg0, arg1) {
-    if (IfType.openInterface(arg0)) {
-      Client.runHookLayer(arg1, IfType.list[arg0]);
-    }
-  }
-  static runHookLayer(arg0, arg1) {
-    for (let var2 = 0;var2 < arg1.length; var2++) {
-      const var3 = arg1[var2];
-      if (var3 !== null) {
-        if (var3.type === 0) {
-          if (var3.subcomponents !== null) {
-            Client.runHookLayer(arg0, var3.subcomponents);
-          }
-          const var4 = Client.subinterfaces.find(BigInt(var3.parentId));
-          if (var4 !== null) {
-            Client.runHookImmediate(var4.id, arg0);
-          }
-        }
-        if (arg0 === 0 && var3.ondialogabort !== null) {
-          const var5 = new HookReq;
-          var5.component = var3;
-          var5.onop = var3.ondialogabort;
-          ScriptRunner.executeScript(var5);
-        }
-        if (arg0 === 1 && var3.onsubchange !== null) {
-          if (var3.subId >= 0) {
-            const var6 = IfType.get(var3.parentId);
-            if (var6 === null || var6.subcomponents === null || var3.subId >= var6.subcomponents.length || var3 !== var6.subcomponents[var3.subId]) {
-              continue;
-            }
-          }
-          const var7 = new HookReq;
-          var7.component = var3;
-          var7.onop = var3.onsubchange;
-          ScriptRunner.executeScript(var7);
-        }
-      }
-    }
-  }
-  static dragTryPickup(arg0, arg1, arg2) {
-    if (Client.dragCom !== null || Client.isMenuOpen || arg2 === null || Client.getDragLayer(arg2) === null) {
-      return;
-    }
-    Client.dragCom = arg2;
-    Client.dragLayer = Client.getDragLayer(arg2);
-    Client.dragTime = 0;
-    Client.dragPickupX = arg0;
-    Client.dragAlive = false;
-    Client.dragPickupY = arg1;
-  }
-  loopIf3Drag() {
-    const dragCom = Client.dragCom;
-    const dragLayer = Client.dragLayer;
-    Client.componentUpdated(dragCom);
-    Client.dragTime++;
-    if (Client.dragParentFound && Client.dragging) {
-      let x2 = ClientMouseListener.mouseX - Client.dragPickupX;
-      if (Client.dragParentX > x2) {
-        x2 = Client.dragParentX;
-      }
-      let y = ClientMouseListener.mouseY - Client.dragPickupY;
-      if (Client.dragParentY > y) {
-        y = Client.dragParentY;
-      }
-      if (y + dragCom.renderHeight > dragLayer.renderHeight + Client.dragParentY) {
-        y = Client.dragParentY + dragLayer.renderHeight - dragCom.renderHeight;
-      }
-      const dy = y - Client.dragCurrentY;
-      const deadzone = dragCom.dragdeadzone;
-      if (dragCom.renderWidth + x2 > Client.dragParentX + dragLayer.renderWidth) {
-        x2 = dragLayer.renderWidth + Client.dragParentX - dragCom.renderWidth;
-      }
-      const mouseY = y + dragLayer.scrollPosY - Client.dragParentY;
-      const mouseX = dragLayer.scrollPosX + x2 - Client.dragParentX;
-      const dx = x2 - Client.dragCurrentX;
-      if (Client.dragTime > dragCom.dragdeadtime && (dx > deadzone || dx < -deadzone || dy > deadzone || dy < -deadzone)) {
-        Client.dragAlive = true;
-      }
-      if (dragCom.ondrag !== null && Client.dragAlive) {
-        const req = new HookReq;
-        req.onop = dragCom.ondrag;
-        req.mouseY = mouseY;
-        req.mouseX = mouseX;
-        req.component = dragCom;
-        ScriptRunner.executeScript(req, 200000);
-      }
-      if (ClientMouseListener.mouseButton === 0) {
-        if (Client.dragAlive) {
-          if (dragCom.ondragcomplete !== null) {
-            const req = new HookReq;
-            req.onop = dragCom.ondragcomplete;
-            req.component = dragCom;
-            req.mouseX = mouseX;
-            req.mouseY = mouseY;
-            req.drop = Client.dropCom;
-            ScriptRunner.executeScript(req, 200000);
-          }
-          if (Client.dropCom !== null && Client.serverDraggable(dragCom) !== null) {
-            Client.out.p1Enc(135);
-            Client.out.p2_alt1(dragCom.subId);
-            Client.out.p4_alt3(dragCom.parentId);
-            Client.out.p4_alt3(Client.dropCom.parentId);
-            Client.out.p2_alt3(Client.dropCom.subId);
-          }
-        } else if ((Client.oneMouseButton === 1 || Client.isAddFriendOption(Client.menuNumEntries - 1)) && Client.menuNumEntries > 2) {
-          this.openMenu();
-        } else if (Client.menuNumEntries > 0) {
-          Client.doAction(Client.menuNumEntries - 1);
-        }
-        Client.dragCom = null;
-      }
-    } else if (Client.dragTime > 1) {
-      Client.dragCom = null;
-    }
-  }
-  static playSongs(arg0) {
-    if (arg0 === -1 && !Client.playingJingle) {
-      MidiManager.stop();
-    } else if (arg0 !== -1 && (arg0 !== Client.nextMidiSong || !MidiManager.isInitialised()) && Client.midiVolume !== 0 && !Client.playingJingle) {
-      MidiManager.swapSongs(Client.midiVolume, arg0, Client.songs);
-    }
-    Client.nextMidiSong = arg0;
-  }
-  static playJingle(arg0, arg1) {
-    if (Client.midiVolume !== 0 && arg0 !== -1) {
-      MidiManager.play(Client.jingles, arg0, Client.midiVolume);
-      Client.playingJingle = true;
-    }
-  }
-  static playSynth(arg0, arg1, arg2) {
-    if (Client.waveVolume === 0 || arg0 === 0 || Client.waveCount >= 50 || arg2 === -1) {
-      return;
-    }
-    Client.waveSoundIds[Client.waveCount] = arg2;
-    Client.waveLoops[Client.waveCount] = arg0;
-    Client.waveDelay[Client.waveCount] = arg1;
-    Client.waveSounds[Client.waveCount] = null;
-    Client.waveAmbient[Client.waveCount] = 0;
-    Client.waveCount++;
-  }
-  static getDragLayer(arg0) {
-    let var1 = Client.serverDraggable(arg0);
-    if (var1 === null) {
-      var1 = arg0.draggable;
-    }
-    return var1;
-  }
-  static getParentLayer(arg0) {
-    if (arg0.layerId !== -1) {
-      return IfType.get(arg0.layerId);
-    }
-    const var1 = arg0.parentId >>> 16;
-    for (let var2 = Client.subinterfaces.search();var2 !== null; var2 = Client.subinterfaces.findnext()) {
-      if (var1 === var2.id) {
-        return IfType.get(Number(var2.key));
-      }
-    }
-    return null;
-  }
-  static drawCompass(arg0, arg1, arg2, arg3) {
-    if (Client.minimapState < 3) {
-      Client.compass.scanlineRotatePlotSprite(arg1, arg2, arg3.renderWidth, arg3.renderHeight, Client.compass.wi / 2 | 0, Client.compass.hi / 2 | 0, Client.orbitCameraYaw, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
-    } else {
-      Pix2D.fillScanLine(arg1, arg2, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
-    }
-    Client.componentBlitArea[arg0] = true;
-  }
-  static resumePauseButton(arg0, arg1) {
-    Client.out.p1Enc(95);
-    Client.out.p4_alt3(arg1);
-    Client.out.p2_alt1(arg0);
-  }
-  static enterTargetMode(arg0, arg1, arg2) {
-    const var3 = IfType.get(arg2, arg0);
-    if (var3 !== null && var3.ontargetenter !== null) {
-      const var4 = new HookReq;
-      var4.component = var3;
-      var4.onop = var3.ontargetenter;
-      ScriptRunner.executeScript(var4);
-    }
-    Client.targetMode = true;
-    Client.targetCom = arg2;
-    Client.targetMask = arg1;
-    Client.targetSub = arg0;
-    Client.componentUpdated(var3);
-  }
-  static endTargetMode() {
-    if (!Client.targetMode) {
-      return;
-    }
-    const var0 = IfType.get(Client.targetCom, Client.targetSub);
-    if (var0 !== null && var0.ontargetleave !== null) {
-      const var1 = new HookReq;
-      var1.component = var0;
-      var1.onop = var0.ontargetleave;
-      ScriptRunner.executeScript(var1);
-    }
-    Client.targetMode = false;
-    Client.componentUpdated(var0);
-  }
-  static computeTopLevelInterfaceLayout() {
-    Client.computeInterfaceLayout(Client.sWid, Client.toplevelinterface, Client.sHei, false);
-  }
-  static computeComponentLayout(arg0) {
-    const var1 = Client.getParentLayer(arg0);
-    let var2;
-    let var3;
-    if (var1 === null) {
-      var2 = Client.sWid;
-      var3 = Client.sHei;
-    } else {
-      var3 = var1.renderHeight;
-      var2 = var1.renderWidth;
-    }
-    Client.computeComponentPosition(arg0, var2, var3);
-  }
-  static computeLayerLayout(arg0, arg1, arg2, arg3, arg4) {
-    if (typeof arg0 === "boolean") {
-      const var6 = arg0;
-      const var7 = arg1;
-      const var8 = var7.scrollWidth === 0 ? var7.renderWidth : var7.scrollWidth;
-      const var9 = var7.scrollHeight === 0 ? var7.renderHeight : var7.scrollHeight;
-      Client.computeLayerLayout(var8, var6, var7.parentId, var9, IfType.list[var7.parentId >> 16]);
-      if (var7.subcomponents !== null) {
-        Client.computeLayerLayout(var8, var6, var7.parentId, var9, var7.subcomponents);
-      }
-      const var10 = Client.subinterfaces.find(BigInt(var7.parentId));
-      if (var10 !== null) {
-        Client.computeInterfaceLayout(var8, var10.id, var9, var6);
-      }
-      return;
-    }
-    for (let var5 = 0;var5 < arg4.length; var5++) {
-      const var6 = arg4[var5];
-      if (var6 !== null && arg2 === var6.layerId) {
-        Client.computeComponentSize(arg1, arg3, arg0, var6);
-        Client.computeComponentPosition(var6, arg0, arg3);
-        if (var6.scrollPosY > var6.scrollHeight - var6.renderHeight) {
-          var6.scrollPosY = var6.scrollHeight - var6.renderHeight;
-        }
-        if (var6.scrollWidth - var6.renderWidth < var6.scrollPosX) {
-          var6.scrollPosX = var6.scrollWidth - var6.renderWidth;
-        }
-        if (var6.scrollPosX < 0) {
-          var6.scrollPosX = 0;
-        }
-        if (var6.scrollPosY < 0) {
-          var6.scrollPosY = 0;
-        }
-        if (var6.type === 0) {
-          Client.computeLayerLayout(arg1, var6);
-        }
-      }
-    }
-  }
-  static computeInterfaceLayout(arg0, arg1, arg2, arg3) {
-    if (IfType.openInterface(arg1)) {
-      Client.computeLayerLayout(arg0, arg3, -1, arg2, IfType.list[arg1]);
-    }
-  }
-  static computeComponentSize(arg0, arg1, arg2, arg3) {
-    const var4 = arg3.renderWidth;
-    if (arg3.widthAlignment === 0) {
-      arg3.renderWidth = arg3.width;
-    } else if (arg3.widthAlignment === 1) {
-      arg3.renderWidth = arg2 - arg3.width;
-    } else if (arg3.widthAlignment === 2) {
-      arg3.renderWidth = arg2 * arg3.width >> 14;
-    } else if (arg3.widthAlignment === 3) {
-      if (arg3.type === 2) {
-        arg3.renderWidth = arg3.width * 32 + arg3.marginX * (arg3.width - 1);
-      } else if (arg3.type === 7) {
-        arg3.renderWidth = (arg3.width - 1) * arg3.marginX + arg3.width * 115;
-      }
-    }
-    const var5 = arg3.renderHeight;
-    if (arg3.heightAlignment === 0) {
-      arg3.renderHeight = arg3.height;
-    } else if (arg3.heightAlignment === 1) {
-      arg3.renderHeight = arg1 - arg3.height;
-    } else if (arg3.heightAlignment === 2) {
-      arg3.renderHeight = arg3.height * arg1 >> 14;
-    } else if (arg3.heightAlignment === 3) {
-      if (arg3.type === 2) {
-        arg3.renderHeight = arg3.marginY * (arg3.height - 1) + arg3.height * 32;
-      } else if (arg3.type === 7) {
-        arg3.renderHeight = arg3.marginY * (arg3.height - 1) + arg3.height * 12;
-      }
-    }
-    if (Client.qaOpTest && (Client.getActive(arg3) !== 0 || arg3.type === 0)) {
-      if (arg3.renderHeight < 5 && arg3.renderWidth < 5) {
-        arg3.renderWidth = 5;
-        arg3.renderHeight = 5;
-      } else {
-        if (arg3.renderHeight <= 0) {
-          arg3.renderHeight = 5;
-        }
-        if (arg3.renderWidth <= 0) {
-          arg3.renderWidth = 5;
-        }
-      }
-    }
-    if (arg0 && arg3.onresize !== null && (arg3.renderWidth !== var4 || arg3.renderHeight !== var5)) {
-      const var6 = new HookReq;
-      var6.onop = arg3.onresize;
-      var6.component = arg3;
-      ScriptRunner.executeScript(var6);
-    }
-  }
-  static computeComponentPosition(arg0, arg1, arg2) {
-    if (arg0.yAlignment === 0) {
-      arg0.renderY = arg0.y;
-    } else if (arg0.yAlignment === 1) {
-      arg0.renderY = arg0.y + ((arg2 - arg0.renderHeight) / 2 | 0);
-    } else if (arg0.yAlignment === 2) {
-      arg0.renderY = arg2 - arg0.renderHeight - arg0.y;
-    } else if (arg0.yAlignment === 3) {
-      arg0.renderY = arg0.y * arg2 >> 14;
-    } else if (arg0.yAlignment === 4) {
-      arg0.renderY = ((arg2 - arg0.renderHeight) / 2 | 0) + (arg0.y * arg2 >> 14);
-    } else {
-      arg0.renderY = arg2 - (arg0.y * arg2 >> 14) - arg0.renderHeight;
-    }
-    if (arg0.xAlignment === 0) {
-      arg0.renderX = arg0.x;
-    } else if (arg0.xAlignment === 1) {
-      arg0.renderX = ((arg1 - arg0.renderWidth) / 2 | 0) + arg0.x;
-    } else if (arg0.xAlignment === 2) {
-      arg0.renderX = arg1 - arg0.x - arg0.renderWidth;
-    } else if (arg0.xAlignment === 3) {
-      arg0.renderX = arg1 * arg0.x >> 14;
-    } else if (arg0.xAlignment === 4) {
-      arg0.renderX = (arg1 * arg0.x >> 14) + ((arg1 - arg0.renderWidth) / 2 | 0);
-    } else {
-      arg0.renderX = arg1 - arg0.renderWidth - (arg0.x * arg1 >> 14);
-    }
-    if (Client.qaOpTest) {
-      if (Client.getActive(arg0) === 0 && arg0.type !== 0) {
-        return;
-      }
-      if (arg0.renderY < 0) {
-        arg0.renderY = 0;
-      } else if (arg2 < arg0.renderHeight + arg0.renderY) {
-        arg0.renderY = arg2 - arg0.renderHeight;
-      }
-      if (arg0.renderX < 0) {
-        arg0.renderX = 0;
-      } else if (arg0.renderX + arg0.renderWidth > arg1) {
-        arg0.renderX = arg1 - arg0.renderWidth;
-      }
-    }
-  }
-  static niceNumber(arg0) {
-    let var1 = JagString.parseInt(arg0).toString();
-    for (let var2 = var1.length - 3;var2 > 0; var2 -= 3) {
-      var1 = var1.substring(0, var2) + "," + var1.substring(var2);
-    }
-    if (var1.length > 9) {
-      return " <col=00ff80>" + var1.substring(0, var1.length - 8) + Text.million + " (" + var1 + ")</col>";
-    } else if (var1.length > 6) {
-      return " <col=ffffff>" + var1.substring(0, var1.length - 4) + Text.thousand + " (" + var1 + ")</col>";
-    } else {
-      return " <col=ffff00>" + var1 + "</col>";
-    }
-  }
-  static doScrollbar(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-    if (Client.scrollGrabbed) {
-      Client.scrollInputPadding = 32;
-    } else {
-      Client.scrollInputPadding = 0;
-    }
-    Client.scrollGrabbed = false;
-    if (ClientMouseListener.mouseButton !== 0) {
-      if (arg2 >= arg0 && arg2 < arg0 + 16 && arg6 <= arg4 && arg4 < arg6 + 16) {
-        arg5.scrollPosY -= 4;
-        Client.componentUpdated(arg5);
-      } else if (arg0 <= arg2 && arg2 < arg0 + 16 && arg4 >= arg6 + arg3 - 16 && arg6 + arg3 > arg4) {
-        arg5.scrollPosY += 4;
-        Client.componentUpdated(arg5);
-      } else if (arg2 >= arg0 - Client.scrollInputPadding && arg2 < Client.scrollInputPadding + arg0 + 16 && arg6 + 16 <= arg4 && arg4 < arg6 + arg3 - 16) {
-        if (arg1 === 0) {
-          throw new Error("/ by zero");
-        }
-        let var7 = Math.imul(arg3, arg3 - 32) / arg1 | 0;
-        if (var7 < 8) {
-          var7 = 8;
-        }
-        const var8 = arg3 - var7 - 32;
-        const var9 = arg4 - (var7 / 2 | 0) - arg6 - 16;
-        if (var8 === 0) {
-          throw new Error("/ by zero");
-        }
-        arg5.scrollPosY = Math.imul(var9, arg1 - arg3) / var8 | 0;
-        Client.componentUpdated(arg5);
-        Client.scrollGrabbed = true;
-      }
-    }
-    if (Client.mouseWheelRotation !== 0) {
-      const var10 = arg5.renderWidth;
-      if (arg2 >= arg0 - var10 && arg6 <= arg4 && arg2 < arg0 + 16 && arg4 <= arg6 + arg3) {
-        arg5.scrollPosY += Client.mouseWheelRotation * 45;
-        Client.componentUpdated(arg5);
-      }
-    }
-  }
-  static drawScrollbar(arg0, arg1, arg2, arg3, arg4) {
-    if (arg3 === 0) {
-      throw new Error("/ by zero");
-    }
-    let var5 = Math.imul(arg1 - 32, arg1) / arg3 | 0;
-    if (var5 < 8) {
-      var5 = 8;
-    }
-    Client.scrollbar[0].plotSprite(arg4, arg2);
-    if (arg3 - arg1 === 0) {
-      throw new Error("/ by zero");
-    }
-    const var6 = Math.imul(arg0, arg1 - var5 - 32) / (arg3 - arg1) | 0;
-    Client.scrollbar[1].plotSprite(arg4, arg1 + arg2 - 16);
-    Pix2D.fillRect(arg4, arg2 + 16, 16, arg1 - 32, Client.SCROLLBAR_TRACK);
-    Pix2D.fillRect(arg4, var6 + arg2 + 16, 16, var5, Client.SCROLLBAR_GRIP_FOREGROUND);
-    Pix2D.vline(arg4, var6 + arg2 + 16, var5, Client.SCROLLBAR_GRIP_HIGHLIGHT);
-    Pix2D.vline(arg4 + 1, var6 + 16 + arg2, var5, Client.SCROLLBAR_GRIP_HIGHLIGHT);
-    Pix2D.hline(arg4, arg2 + var6 + 16, 16, Client.SCROLLBAR_GRIP_HIGHLIGHT);
-    Pix2D.hline(arg4, var6 + arg2 + 17, 16, Client.SCROLLBAR_GRIP_HIGHLIGHT);
-    Pix2D.vline(arg4 + 15, arg2 + 16 + var6, var5, Client.SCROLLBAR_GRIP_LOWLIGHT);
-    Pix2D.vline(arg4 + 14, arg2 - -var6 + 17, var5 - 1, Client.SCROLLBAR_GRIP_LOWLIGHT);
-    Pix2D.hline(arg4, var6 + arg2 + var5 + 15, 16, Client.SCROLLBAR_GRIP_LOWLIGHT);
-    Pix2D.hline(arg4 + 1, var6 + 14 + arg2 + var5, 15, Client.SCROLLBAR_GRIP_LOWLIGHT);
-  }
-  static inf(arg0) {
-    return arg0 < 999999999 ? JagString.parseInt(arg0).toString() : "*";
-  }
   static substituteVars(arg0, arg1) {
     if (arg0.indexOf("%") === -1) {
       return arg0;
@@ -53927,6 +52911,84 @@ class Client extends GameShell {
     } while (true);
     return arg0;
   }
+  static niceNumber(arg0) {
+    let var1 = JagString.parseInt(arg0).toString();
+    for (let var2 = var1.length - 3;var2 > 0; var2 -= 3) {
+      var1 = var1.substring(0, var2) + "," + var1.substring(var2);
+    }
+    if (var1.length > 9) {
+      return " <col=00ff80>" + var1.substring(0, var1.length - 8) + Text.million + " (" + var1 + ")</col>";
+    } else if (var1.length > 6) {
+      return " <col=ffffff>" + var1.substring(0, var1.length - 4) + Text.thousand + " (" + var1 + ")</col>";
+    } else {
+      return " <col=ffff00>" + var1 + "</col>";
+    }
+  }
+  static inf(arg0) {
+    return arg0 < 999999999 ? JagString.parseInt(arg0).toString() : "*";
+  }
+  static doScrollbar(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+    if (Client.scrollGrabbed) {
+      Client.scrollInputPadding = 32;
+    } else {
+      Client.scrollInputPadding = 0;
+    }
+    Client.scrollGrabbed = false;
+    if (ClientMouseListener.mouseButton !== 0) {
+      if (arg2 >= arg0 && arg2 < arg0 + 16 && arg6 <= arg4 && arg4 < arg6 + 16) {
+        arg5.scrollPosY -= 4;
+        Client.componentUpdated(arg5);
+      } else if (arg0 <= arg2 && arg2 < arg0 + 16 && arg4 >= arg6 + arg3 - 16 && arg6 + arg3 > arg4) {
+        arg5.scrollPosY += 4;
+        Client.componentUpdated(arg5);
+      } else if (arg2 >= arg0 - Client.scrollInputPadding && arg2 < Client.scrollInputPadding + arg0 + 16 && arg6 + 16 <= arg4 && arg4 < arg6 + arg3 - 16) {
+        if (arg1 === 0) {
+          return;
+        }
+        let var7 = Math.imul(arg3, arg3 - 32) / arg1 | 0;
+        if (var7 < 8) {
+          var7 = 8;
+        }
+        const var8 = arg3 - var7 - 32;
+        const var9 = arg4 - (var7 / 2 | 0) - arg6 - 16;
+        if (var8 === 0) {
+          return;
+        }
+        arg5.scrollPosY = Math.imul(var9, arg1 - arg3) / var8 | 0;
+        Client.componentUpdated(arg5);
+        Client.scrollGrabbed = true;
+      }
+    }
+    if (Client.mouseWheelRotation !== 0) {
+      const var10 = arg5.renderWidth;
+      if (arg2 >= arg0 - var10 && arg6 <= arg4 && arg2 < arg0 + 16 && arg4 <= arg6 + arg3) {
+        arg5.scrollPosY += Client.mouseWheelRotation * 45;
+        Client.componentUpdated(arg5);
+      }
+    }
+  }
+  static drawScrollbar(arg0, arg1, arg2, arg3, arg4) {
+    if (arg3 <= 0 || arg3 <= arg1) {
+      return;
+    }
+    let var5 = Math.imul(arg1 - 32, arg1) / arg3 | 0;
+    if (var5 < 8) {
+      var5 = 8;
+    }
+    Client.scrollbar[0].plotSprite(arg4, arg2);
+    const var6 = Math.imul(arg0, arg1 - var5 - 32) / (arg3 - arg1) | 0;
+    Client.scrollbar[1].plotSprite(arg4, arg1 + arg2 - 16);
+    Pix2D.fillRect(arg4, arg2 + 16, 16, arg1 - 32, Client.SCROLLBAR_TRACK);
+    Pix2D.fillRect(arg4, var6 + arg2 + 16, 16, var5, Client.SCROLLBAR_GRIP_FOREGROUND);
+    Pix2D.vline(arg4, var6 + arg2 + 16, var5, Client.SCROLLBAR_GRIP_HIGHLIGHT);
+    Pix2D.vline(arg4 + 1, var6 + 16 + arg2, var5, Client.SCROLLBAR_GRIP_HIGHLIGHT);
+    Pix2D.hline(arg4, arg2 + var6 + 16, 16, Client.SCROLLBAR_GRIP_HIGHLIGHT);
+    Pix2D.hline(arg4, var6 + arg2 + 17, 16, Client.SCROLLBAR_GRIP_HIGHLIGHT);
+    Pix2D.vline(arg4 + 15, arg2 + 16 + var6, var5, Client.SCROLLBAR_GRIP_LOWLIGHT);
+    Pix2D.vline(arg4 + 14, arg2 - -var6 + 17, var5 - 1, Client.SCROLLBAR_GRIP_LOWLIGHT);
+    Pix2D.hline(arg4, var6 + arg2 + var5 + 15, 16, Client.SCROLLBAR_GRIP_LOWLIGHT);
+    Pix2D.hline(arg4 + 1, var6 + 14 + arg2 + var5, 15, Client.SCROLLBAR_GRIP_LOWLIGHT);
+  }
   static getIfActive(arg0) {
     if (arg0.scriptComparator === null) {
       return false;
@@ -53951,60 +53013,6 @@ class Client extends GameShell {
       }
     }
     return true;
-  }
-  static getActive(arg0) {
-    const var1 = Client.serverActive.find((BigInt(arg0.parentId) << 32n) + BigInt(arg0.subId));
-    return var1 === null ? arg0.eventCode : var1.value;
-  }
-  static purgeServerActive(arg0) {
-    for (let var1 = Client.serverActive.search();var1 !== null; var1 = Client.serverActive.findnext()) {
-      if (BigInt(arg0) === (var1.key >> 48n & 0xffffn)) {
-        var1.unlink();
-      }
-    }
-  }
-  static serverDraggable(arg0) {
-    const var1 = ServerActive.serverDraggable(Client.getActive(arg0));
-    if (var1 === 0) {
-      return null;
-    }
-    for (let var2 = 0;var2 < var1; var2++) {
-      arg0 = IfType.get(arg0.layerId);
-      if (arg0 === null) {
-        return null;
-      }
-    }
-    return arg0;
-  }
-  static hide(arg0) {
-    if (Client.qaOpTest) {
-      if (Client.getActive(arg0) !== 0) {
-        return false;
-      }
-      if (arg0.type === 0) {
-        return false;
-      }
-    }
-    return arg0.hide;
-  }
-  static getIfTypeOpName(arg0, arg1) {
-    if (!ServerActive.hasOp(arg1, Client.getActive(arg0)) && arg0.onop === null) {
-      return null;
-    } else if (arg0.opNames === null || arg1 >= arg0.opNames.length || arg0.opNames[arg1] === null || arg0.opNames[arg1].trim().length === 0) {
-      return Client.qaOpTest ? "Hidden-" + JagString.parseInt(arg1).toString() : null;
-    } else {
-      return arg0.opNames[arg1];
-    }
-  }
-  static getTargetVerb(com) {
-    if (ServerActive.targetMask(Client.getActive(com)) === 0) {
-      return null;
-    }
-    const verb = com.targetVerb;
-    if (verb === null || verb.trim().length === 0) {
-      return Client.qaOpTest ? "Hidden-use" : null;
-    }
-    return verb;
   }
   static getIfVar(arg0, arg1) {
     if (arg1.scripts === null || arg0 >= arg1.scripts.length) {
@@ -54132,6 +53140,519 @@ class Client extends GameShell {
       return -1;
     }
   }
+  static loopInterface(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+    if (IfType.openInterface(arg5)) {
+      Client.loopLayer(arg2, arg4, arg6, -1, arg1, IfType.list[arg5], arg3, arg0);
+    }
+  }
+  static loopLayer(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+    for (let var8 = 0;var8 < arg5.length; var8++) {
+      const var9 = arg5[var8];
+      if (var9 !== null && (!var9.v3 || var9.type === 0 || var9.hashook || Client.getActive(var9) !== 0 || Client.dragLayer === var9 || var9.clientCode === 1338) && arg3 === var9.layerId && (!var9.v3 || !Client.hide(var9))) {
+        const var10 = arg2 + var9.renderX;
+        const var11 = arg7 + var9.renderY;
+        let var12;
+        let var15;
+        let var16;
+        let var17;
+        if (var9.type === 2) {
+          var16 = arg4;
+          var17 = arg1;
+          var12 = arg0;
+          var15 = arg6;
+        } else {
+          var12 = arg0 >= var11 ? arg0 : var11;
+          let var13 = var11 + var9.renderHeight;
+          let var14 = var9.renderWidth + var10;
+          var15 = arg6 >= var10 ? arg6 : var10;
+          if (var9.type === 9) {
+            var13++;
+            var14++;
+          }
+          var16 = arg4 <= var13 ? arg4 : var13;
+          var17 = var14 < arg1 ? var14 : arg1;
+        }
+        if (Client.dragCom === var9) {
+          Client.dragCurrentX = var10;
+          Client.dragParentFound = true;
+          Client.dragCurrentY = var11;
+        }
+        if (!var9.v3 || var15 < var17 && var12 < var16) {
+          if (var9.type === 0) {
+            if (!var9.v3 && Client.hide(var9) && Client.overCom !== var9) {
+              continue;
+            }
+            if (var9.noClickThrough && var15 <= ClientMouseListener.mouseX && ClientMouseListener.mouseY >= var12 && var17 > ClientMouseListener.mouseX && ClientMouseListener.mouseY < var16) {
+              for (let var18 = Client.hookRequests.head();var18 !== null; var18 = Client.hookRequests.next()) {
+                if (var18.field686) {
+                  var18.unlink();
+                }
+              }
+              for (let var19 = Client.hookRequestsMouseStop.head();var19 !== null; var19 = Client.hookRequestsMouseStop.next()) {
+                if (var19.field686) {
+                  var19.unlink();
+                }
+              }
+              if (Client.dragTime === 0) {
+                Client.dragCom = null;
+                Client.dragLayer = null;
+              }
+              Client.field3532 = false;
+            }
+          }
+          if (var9.v3) {
+            let var20 = false;
+            let var21 = false;
+            let var22;
+            if (ClientMouseListener.mouseX >= var15 && var12 <= ClientMouseListener.mouseY && var17 > ClientMouseListener.mouseX && var16 > ClientMouseListener.mouseY) {
+              var22 = true;
+            } else {
+              var22 = false;
+            }
+            if (ClientMouseListener.mouseClickButton === 1 && var15 <= ClientMouseListener.mouseClickX && ClientMouseListener.mouseClickY >= var12 && ClientMouseListener.mouseClickX < var17 && var16 > ClientMouseListener.mouseClickY) {
+              var21 = true;
+            }
+            if (ClientMouseListener.mouseButton === 1 && var22) {
+              var20 = true;
+            }
+            if (Client.keypresses > 0 && var9.hotkeys !== null) {
+              for (let var23 = 0;var23 < var9.hotkeys.length; var23++) {
+                for (let var24 = 0;var24 < Client.keypresses; var24++) {
+                  const var25 = var9.hotkeys[var23] & 255;
+                  if (Client.keypressKeycodes[var24] === var25) {
+                    Client.ifButtonX(var23 + 1, "", -1, var9.parentId);
+                  }
+                }
+              }
+            }
+            if (var21) {
+              Client.dragTryPickup(ClientMouseListener.mouseClickX - var10, ClientMouseListener.mouseClickY + -var11, var9);
+            }
+            if (Client.dragCom !== null && var9 !== Client.dragCom && var22 && ServerActive.isDragTarget(Client.getActive(var9))) {
+              Client.dropCom = var9;
+            }
+            if (var9 === Client.dragLayer) {
+              Client.dragging = true;
+              Client.dragParentY = var11;
+              Client.dragParentX = var10;
+            }
+            if (var9.hashook || var9.clientCode !== 0) {
+              if (var22 && Client.mouseWheelRotation !== 0 && var9.onscrollwheel !== null) {
+                const var26 = new HookReq;
+                var26.field686 = true;
+                var26.onop = var9.onscrollwheel;
+                var26.component = var9;
+                var26.mouseY = Client.mouseWheelRotation;
+                Client.hookRequests.push(var26);
+              }
+              if (Client.dragCom !== null || Client.objDragCom !== null || Client.isMenuOpen || var9.clientCode !== 1400 && Client.field3532) {
+                var22 = false;
+                var21 = false;
+                var20 = false;
+              }
+              if (var9.clientCode === 1337) {
+                Client.componentUpdated(var9);
+                continue;
+              }
+              if (var9.clientCode === 1338) {
+                if (var21) {
+                  Client.minimapLoop(ClientMouseListener.mouseClickX - var10, -var11 + ClientMouseListener.mouseClickY, var9);
+                }
+                continue;
+              }
+              if (var9.clientCode === 1400) {
+                continue;
+              }
+              if (var9.clientCode === 1401) {
+                if (var20) {}
+                continue;
+              }
+              if (!var9.clickTrigger && var21) {
+                var9.clickTrigger = true;
+                if (var9.onclick !== null) {
+                  const var30 = new HookReq;
+                  var30.mouseY = ClientMouseListener.mouseClickY - var11;
+                  var30.onop = var9.onclick;
+                  var30.component = var9;
+                  var30.field686 = true;
+                  var30.mouseX = ClientMouseListener.mouseClickX - var10;
+                  Client.hookRequests.push(var30);
+                }
+              }
+              if (var9.clickTrigger && var20 && var9.onclickrepeat !== null) {
+                const var31 = new HookReq;
+                var31.field686 = true;
+                var31.onop = var9.onclickrepeat;
+                var31.component = var9;
+                var31.mouseX = ClientMouseListener.mouseX - var10;
+                var31.mouseY = ClientMouseListener.mouseY - var11;
+                Client.hookRequests.push(var31);
+              }
+              if (var9.clickTrigger && !var20) {
+                var9.clickTrigger = false;
+                if (var9.onrelease !== null) {
+                  const var32 = new HookReq;
+                  var32.component = var9;
+                  var32.mouseY = ClientMouseListener.mouseY - var11;
+                  var32.onop = var9.onrelease;
+                  var32.mouseX = ClientMouseListener.mouseX - var10;
+                  var32.field686 = true;
+                  Client.hookRequestsMouseStop.push(var32);
+                }
+              }
+              if (var20 && var9.onhold !== null) {
+                const var33 = new HookReq;
+                var33.onop = var9.onhold;
+                var33.field686 = true;
+                var33.mouseY = ClientMouseListener.mouseY - var11;
+                var33.component = var9;
+                var33.mouseX = ClientMouseListener.mouseX - var10;
+                Client.hookRequests.push(var33);
+              }
+              if (!var9.mouseTrigger && var22) {
+                var9.mouseTrigger = true;
+                if (var9.onmouseover !== null) {
+                  const var34 = new HookReq;
+                  var34.mouseX = ClientMouseListener.mouseX - var10;
+                  var34.mouseY = ClientMouseListener.mouseY - var11;
+                  var34.field686 = true;
+                  var34.component = var9;
+                  var34.onop = var9.onmouseover;
+                  Client.hookRequests.push(var34);
+                }
+              }
+              if (var9.mouseTrigger && var22 && var9.onmouserepeat !== null) {
+                const var35 = new HookReq;
+                var35.component = var9;
+                var35.mouseY = ClientMouseListener.mouseY - var11;
+                var35.onop = var9.onmouserepeat;
+                var35.mouseX = ClientMouseListener.mouseX - var10;
+                var35.field686 = true;
+                Client.hookRequests.push(var35);
+              }
+              if (var9.mouseTrigger && !var22) {
+                var9.mouseTrigger = false;
+                if (var9.onmouseleave !== null) {
+                  const var36 = new HookReq;
+                  var36.onop = var9.onmouseleave;
+                  var36.component = var9;
+                  var36.field686 = true;
+                  var36.mouseX = ClientMouseListener.mouseX - var10;
+                  var36.mouseY = ClientMouseListener.mouseY - var11;
+                  Client.hookRequestsMouseStop.push(var36);
+                }
+              }
+              if (var9.ontimer !== null) {
+                const var37 = new HookReq;
+                var37.component = var9;
+                var37.onop = var9.ontimer;
+                Client.hookRequestsTimer.push(var37);
+              }
+              if (var9.onvartransmit !== null && Client.varTransmitNum > var9.varTransmitNum) {
+                if (var9.onvartransmitlist === null || Client.varTransmitNum - var9.varTransmitNum > 32) {
+                  const var42 = new HookReq;
+                  var42.component = var9;
+                  var42.onop = var9.onvartransmit;
+                  Client.hookRequests.push(var42);
+                } else {
+                  label439:
+                    for (let var38 = var9.varTransmitNum;var38 < Client.varTransmitNum; var38++) {
+                      const var39 = Client.varTransmit[var38 & 31];
+                      for (let var40 = 0;var40 < var9.onvartransmitlist.length; var40++) {
+                        if (var9.onvartransmitlist[var40] === var39) {
+                          const var41 = new HookReq;
+                          var41.onop = var9.onvartransmit;
+                          var41.component = var9;
+                          Client.hookRequests.push(var41);
+                          break label439;
+                        }
+                      }
+                    }
+                }
+                var9.varTransmitNum = Client.varTransmitNum;
+              }
+              if (var9.oninvtransmit !== null && Client.invTransmitNum > var9.invTransmitNum) {
+                if (var9.oninvtransmitlist === null || Client.invTransmitNum - var9.invTransmitNum > 32) {
+                  const var47 = new HookReq;
+                  var47.onop = var9.oninvtransmit;
+                  var47.component = var9;
+                  Client.hookRequests.push(var47);
+                } else {
+                  label415:
+                    for (let var43 = var9.invTransmitNum;var43 < Client.invTransmitNum; var43++) {
+                      const var44 = Client.invTransmit[var43 & 31];
+                      for (let var45 = 0;var45 < var9.oninvtransmitlist.length; var45++) {
+                        if (var44 === var9.oninvtransmitlist[var45]) {
+                          const var46 = new HookReq;
+                          var46.onop = var9.oninvtransmit;
+                          var46.component = var9;
+                          Client.hookRequests.push(var46);
+                          break label415;
+                        }
+                      }
+                    }
+                }
+                var9.invTransmitNum = Client.invTransmitNum;
+              }
+              if (var9.onstattransmit !== null && var9.statTransmitNum < Client.statTransmitNum) {
+                if (var9.onstattransmitlist === null || Client.statTransmitNum - var9.statTransmitNum > 32) {
+                  const var48 = new HookReq;
+                  var48.onop = var9.onstattransmit;
+                  var48.component = var9;
+                  Client.hookRequests.push(var48);
+                } else {
+                  label391:
+                    for (let var49 = var9.statTransmitNum;var49 < Client.statTransmitNum; var49++) {
+                      const var50 = Client.statTransmit[var49 & 31];
+                      for (let var51 = 0;var51 < var9.onstattransmitlist.length; var51++) {
+                        if (var9.onstattransmitlist[var51] === var50) {
+                          const var52 = new HookReq;
+                          var52.component = var9;
+                          var52.onop = var9.onstattransmit;
+                          Client.hookRequests.push(var52);
+                          break label391;
+                        }
+                      }
+                    }
+                }
+                var9.statTransmitNum = Client.statTransmitNum;
+              }
+              if (var9.transmitNum < Client.chatTransmitNum && var9.onchattransmit !== null) {
+                const var53 = new HookReq;
+                var53.component = var9;
+                var53.onop = var9.onchattransmit;
+                Client.hookRequests.push(var53);
+              }
+              if (var9.transmitNum < Client.friendTransmitNum && var9.onfriendtransmit !== null) {
+                const var54 = new HookReq;
+                var54.component = var9;
+                var54.onop = var9.onfriendtransmit;
+                Client.hookRequests.push(var54);
+              }
+              if (var9.transmitNum < Client.clanTransmitNum && var9.onclantransmit !== null) {
+                const var55 = new HookReq;
+                var55.component = var9;
+                var55.onop = var9.onclantransmit;
+                Client.hookRequests.push(var55);
+              }
+              if (Client.stockTransmitNum > var9.transmitNum && var9.onstocktransmit !== null) {
+                const var56 = new HookReq;
+                var56.component = var9;
+                var56.onop = var9.onstocktransmit;
+                Client.hookRequests.push(var56);
+              }
+              if (var9.transmitNum < Client.miscTransmitNum && var9.onmisctransmit !== null) {
+                const var57 = new HookReq;
+                var57.component = var9;
+                var57.onop = var9.onmisctransmit;
+                Client.hookRequests.push(var57);
+              }
+              var9.transmitNum = Client.transmitNum;
+              if (var9.onkey !== null) {
+                for (let var58 = 0;var58 < Client.keypresses; var58++) {
+                  const var59 = new HookReq;
+                  var59.component = var9;
+                  var59.keyCode = Client.keypressKeycodes[var58];
+                  var59.keyChar = Client.keypressKeychars[var58];
+                  var59.onop = var9.onkey;
+                  Client.hookRequests.push(var59);
+                }
+              }
+            }
+          }
+          if (!var9.v3 && Client.dragCom === null && Client.objDragCom === null && !Client.isMenuOpen) {
+            if ((var9.overLayerId >= 0 || var9.colourOver !== 0) && var15 <= ClientMouseListener.mouseX && ClientMouseListener.mouseY >= var12 && ClientMouseListener.mouseX < var17 && var16 > ClientMouseListener.mouseY) {
+              if (var9.overLayerId < 0) {
+                Client.overCom = var9;
+              } else {
+                Client.overCom = arg5[var9.overLayerId];
+              }
+            }
+            if (var9.type === 8 && var15 <= ClientMouseListener.mouseX && var12 <= ClientMouseListener.mouseY && var17 > ClientMouseListener.mouseX && ClientMouseListener.mouseY < var16) {
+              Client.tooltipCom = var9;
+            }
+            if (var9.renderHeight < var9.scrollHeight) {
+              Client.doScrollbar(var10 + var9.renderWidth, var9.scrollHeight, ClientMouseListener.mouseX, var9.renderHeight, ClientMouseListener.mouseY, var9, var11);
+            }
+          }
+          if (var9.type === 0) {
+            Client.loopLayer(var12, var17, var10 - var9.scrollPosX, var9.parentId, var16, arg5, var15, var11 - var9.scrollPosY);
+            if (var9.subcomponents !== null) {
+              Client.loopLayer(var12, var17, var10 - var9.scrollPosX, var9.parentId, var16, var9.subcomponents, var15, var11 - var9.scrollPosY);
+            }
+            const var60 = Client.subinterfaces.find(BigInt(var9.parentId));
+            if (var60 !== null) {
+              Client.loopInterface(var11, var16, var12, var15, var17, var60.id, var10);
+            }
+          }
+        }
+      }
+    }
+  }
+  static runHookImmediate(arg0, arg1) {
+    if (IfType.openInterface(arg0)) {
+      Client.runHookLayer(arg1, IfType.list[arg0]);
+    }
+  }
+  static runHookLayer(arg0, arg1) {
+    for (let var2 = 0;var2 < arg1.length; var2++) {
+      const var3 = arg1[var2];
+      if (var3 !== null) {
+        if (var3.type === 0) {
+          if (var3.subcomponents !== null) {
+            Client.runHookLayer(arg0, var3.subcomponents);
+          }
+          const var4 = Client.subinterfaces.find(BigInt(var3.parentId));
+          if (var4 !== null) {
+            Client.runHookImmediate(var4.id, arg0);
+          }
+        }
+        if (arg0 === 0 && var3.ondialogabort !== null) {
+          const var5 = new HookReq;
+          var5.component = var3;
+          var5.onop = var3.ondialogabort;
+          ScriptRunner.executeScript(var5);
+        }
+        if (arg0 === 1 && var3.onsubchange !== null) {
+          if (var3.subId >= 0) {
+            const var6 = IfType.get(var3.parentId);
+            if (var6 === null || var6.subcomponents === null || var3.subId >= var6.subcomponents.length || var3 !== var6.subcomponents[var3.subId]) {
+              continue;
+            }
+          }
+          const var7 = new HookReq;
+          var7.component = var3;
+          var7.onop = var3.onsubchange;
+          ScriptRunner.executeScript(var7);
+        }
+      }
+    }
+  }
+  static dragTryPickup(arg0, arg1, arg2) {
+    if (Client.dragCom !== null || Client.isMenuOpen || arg2 === null || Client.getDragLayer(arg2) === null) {
+      return;
+    }
+    Client.dragCom = arg2;
+    Client.dragLayer = Client.getDragLayer(arg2);
+    Client.dragTime = 0;
+    Client.dragPickupX = arg0;
+    Client.dragAlive = false;
+    Client.dragPickupY = arg1;
+  }
+  loopIf3Drag() {
+    const dragCom = Client.dragCom;
+    const dragLayer = Client.dragLayer;
+    Client.componentUpdated(dragCom);
+    Client.dragTime++;
+    if (Client.dragParentFound && Client.dragging) {
+      let x2 = ClientMouseListener.mouseX - Client.dragPickupX;
+      if (Client.dragParentX > x2) {
+        x2 = Client.dragParentX;
+      }
+      let y = ClientMouseListener.mouseY - Client.dragPickupY;
+      if (Client.dragParentY > y) {
+        y = Client.dragParentY;
+      }
+      if (y + dragCom.renderHeight > dragLayer.renderHeight + Client.dragParentY) {
+        y = Client.dragParentY + dragLayer.renderHeight - dragCom.renderHeight;
+      }
+      const dy = y - Client.dragCurrentY;
+      const deadzone = dragCom.dragdeadzone;
+      if (dragCom.renderWidth + x2 > Client.dragParentX + dragLayer.renderWidth) {
+        x2 = dragLayer.renderWidth + Client.dragParentX - dragCom.renderWidth;
+      }
+      const mouseY = y + dragLayer.scrollPosY - Client.dragParentY;
+      const mouseX = dragLayer.scrollPosX + x2 - Client.dragParentX;
+      const dx = x2 - Client.dragCurrentX;
+      if (Client.dragTime > dragCom.dragdeadtime && (dx > deadzone || dx < -deadzone || dy > deadzone || dy < -deadzone)) {
+        Client.dragAlive = true;
+      }
+      if (dragCom.ondrag !== null && Client.dragAlive) {
+        const req = new HookReq;
+        req.onop = dragCom.ondrag;
+        req.mouseY = mouseY;
+        req.mouseX = mouseX;
+        req.component = dragCom;
+        ScriptRunner.executeScript(req, 200000);
+      }
+      if (ClientMouseListener.mouseButton === 0) {
+        if (Client.dragAlive) {
+          if (dragCom.ondragcomplete !== null) {
+            const req = new HookReq;
+            req.onop = dragCom.ondragcomplete;
+            req.component = dragCom;
+            req.mouseX = mouseX;
+            req.mouseY = mouseY;
+            req.drop = Client.dropCom;
+            ScriptRunner.executeScript(req, 200000);
+          }
+          if (Client.dropCom !== null && Client.serverDraggable(dragCom) !== null) {
+            Client.out.p1Enc(135 /* IF_BUTTOND */);
+            Client.out.p2_alt1(dragCom.subId);
+            Client.out.p4_alt3(dragCom.parentId);
+            Client.out.p4_alt3(Client.dropCom.parentId);
+            Client.out.p2_alt3(Client.dropCom.subId);
+          }
+        } else if ((Client.oneMouseButton === 1 || Client.isAddFriendOption(Client.menuNumEntries - 1)) && Client.menuNumEntries > 2) {
+          this.openMenu();
+        } else if (Client.menuNumEntries > 0) {
+          Client.doAction(Client.menuNumEntries - 1);
+        }
+        Client.dragCom = null;
+      }
+    } else if (Client.dragTime > 1) {
+      Client.dragCom = null;
+    }
+  }
+  static componentUpdated(arg0) {
+    if (Client.componentDrawTime === arg0.drawTime) {
+      Client.componentDirtyArea[arg0.drawCount] = true;
+    }
+  }
+  static redrawAllComponents() {
+    for (let var0 = 0;var0 < 100; var0++) {
+      Client.componentDirtyArea[var0] = true;
+    }
+  }
+  static legacyUpdated() {
+    for (let var0 = Client.subinterfaces.search();var0 !== null; var0 = Client.subinterfaces.findnext()) {
+      const var1 = var0.id;
+      if (IfType.openInterface(var1)) {
+        let var2 = true;
+        const var3 = IfType.list[var1];
+        for (let var4 = 0;var4 < var3.length; var4++) {
+          if (var3[var4] !== null) {
+            var2 = var3[var4].v3;
+            break;
+          }
+        }
+        if (!var2) {
+          const var5 = Number(var0.key);
+          const var6 = IfType.get(var5);
+          if (var6 !== null) {
+            Client.componentUpdated(var6);
+          }
+        }
+      }
+    }
+  }
+  static getDragLayer(arg0) {
+    let var1 = Client.serverDraggable(arg0);
+    if (var1 === null) {
+      var1 = arg0.draggable;
+    }
+    return var1;
+  }
+  static prependOpIndex(arg0) {
+    const var1 = new Array(5);
+    for (let var2 = 0;var2 < 5; var2++) {
+      var1[var2] = JagString.join([JagString.parseInt(var2), JagString.wrap(": ")]).toString();
+      if (arg0 !== null && arg0[var2] !== null) {
+        var1[var2] = JagString.join([JagString.wrap(var1[var2]), JagString.wrap(arg0[var2])]).toString();
+      }
+    }
+    return var1;
+  }
   static ifAnimReset(arg0) {
     if (!IfType.openInterface(arg0)) {
       return;
@@ -54143,51 +53664,6 @@ class Client extends GameShell {
         var3.animCycle = 0;
         var3.animFrame = 0;
       }
-    }
-  }
-  static openSubInterface(arg0, arg1, arg2) {
-    const var3 = new SubInterface;
-    var3.type = arg0;
-    var3.id = arg2;
-    Client.subinterfaces.put(BigInt(arg1), var3);
-    Client.ifAnimReset(arg2);
-    const var4 = IfType.get(arg1);
-    if (var4 !== null) {
-      Client.componentUpdated(var4);
-    }
-    if (Client.resumePauseCom !== null) {
-      Client.componentUpdated(Client.resumePauseCom);
-      Client.resumePauseCom = null;
-    }
-    Client.isMenuOpen = false;
-    Client.menuNumEntries = 0;
-    Client.dirtyArea(Client.menuHeight, Client.menuWidth, Client.menuY, Client.menuX);
-    if (var4 !== null) {
-      Client.computeLayerLayout(false, var4);
-    }
-    ScriptRunner.executeOnLoad(arg2);
-    if (Client.toplevelinterface !== -1) {
-      Client.runHookImmediate(Client.toplevelinterface, 1);
-    }
-    return var3;
-  }
-  static closeSubInterface(arg0, arg1) {
-    const var2 = arg0.id;
-    const var3 = Number(arg0.key);
-    arg0.unlink();
-    if (arg1) {
-      IfType.unloadInterface(var2);
-    }
-    Client.purgeServerActive(var2);
-    const var4 = IfType.get(var3);
-    if (var4 !== null) {
-      Client.componentUpdated(var4);
-    }
-    Client.menuNumEntries = 0;
-    Client.isMenuOpen = false;
-    Client.dirtyArea(Client.menuHeight, Client.menuWidth, Client.menuY, Client.menuX);
-    if (Client.toplevelinterface !== -1) {
-      Client.runHookImmediate(Client.toplevelinterface, 1);
     }
   }
   static animateInterface(arg0) {
@@ -54391,7 +53867,7 @@ class Client extends GameShell {
     }
   }
   static closeModal() {
-    Client.out.p1Enc(24);
+    Client.out.p1Enc(24 /* CLOSE_MODAL */);
     for (let var0 = Client.subinterfaces.search();var0 !== null; var0 = Client.subinterfaces.findnext()) {
       if (var0.type === 0) {
         Client.closeSubInterface(var0, true);
@@ -54400,6 +53876,51 @@ class Client extends GameShell {
     if (Client.resumePauseCom !== null) {
       Client.componentUpdated(Client.resumePauseCom);
       Client.resumePauseCom = null;
+    }
+  }
+  static openSubInterface(arg0, arg1, arg2) {
+    const var3 = new SubInterface;
+    var3.type = arg0;
+    var3.id = arg2;
+    Client.subinterfaces.put(BigInt(arg1), var3);
+    Client.ifAnimReset(arg2);
+    const var4 = IfType.get(arg1);
+    if (var4 !== null) {
+      Client.componentUpdated(var4);
+    }
+    if (Client.resumePauseCom !== null) {
+      Client.componentUpdated(Client.resumePauseCom);
+      Client.resumePauseCom = null;
+    }
+    Client.isMenuOpen = false;
+    Client.menuNumEntries = 0;
+    Client.dirtyArea(Client.menuHeight, Client.menuWidth, Client.menuY, Client.menuX);
+    if (var4 !== null) {
+      Client.computeLayerLayout(false, var4);
+    }
+    ScriptRunner.executeOnLoad(arg2);
+    if (Client.toplevelinterface !== -1) {
+      Client.runHookImmediate(Client.toplevelinterface, 1);
+    }
+    return var3;
+  }
+  static closeSubInterface(arg0, arg1) {
+    const var2 = arg0.id;
+    const var3 = Number(arg0.key);
+    arg0.unlink();
+    if (arg1) {
+      IfType.unloadInterface(var2);
+    }
+    Client.purgeServerActive(var2);
+    const var4 = IfType.get(var3);
+    if (var4 !== null) {
+      Client.componentUpdated(var4);
+    }
+    Client.menuNumEntries = 0;
+    Client.isMenuOpen = false;
+    Client.dirtyArea(Client.menuHeight, Client.menuWidth, Client.menuY, Client.menuX);
+    if (Client.toplevelinterface !== -1) {
+      Client.runHookImmediate(Client.toplevelinterface, 1);
     }
   }
   static clientButton(arg0) {
@@ -54515,24 +54036,6 @@ class Client extends GameShell {
     }
     Client.componentBlitArea[redrawIndex] = true;
   }
-  static minimapDrawDot(arg0, arg1, arg2, arg3, arg4, arg5) {
-    if (arg4 === null) {
-      return;
-    }
-    const var6 = Client.macroMinimapAngle + Client.orbitCameraYaw & 2047;
-    const var7 = arg5 * arg5 + arg2 * arg2;
-    const var8 = Math.max(arg3.renderWidth / 2 | 0, arg3.renderHeight / 2 | 0) + 10;
-    if (var7 > var8 * var8) {
-      return;
-    }
-    const var9 = Pix3D.cosTable[var6];
-    const var10 = var9 * 256 / (Client.macroMinimapZoom + 256) | 0;
-    const var11 = Pix3D.sinTable[var6];
-    const var12 = var11 * 256 / (Client.macroMinimapZoom + 256) | 0;
-    const var13 = var10 * arg2 - arg5 * var12 >> 16;
-    const var14 = arg5 * var10 + arg2 * var12 >> 16;
-    arg4.scanlinePlotSprite((arg3.renderWidth / 2 | 0) + arg1 + var14 - (arg4.owi / 2 | 0), -(arg4.ohi / 2 | 0) + (arg3.renderHeight / 2 | 0) + arg0 + -var13, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
-  }
   static minimapDrawArrow(arg0, arg1, arg2, arg3, arg4, arg5) {
     const var6 = arg3 * arg3 + arg1 * arg1;
     if (var6 > 360000) {
@@ -54556,6 +54059,24 @@ class Client extends GameShell {
     const var18 = Math.cos(var15) * var7 | 0;
     Client.hintMapedge[arg4].rotateTransPlotSprite(arg5 + (arg0.renderWidth / 2 | 0) + var17 - 10, (arg0.renderHeight / 2 | 0) + -10 + arg2 - var18, var15);
   }
+  static minimapDrawDot(arg0, arg1, arg2, arg3, arg4, arg5) {
+    if (arg4 === null) {
+      return;
+    }
+    const var6 = Client.macroMinimapAngle + Client.orbitCameraYaw & 2047;
+    const var7 = arg5 * arg5 + arg2 * arg2;
+    const var8 = Math.max(arg3.renderWidth / 2 | 0, arg3.renderHeight / 2 | 0) + 10;
+    if (var7 > var8 * var8) {
+      return;
+    }
+    const var9 = Pix3D.cosTable[var6];
+    const var10 = var9 * 256 / (Client.macroMinimapZoom + 256) | 0;
+    const var11 = Pix3D.sinTable[var6];
+    const var12 = var11 * 256 / (Client.macroMinimapZoom + 256) | 0;
+    const var13 = var10 * arg2 - arg5 * var12 >> 16;
+    const var14 = arg5 * var10 + arg2 * var12 >> 16;
+    arg4.scanlinePlotSprite((arg3.renderWidth / 2 | 0) + arg1 + var14 - (arg4.owi / 2 | 0), -(arg4.ohi / 2 | 0) + (arg3.renderHeight / 2 | 0) + arg0 + -var13, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
+  }
   static addChat(arg0, arg1, arg2, arg3, arg4 = null) {
     if (arg3 === undefined) {
       Client.addChat(arg0, -1, arg2, arg1, null);
@@ -54576,9 +54097,6 @@ class Client extends GameShell {
     Client.chatScreenName[0] = arg4;
     Client.chatTransmitNum = Client.transmitNum;
   }
-  static friendAddChat(arg0, arg1, arg2) {
-    Client.addChat(arg1, -1, arg0, 9, arg2);
-  }
   static isFriend(arg0) {
     if (arg0 === null) {
       return false;
@@ -54589,17 +54107,6 @@ class Client extends GameShell {
       }
     }
     return JagString.wrap(arg0).equalsIgnoreCase(JagString.wrap(Client.localPlayer.name));
-  }
-  static getFriendIndex(arg0) {
-    if (arg0 === null) {
-      return -1;
-    }
-    for (let var1 = 0;var1 < Client.friendCount; var1++) {
-      if (JagString.wrap(arg0).equalsIgnoreCase(Client.field370[var1])) {
-        return var1;
-      }
-    }
-    return -1;
   }
   static isIgnored(arg0) {
     if (arg0 === null) {
@@ -54645,7 +54152,7 @@ class Client extends GameShell {
     Client.field1120[Client.friendCount] = false;
     Client.friendTransmitNum = Client.transmitNum;
     Client.friendCount++;
-    Client.out.p1Enc(82);
+    Client.out.p1Enc(82 /* FRIENDLIST_ADD */);
     Client.out.p8(arg0);
   }
   static addIgnore(arg0) {
@@ -54676,7 +54183,7 @@ class Client extends GameShell {
     Client.messageIds[Client.privateMessageCount] = arg0;
     Client.field2741[Client.privateMessageCount++] = JagString.toRawUsername(arg0);
     Client.friendTransmitNum = Client.transmitNum;
-    Client.out.p1Enc(28);
+    Client.out.p1Enc(28 /* IGNORELIST_ADD */);
     Client.out.p8(arg0);
   }
   static delFriend(arg0) {
@@ -54695,42 +54202,10 @@ class Client extends GameShell {
           Client.field1120[var3] = Client.field1120[var3 + 1];
         }
         Client.friendTransmitNum = Client.transmitNum;
-        Client.out.p1Enc(121);
+        Client.out.p1Enc(121 /* FRIENDLIST_DEL */);
         Client.out.p8(arg0);
         return;
       }
-    }
-  }
-  static setFriendRank(arg0, arg1) {
-    Client.out.p1Enc(40);
-    Client.out.p8_alt3(JagString.wrap(arg0).toUserhash());
-    Client.out.p1(arg1);
-  }
-  static friendsChatJoinChat(arg0) {
-    if (arg0 !== 0n) {
-      Client.out.p1Enc(58);
-      Client.out.p8(arg0);
-    }
-  }
-  static friendsChatLeaveChat() {
-    Client.out.p1Enc(58);
-    Client.out.p8(0n);
-  }
-  static friendsChatKickUser(arg0) {
-    if (Client.friendChatList === null) {
-      return;
-    }
-    let var1 = 0;
-    const var2 = JagString.wrap(arg0).toUserhash();
-    if (var2 === 0n) {
-      return;
-    }
-    while (var1 < Client.friendChatList.length && var2 !== Client.friendChatList[var1].key) {
-      var1++;
-    }
-    if (Client.friendChatList.length > var1 && Client.friendChatList[var1] !== null) {
-      Client.out.p1Enc(49);
-      Client.out.p8(Client.friendChatList[var1].key);
     }
   }
   static delIgnore(arg0) {
@@ -54745,16 +54220,524 @@ class Client extends GameShell {
           Client.field2741[var3] = Client.field2741[var3 + 1];
         }
         Client.friendTransmitNum = Client.transmitNum;
-        Client.out.p1Enc(126);
+        Client.out.p1Enc(126 /* IGNORELIST_DEL */);
         Client.out.p8(arg0);
         return;
       }
     }
   }
-  static dragging = false;
+  static setFriendRank(arg0, arg1) {
+    Client.out.p1Enc(40 /* FRIEND_SETRANK */);
+    Client.out.p8_alt3(JagString.wrap(arg0).toUserhash());
+    Client.out.p1(arg1);
+  }
+  static friendsChatKickUser(arg0) {
+    if (Client.friendChatList === null) {
+      return;
+    }
+    let var1 = 0;
+    const var2 = JagString.wrap(arg0).toUserhash();
+    if (var2 === 0n) {
+      return;
+    }
+    while (var1 < Client.friendChatList.length && var2 !== Client.friendChatList[var1].key) {
+      var1++;
+    }
+    if (Client.friendChatList.length > var1 && Client.friendChatList[var1] !== null) {
+      Client.out.p1Enc(49 /* CLAN_KICKUSER */);
+      Client.out.p8(Client.friendChatList[var1].key);
+    }
+  }
+  static friendsChatJoinChat(arg0) {
+    if (arg0 !== 0n) {
+      Client.out.p1Enc(58 /* CLAN_JOINCHAT_LEAVECHAT */);
+      Client.out.p8(arg0);
+    }
+  }
+  static friendsChatLeaveChat() {
+    Client.out.p1Enc(58 /* CLAN_JOINCHAT_LEAVECHAT */);
+    Client.out.p8(0n);
+  }
+  static purgeServerActive(arg0) {
+    for (let var1 = Client.serverActive.search();var1 !== null; var1 = Client.serverActive.findnext()) {
+      if (BigInt(arg0) === (var1.key >> 48n & 0xffffn)) {
+        var1.unlink();
+      }
+    }
+  }
+  static getActive(arg0) {
+    const var1 = Client.serverActive.find((BigInt(arg0.parentId) << 32n) + BigInt(arg0.subId));
+    return var1 === null ? arg0.eventCode : var1.value;
+  }
+  static hide(arg0) {
+    if (Client.qaOpTest) {
+      if (Client.getActive(arg0) !== 0) {
+        return false;
+      }
+      if (arg0.type === 0) {
+        return false;
+      }
+    }
+    return arg0.hide;
+  }
+  static getIfTypeOpName(arg0, arg1) {
+    if (!ServerActive.hasOp(arg1, Client.getActive(arg0)) && arg0.onop === null) {
+      return null;
+    } else if (arg0.opNames === null || arg1 >= arg0.opNames.length || arg0.opNames[arg1] === null || arg0.opNames[arg1].trim().length === 0) {
+      return Client.qaOpTest ? "Hidden-" + JagString.parseInt(arg1).toString() : null;
+    } else {
+      return arg0.opNames[arg1];
+    }
+  }
+  static getTargetVerb(com) {
+    if (ServerActive.targetMask(Client.getActive(com)) === 0) {
+      return null;
+    }
+    const verb = com.targetVerb;
+    if (verb === null || verb.trim().length === 0) {
+      return Client.qaOpTest ? "Hidden-use" : null;
+    }
+    return verb;
+  }
+  static combatColourCode(arg0, arg1) {
+    const var2 = arg1 - arg0;
+    if (var2 < -9) {
+      return "<col=ff0000>";
+    } else if (var2 < -6) {
+      return "<col=ff3000>";
+    } else if (var2 < -3) {
+      return "<col=ff7000>";
+    } else if (var2 < 0) {
+      return "<col=ffb000>";
+    } else if (var2 > 9) {
+      return "<col=00ff00>";
+    } else if (var2 > 6) {
+      return "<col=40ff00>";
+    } else if (var2 > 3) {
+      return "<col=80ff00>";
+    } else if (var2 > 0) {
+      return "<col=c0ff00>";
+    } else {
+      return "<col=ffff00>";
+    }
+  }
+  static blitArea(arg0, arg1, arg2, arg3) {
+    for (let var4 = 0;var4 < Client.componentDrawCount; var4++) {
+      if (Client.componentDrawWidth[var4] + Client.componentDrawX[var4] > arg0 && Client.componentDrawX[var4] < arg2 + arg0 && Client.componentDrawY[var4] + Client.componentDrawHeight[var4] > arg3 && arg1 + arg3 > Client.componentDrawY[var4]) {
+        Client.componentBlitArea[var4] = true;
+      }
+    }
+  }
+  static getParentLayer(arg0) {
+    if (arg0.layerId !== -1) {
+      return IfType.get(arg0.layerId);
+    }
+    const var1 = arg0.parentId >>> 16;
+    for (let var2 = Client.subinterfaces.search();var2 !== null; var2 = Client.subinterfaces.findnext()) {
+      if (var1 === var2.id) {
+        return IfType.get(Number(var2.key));
+      }
+    }
+    return null;
+  }
+  static drawCompass(arg0, arg1, arg2, arg3) {
+    if (Client.minimapState < 3) {
+      Client.compass.scanlineRotatePlotSprite(arg1, arg2, arg3.renderWidth, arg3.renderHeight, Client.compass.wi / 2 | 0, Client.compass.hi / 2 | 0, Client.orbitCameraYaw, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
+    } else {
+      Pix2D.fillScanLine(arg1, arg2, arg3.graphicMaskLineOffsets, arg3.graphicMaskLineLengths);
+    }
+    Client.componentBlitArea[arg0] = true;
+  }
+  static resumePauseButton(arg0, arg1) {
+    Client.out.p1Enc(95 /* RESUME_PAUSEBUTTON */);
+    Client.out.p4_alt3(arg1);
+    Client.out.p2_alt1(arg0);
+  }
+  static enterTargetMode(arg0, arg1, arg2) {
+    const var3 = IfType.get(arg2, arg0);
+    if (var3 !== null && var3.ontargetenter !== null) {
+      const var4 = new HookReq;
+      var4.component = var3;
+      var4.onop = var3.ontargetenter;
+      ScriptRunner.executeScript(var4);
+    }
+    Client.targetMode = true;
+    Client.targetCom = arg2;
+    Client.targetMask = arg1;
+    Client.targetSub = arg0;
+    Client.componentUpdated(var3);
+  }
+  static computeTopLevelInterfaceLayout() {
+    Client.computeInterfaceLayout(Client.sWid, Client.toplevelinterface, Client.sHei, false);
+  }
+  static computeComponentLayout(arg0) {
+    const var1 = Client.getParentLayer(arg0);
+    let var2;
+    let var3;
+    if (var1 === null) {
+      var2 = Client.sWid;
+      var3 = Client.sHei;
+    } else {
+      var3 = var1.renderHeight;
+      var2 = var1.renderWidth;
+    }
+    Client.computeComponentPosition(arg0, var2, var3);
+  }
+  static computeLayerLayout(arg0, arg1, arg2, arg3, arg4) {
+    if (typeof arg0 === "boolean") {
+      const var6 = arg0;
+      const var7 = arg1;
+      const var8 = var7.scrollWidth === 0 ? var7.renderWidth : var7.scrollWidth;
+      const var9 = var7.scrollHeight === 0 ? var7.renderHeight : var7.scrollHeight;
+      Client.computeLayerLayout(var8, var6, var7.parentId, var9, IfType.list[var7.parentId >> 16]);
+      if (var7.subcomponents !== null) {
+        Client.computeLayerLayout(var8, var6, var7.parentId, var9, var7.subcomponents);
+      }
+      const var10 = Client.subinterfaces.find(BigInt(var7.parentId));
+      if (var10 !== null) {
+        Client.computeInterfaceLayout(var8, var10.id, var9, var6);
+      }
+      return;
+    }
+    for (let var5 = 0;var5 < arg4.length; var5++) {
+      const var6 = arg4[var5];
+      if (var6 !== null && arg2 === var6.layerId) {
+        Client.computeComponentSize(arg1, arg3, arg0, var6);
+        Client.computeComponentPosition(var6, arg0, arg3);
+        if (var6.scrollPosY > var6.scrollHeight - var6.renderHeight) {
+          var6.scrollPosY = var6.scrollHeight - var6.renderHeight;
+        }
+        if (var6.scrollWidth - var6.renderWidth < var6.scrollPosX) {
+          var6.scrollPosX = var6.scrollWidth - var6.renderWidth;
+        }
+        if (var6.scrollPosX < 0) {
+          var6.scrollPosX = 0;
+        }
+        if (var6.scrollPosY < 0) {
+          var6.scrollPosY = 0;
+        }
+        if (var6.type === 0) {
+          Client.computeLayerLayout(arg1, var6);
+        }
+      }
+    }
+  }
+  static computeInterfaceLayout(arg0, arg1, arg2, arg3) {
+    if (IfType.openInterface(arg1)) {
+      Client.computeLayerLayout(arg0, arg3, -1, arg2, IfType.list[arg1]);
+    }
+  }
+  static computeComponentSize(arg0, arg1, arg2, arg3) {
+    const var4 = arg3.renderWidth;
+    if (arg3.widthAlignment === 0) {
+      arg3.renderWidth = arg3.width;
+    } else if (arg3.widthAlignment === 1) {
+      arg3.renderWidth = arg2 - arg3.width;
+    } else if (arg3.widthAlignment === 2) {
+      arg3.renderWidth = arg2 * arg3.width >> 14;
+    } else if (arg3.widthAlignment === 3) {
+      if (arg3.type === 2) {
+        arg3.renderWidth = arg3.width * 32 + arg3.marginX * (arg3.width - 1);
+      } else if (arg3.type === 7) {
+        arg3.renderWidth = (arg3.width - 1) * arg3.marginX + arg3.width * 115;
+      }
+    }
+    const var5 = arg3.renderHeight;
+    if (arg3.heightAlignment === 0) {
+      arg3.renderHeight = arg3.height;
+    } else if (arg3.heightAlignment === 1) {
+      arg3.renderHeight = arg1 - arg3.height;
+    } else if (arg3.heightAlignment === 2) {
+      arg3.renderHeight = arg3.height * arg1 >> 14;
+    } else if (arg3.heightAlignment === 3) {
+      if (arg3.type === 2) {
+        arg3.renderHeight = arg3.marginY * (arg3.height - 1) + arg3.height * 32;
+      } else if (arg3.type === 7) {
+        arg3.renderHeight = arg3.marginY * (arg3.height - 1) + arg3.height * 12;
+      }
+    }
+    if (Client.qaOpTest && (Client.getActive(arg3) !== 0 || arg3.type === 0)) {
+      if (arg3.renderHeight < 5 && arg3.renderWidth < 5) {
+        arg3.renderWidth = 5;
+        arg3.renderHeight = 5;
+      } else {
+        if (arg3.renderHeight <= 0) {
+          arg3.renderHeight = 5;
+        }
+        if (arg3.renderWidth <= 0) {
+          arg3.renderWidth = 5;
+        }
+      }
+    }
+    if (arg0 && arg3.onresize !== null && (arg3.renderWidth !== var4 || arg3.renderHeight !== var5)) {
+      const var6 = new HookReq;
+      var6.onop = arg3.onresize;
+      var6.component = arg3;
+      ScriptRunner.executeScript(var6);
+    }
+  }
+  static computeComponentPosition(arg0, arg1, arg2) {
+    if (arg0.yAlignment === 0) {
+      arg0.renderY = arg0.y;
+    } else if (arg0.yAlignment === 1) {
+      arg0.renderY = arg0.y + ((arg2 - arg0.renderHeight) / 2 | 0);
+    } else if (arg0.yAlignment === 2) {
+      arg0.renderY = arg2 - arg0.renderHeight - arg0.y;
+    } else if (arg0.yAlignment === 3) {
+      arg0.renderY = arg0.y * arg2 >> 14;
+    } else if (arg0.yAlignment === 4) {
+      arg0.renderY = ((arg2 - arg0.renderHeight) / 2 | 0) + (arg0.y * arg2 >> 14);
+    } else {
+      arg0.renderY = arg2 - (arg0.y * arg2 >> 14) - arg0.renderHeight;
+    }
+    if (arg0.xAlignment === 0) {
+      arg0.renderX = arg0.x;
+    } else if (arg0.xAlignment === 1) {
+      arg0.renderX = ((arg1 - arg0.renderWidth) / 2 | 0) + arg0.x;
+    } else if (arg0.xAlignment === 2) {
+      arg0.renderX = arg1 - arg0.x - arg0.renderWidth;
+    } else if (arg0.xAlignment === 3) {
+      arg0.renderX = arg1 * arg0.x >> 14;
+    } else if (arg0.xAlignment === 4) {
+      arg0.renderX = (arg1 * arg0.x >> 14) + ((arg1 - arg0.renderWidth) / 2 | 0);
+    } else {
+      arg0.renderX = arg1 - arg0.renderWidth - (arg0.x * arg1 >> 14);
+    }
+    if (Client.qaOpTest) {
+      if (Client.getActive(arg0) === 0 && arg0.type !== 0) {
+        return;
+      }
+      if (arg0.renderY < 0) {
+        arg0.renderY = 0;
+      } else if (arg2 < arg0.renderHeight + arg0.renderY) {
+        arg0.renderY = arg2 - arg0.renderHeight;
+      }
+      if (arg0.renderX < 0) {
+        arg0.renderX = 0;
+      } else if (arg0.renderX + arg0.renderWidth > arg1) {
+        arg0.renderX = arg1 - arg0.renderWidth;
+      }
+    }
+  }
+  static serverDraggable(arg0) {
+    const var1 = ServerActive.serverDraggable(Client.getActive(arg0));
+    if (var1 === 0) {
+      return null;
+    }
+    for (let var2 = 0;var2 < var1; var2++) {
+      arg0 = IfType.get(arg0.layerId);
+      if (arg0 === null) {
+        return null;
+      }
+    }
+    return arg0;
+  }
+  static friendAddChat(arg0, arg1, arg2) {
+    Client.addChat(arg1, -1, arg0, 9, arg2);
+  }
+  static getFriendIndex(arg0) {
+    if (arg0 === null) {
+      return -1;
+    }
+    for (let var1 = 0;var1 < Client.friendCount; var1++) {
+      if (JagString.wrap(arg0).equalsIgnoreCase(Client.field370[var1])) {
+        return var1;
+      }
+    }
+    return -1;
+  }
+  static clampCameraAngle() {
+    const var0 = Client.orbitCameraX >> 7;
+    Client.orbitCameraYaw &= 2047;
+    const var1 = Client.orbitCameraZ >> 7;
+    let var2 = 0;
+    if (Client.orbitCameraPitch < 128) {
+      Client.orbitCameraPitch = 128;
+    }
+    if (Client.orbitCameraPitch > 383) {
+      Client.orbitCameraPitch = 383;
+    }
+    const var3 = Client.getAvH(Client.orbitCameraX, Client.orbitCameraZ, Client.minusedlevel);
+    if (var0 > 3 && var1 > 3 && var0 < 100 && var1 < 100) {
+      for (let var4 = var0 - 4;var4 <= var0 + 4; var4++) {
+        for (let var5 = var1 - 4;var5 <= var1 + 4; var5++) {
+          let var6 = Client.minusedlevel;
+          if (var6 < 3 && (ClientBuild.mapl[1][var4][var5] & 2) === 2) {
+            var6++;
+          }
+          const var7 = var3 - ClientBuild.groundh[var6][var4][var5];
+          if (var2 < var7) {
+            var2 = var7;
+          }
+        }
+      }
+    }
+    let var8 = var2 * 192;
+    if (var8 > 98048) {
+      var8 = 98048;
+    }
+    if (var8 < 32768) {
+      var8 = 32768;
+    }
+    if (Client.cameraPitchClamp < var8) {
+      Client.cameraPitchClamp += (var8 - Client.cameraPitchClamp) / 24 | 0;
+    } else if (var8 < Client.cameraPitchClamp) {
+      Client.cameraPitchClamp += (var8 - Client.cameraPitchClamp) / 80 | 0;
+    }
+  }
+  static minimapBuildBuffer(arg0) {
+    let var1;
+    if (Client.field2010 === null) {
+      var1 = new SoftwarePix32(512, 512);
+    } else {
+      var1 = Client.field2010;
+    }
+    const var2 = var1.data;
+    const var3 = var2.length;
+    for (let var4 = 0;var4 < var3; var4++) {
+      var2[var4] = 1;
+    }
+    for (let var5 = 1;var5 < 103; var5++) {
+      let var6 = (103 - var5) * 2048 + 24628;
+      for (let var7 = 1;var7 < 103; var7++) {
+        if ((ClientBuild.mapl[arg0][var7][var5] & 24) === 0) {
+          World.render2DGround(var2, var6, arg0, var7, var5);
+        }
+        if (arg0 < 3 && (ClientBuild.mapl[arg0 + 1][var7][var5] & 8) !== 0) {
+          World.render2DGround(var2, var6, arg0 + 1, var7, var5);
+        }
+        var6 += 4;
+      }
+    }
+    var1.setPixels();
+    const var8 = (Math.random() * 20 | 0) + 228 << 16;
+    const var9 = ((Math.random() * 20 | 0) + 228 << 16) + (((Math.random() * 20 | 0) + 228 << 8) - (-(Math.random() * 20 | 0) - 238)) - 10;
+    for (let var10 = 1;var10 < 103; var10++) {
+      for (let var11 = 1;var11 < 103; var11++) {
+        if ((ClientBuild.mapl[arg0][var11][var10] & 24) === 0) {
+          Client.drawDetail(var10, var8, arg0, var9, var11);
+        }
+        if (arg0 < 3 && (ClientBuild.mapl[arg0 + 1][var11][var10] & 8) !== 0) {
+          Client.drawDetail(var10, var8, arg0 + 1, var9, var11);
+        }
+      }
+    }
+    Client.field930 = 0;
+    for (let var12 = 0;var12 < 104; var12++) {
+      for (let var13 = 0;var13 < 104; var13++) {
+        const var14 = World.gdType(Client.minusedlevel, var12, var13);
+        if (BigInt(var14) !== 0n) {
+          const var16 = LocType.list(Number(BigInt(var14) >> 32n & 0x7fffffffn));
+          const var17 = var16.mapfunction;
+          if (var17 >= 0) {
+            let var18 = var12;
+            let var19 = var13;
+            if (var17 !== 22 && var17 !== 29 && var17 !== 34 && var17 !== 36 && var17 !== 46 && var17 !== 47 && var17 !== 48) {
+              const var20 = Client.collision[Client.minusedlevel].flags;
+              for (let var21 = 0;var21 < 10; var21++) {
+                const var22 = Math.random() * 4 | 0;
+                if (var22 === 0 && var18 > 0 && var12 - 3 < var18 && (var20[var18 - 1][var19] & 19661064) === 0) {
+                  var18--;
+                }
+                if (var22 === 1 && var18 < 103 && var12 + 3 > var18 && (var20[var18 + 1][var19] & 19661184) === 0) {
+                  var18++;
+                }
+                if (var22 === 2 && var19 > 0 && var19 > var13 - 3 && (var20[var18][var19 - 1] & 19661058) === 0) {
+                  var19--;
+                }
+                if (var22 === 3 && var19 < 103 && var19 < var13 + 3 && (var20[var18][var19 + 1] & 19661088) === 0) {
+                  var19++;
+                }
+              }
+            }
+            Client.field2745[Client.field930] = var16.id;
+            Client.field2577[Client.field930] = var18;
+            Client.field2501[Client.field930] = var19;
+            Client.field930++;
+          }
+        }
+      }
+    }
+    Client.field2010 = var1;
+    GameShell.drawArea.bind();
+  }
+  static animateLocation(arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
+    if (arg1 < 0 || arg5 < 0 || arg1 >= 103 || arg5 >= 103) {
+      return;
+    }
+    if (arg2 === 0) {
+      const var7 = World.getWall(arg4, arg1, arg5);
+      if (var7 !== null) {
+        const var8 = Number(BigInt(var7.typecode) >> 32n & 0x7fffffffn);
+        if (arg0 === 2) {
+          var7.modelA = new ClientLocAnim(var8, 2, arg3 + 4, arg4, arg1, arg5, arg6, false, var7.modelA);
+          var7.modelB = new ClientLocAnim(var8, 2, arg3 + 1 & 3, arg4, arg1, arg5, arg6, false, var7.modelB);
+        } else {
+          var7.modelA = new ClientLocAnim(var8, arg0, arg3, arg4, arg1, arg5, arg6, false, var7.modelA);
+        }
+      }
+    }
+    if (arg2 === 1) {
+      const var9 = World.getDecor(arg4, arg1, arg5);
+      if (var9 !== null) {
+        const var10 = Number(BigInt(var9.typecode) >> 32n & 0x7fffffffn);
+        if (arg0 === 4 || arg0 === 5) {
+          var9.model = new ClientLocAnim(var10, 4, arg3, arg4, arg1, arg5, arg6, false, var9.model);
+        } else if (arg0 === 6) {
+          var9.model = new ClientLocAnim(var10, 4, arg3 + 4, arg4, arg1, arg5, arg6, false, var9.model);
+        } else if (arg0 === 7) {
+          var9.model = new ClientLocAnim(var10, 4, (arg3 + 2 & 3) + 4, arg4, arg1, arg5, arg6, false, var9.model);
+        } else if (arg0 === 8) {
+          var9.model = new ClientLocAnim(var10, 4, arg3 + 4, arg4, arg1, arg5, arg6, false, var9.model);
+          var9.model2 = new ClientLocAnim(var10, 4, (arg3 + 2 & 3) + 4, arg4, arg1, arg5, arg6, false, var9.model2);
+        }
+      }
+    }
+    if (arg2 === 2) {
+      if (arg0 === 11) {
+        arg0 = 10;
+      }
+      const var11 = World.getScene(arg4, arg1, arg5);
+      if (var11 !== null) {
+        var11.model = new ClientLocAnim(Number(BigInt(var11.typecode) >> 32n & 0x7fffffffn), arg0, arg3, arg4, arg1, arg5, arg6, false, var11.model);
+      }
+    }
+    if (arg2 === 3) {
+      const var12 = World.getGd(arg4, arg1, arg5);
+      if (var12 !== null) {
+        var12.model = new ClientLocAnim(Number(BigInt(var12.typecode) >> 32n & 0x7fffffffn), 22, arg3, arg4, arg1, arg5, arg6, false, var12.model);
+      }
+    }
+  }
+  static triggerNpcAnim(arg0, arg1, arg2) {
+    if (arg0 === arg2.primarySeqId && arg0 !== -1) {
+      const var3 = SeqType.list(arg0);
+      const var4 = var3.duplicatebehaviour;
+      if (var4 === 1) {
+        arg2.primarySeqLoop = 0;
+        arg2.primarySeqCycle = 0;
+        arg2.primarySeqDelay = arg1;
+        arg2.primarySeqFrame = 0;
+        Client.triggerSeqSound(false, arg2.z, arg2.primarySeqFrame, arg2.x, var3);
+      }
+      if (var4 === 2) {
+        arg2.primarySeqLoop = 0;
+      }
+    } else if (arg0 === -1 || arg2.primarySeqId === -1 || SeqType.list(arg0).priority >= SeqType.list(arg2.primarySeqId).priority) {
+      arg2.primarySeqCycle = 0;
+      arg2.primarySeqDelay = arg1;
+      arg2.preanimRouteLength = arg2.routeLength;
+      arg2.primarySeqFrame = 0;
+      arg2.primarySeqLoop = 0;
+      arg2.primarySeqId = arg0;
+      if (arg2.primarySeqId !== -1) {
+        Client.triggerSeqSound(false, arg2.z, arg2.primarySeqFrame, arg2.x, SeqType.list(arg2.primarySeqId));
+      }
+    }
+  }
 }
 export {
   Client
 };
 
-//# debugId=637DF3159E2417C464756E2164756E21
+//# debugId=33A9984B2A09C01C64756E2164756E21
