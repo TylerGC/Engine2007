@@ -3,16 +3,16 @@ import { CoordGrid } from '#/engine/CoordGrid.js';
 import { EntityLifeCycle } from '#/engine/entity/EntityLifeCycle.js';
 import Loc from '#/engine/entity/Loc.js';
 import NonPathingEntity from '#/engine/entity/NonPathingEntity.js';
-// import Npc from '#/engine/entity/Npc.ts';
+import type Npc from '#/engine/entity/Npc.ts';
+import type Player from '#/engine/entity/Player.js';
 import Obj from '#/engine/entity/Obj.ts';
 import PathingEntity from '#/engine/entity/PathingEntity.ts';
-import Player from '#/engine/entity/Player.js';
 import World from '#/engine/World.js';
 import ZoneEvent from '#/engine/zone/ZoneEvent.ts';
 import { ZoneEventType } from '#/engine/zone/ZoneEventType.ts';
 import ZoneMap from '#/engine/zone/ZoneMap.js';
 import Packet from '#/io/Packet.js';
-// import ServerGameZoneMessageEncoder from '#/network/game/server/ServerGameZoneMessageEncoder.js';
+import ServerGameZoneMessageEncoder from '#/network/game/server/ServerGameZoneMessageEncoder.js';
 // import LocAddChange from '#/network/game/server/model/LocAddChange.js';
 // import LocAnim from '#/network/game/server/model/LocAnim.js';
 // import LocDel from '#/network/game/server/model/LocDel.js';
@@ -26,10 +26,11 @@ import Packet from '#/io/Packet.js';
 // import UpdateZoneFullFollows from '#/network/game/server/model/UpdateZoneFullFollows.js';
 // import UpdateZonePartialEnclosed from '#/network/game/server/model/UpdateZonePartialEnclosed.js';
 // import UpdateZonePartialFollows from '#/network/game/server/model/UpdateZonePartialFollows.js';
-// import ServerGameZoneMessage from '#/network/game/server/ServerGameZoneMessage.js';
+import ServerGameZoneMessage from '#/network/game/server/ServerGameZoneMessage.js';
 import Environment from '#/util/Environment.js';
 import LinkList from '#/util/LinkList.ts';
-// import ServerGameProtRepository from '#/network/game/server/ServerGameProtRepository.js';
+import { isPlayerEntity, isNpcEntity } from '#/engine/entity/PathingEntity.js';
+import ServerGameProtRepository from '#/network/game/server/prot/ServerGameProtRepository.ts';
 
 
 export default class Zone {
@@ -44,7 +45,7 @@ export default class Zone {
 
     // zone entities
     private readonly players: LinkList<Player> = new LinkList();
-    // private readonly npcs: LinkList<Npc> = new LinkList();
+    private readonly npcs: LinkList<Npc> = new LinkList();
     private readonly locs: LinkList<Loc> = new LinkList();
     private readonly objs: LinkList<Obj> = new LinkList();
     private playersCount: number = 0;
@@ -76,39 +77,37 @@ export default class Zone {
     }
 
     enter(entity: PathingEntity): void {
-        if (entity instanceof Player) {
+        if (isPlayerEntity(entity)) {
             this.players.addTail(entity);
             this.playersCount++;
             World.gameMap.getZoneGrid(this.level).flag(this.x, this.z);
-        // } else if (entity instanceof Npc) {
-        //     this.npcs.addTail(entity);
-        //     this.npcsCount++;
-        // }
-        } // todo
+        } else if (isNpcEntity(entity)) {
+            this.npcs.addTail(entity);
+            this.npcsCount++;
+        }
     }
 
     leave(entity: PathingEntity): void {
         entity.unlink();
-        if (entity instanceof Player) {
+        if (isPlayerEntity(entity)) {
             this.playersCount--;
             if (this.playersCount === 0) {
                 World.gameMap.getZoneGrid(this.level).unflag(this.x, this.z);
             }
-        // } else if (entity instanceof Npc) {
-        //     this.npcsCount--;
-        // }
-        } // todo
+        } else if (isNpcEntity(entity)) {
+            this.npcsCount--;
+        }
     }
 
     computeShared(): void {
         const buf: Packet = Packet.alloc(5000);
         for (const event of this.enclosed()) {
-            // console.log(event.message);
-            // const encoder: ServerGameZoneMessageEncoder<ServerGameZoneMessage> | undefined = ServerGameProtRepository.getZoneEncoder(event.message);
-            // if (typeof encoder === 'undefined') {
-            //     continue;
-            // }
-            // encoder.enclose(buf, event.message); todo
+            console.log(event.message);
+            const encoder: ServerGameZoneMessageEncoder<ServerGameZoneMessage> | undefined = ServerGameProtRepository.getZoneEncoder(event.message);
+            if (typeof encoder === 'undefined') {
+                continue;
+            }
+            encoder.enclose(buf, event.message);
         }
 
         if (buf.pos === 0) {
@@ -283,7 +282,7 @@ export default class Zone {
                 // Make room for the Obj in the zone if need
                 for (const obj2 of this.getAllObjsUnsafe()) {
                     if (obj2.lifecycle === EntityLifeCycle.DESPAWN) {
-                        // World.removeObj(obj2, 0);
+                        World.removeObj(obj2, 0);
                         break;
                     }
                 }
@@ -397,13 +396,13 @@ export default class Zone {
      * Generates npcs that are currently "visible" in this zone.
      * "visible" meaning they are active on the server and available to the client.
      */
-    // *getAllNpcsSafe(reverse: boolean = false): IterableIterator<Npc> { todo
-    //     for (const npc of this.npcs.all(reverse)) {
-    //         if (npc.isValid()) {
-    //             yield npc;
-    //         }
-    //     }
-    // }
+    *getAllNpcsSafe(reverse: boolean = false): IterableIterator<Npc> {
+        for (const npc of this.npcs.all(reverse)) {
+            if (npc.isValid()) {
+                yield npc;
+            }
+        }
+    }
 
     /**
      * Generates all objs that are currently "visible" in this zone.
@@ -506,11 +505,11 @@ export default class Zone {
      * Does not guarantee that the npcs are currently "visible".
      * "visible" meaning they are active on the server and available to the client.
      */
-    // *getAllNpcsUnsafe(reverse: boolean = false): IterableIterator<Npc> {
-    //     for (const npc of this.npcs.all(reverse)) {
-    //         yield npc;
-    //     }
-    // } todo
+    *getAllNpcsUnsafe(reverse: boolean = false): IterableIterator<Npc> {
+        for (const npc of this.npcs.all(reverse)) {
+            yield npc;
+        }
+    }
 
     /**
      * Generates all players in this zone.

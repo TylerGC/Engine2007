@@ -15,6 +15,7 @@ import ScriptRunner from '#/engine/script/ScriptRunner.ts';
 import SeqType from '#/cache/config/SeqType.ts';
 import Component from '#/cache/config/Component.ts';
 import LocType from '#/cache/config/LocType.ts';
+import NpcType from '#/cache/config/NpcType.ts';
 
 export default class ClientCheatHandler extends ClientGameMessageHandler<ClientCheat> {
     handle(message: ClientCheat, player: NetworkPlayer): boolean {
@@ -50,11 +51,11 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
                                 params[i] = ObjType.getId(name ?? '');
                                 break;
                             }
-                            // case ScriptVarType.NPC: {
-                            //     const name = args.shift();
-                            //     params[i] = NpcType.getId(name ?? '');
-                            //     break;
-                            // }
+                            case ScriptVarType.NPC: {
+                                const name = args.shift();
+                                params[i] = NpcType.getId(name ?? '');
+                                break;
+                            }
                             case ScriptVarType.LOC: {
                                 const name = args.shift();
                                 params[i] = LocType.getId(name ?? '');

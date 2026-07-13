@@ -1,13 +1,13 @@
 // import IdkType from '#/cache/config/IdkType.js';
 import LocType from '#/cache/config/LocType.js';
-// import NpcType from '#/cache/config/NpcType.js';
+import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
 // import CameraInfo from '#/engine/entity/CameraInfo.js';
 import { PlayerTimerType } from '#/engine/entity/EntityTimer.js';
 import { Interaction } from '#/engine/entity/Interaction.js';
-import { isBufferFull } from '#/engine/entity/NetworkPlayer.js';
+import { isBufferFull } from '#/engine/entity/ClientConnection.ts';
 import Player from '#/engine/entity/Player.js';
 import { PlayerQueueType } from '#/engine/entity/PlayerQueueRequest.js';
 import type { ScriptArgument } from '#/engine/entity/PlayerQueueRequest.js';
@@ -346,19 +346,19 @@ const PlayerOps: CommandHandlers = {
         if (type < 0 || type >= 5) {
             throw new Error(`Invalid opnpc: ${type + 1}`);
         }
-        // const npcType: NpcType = NpcType.get(state.activeNpc.type);
-        // if (!npcType.op || !npcType.op[type]) {
-        //     return;
-        // }
-        // state.activePlayer.stopAction();
-        // state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc, ServerTriggerType.APNPC1 + type);
+        const npcType: NpcType = NpcType.get(state.activeNpc.type);
+        if (!npcType.op || !npcType.op[type]) {
+            return;
+        }
+        state.activePlayer.stopAction();
+        state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc, ServerTriggerType.APNPC1 + type);
     }),
 
     // https://x.com/JagexAsh/status/1791472651623370843
     [ScriptOpcode.P_OPNPCT]: checkedHandler(ProtectedActivePlayer, state => {
-        // const spellId: number = check(state.popInt(), NumberNotNull);
-        // state.activePlayer.stopAction();
-        // state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc, ServerTriggerType.APNPCT, spellId);
+        const spellId: number = check(state.popInt(), NumberNotNull);
+        state.activePlayer.stopAction();
+        state.activePlayer.setInteraction(Interaction.SCRIPT, state.activeNpc, ServerTriggerType.APNPCT, spellId);
     }),
 
     // https://x.com/JagexAsh/status/1389465615631519744
@@ -764,7 +764,7 @@ const PlayerOps: CommandHandlers = {
         const se: CoordGrid = check(southEast, CoordValid);
         const nw: CoordGrid = check(northWest, CoordValid);
 
-        // World.mergeLoc(state.activeLoc, state.activePlayer, startCycle, endCycle, se.z, se.x, nw.z, nw.x);
+        World.mergeLoc(state.activeLoc, state.activePlayer, startCycle, endCycle, se.z, se.x, nw.z, nw.x);
     }),
 
     [ScriptOpcode.LAST_LOGIN_INFO]: state => {
@@ -978,20 +978,20 @@ const PlayerOps: CommandHandlers = {
 
     // https://x.com/JagexAsh/status/1799020087086903511
     [ScriptOpcode.FINDHERO]: checkedHandler(ActivePlayer, state => {
-        // const hash64 = state.activePlayer.heroPoints.findHero();
-        // if (hash64 === -1n) {
-        //     state.pushInt(0);
-        //     return;
-        // }
+        const hash64 = state.activePlayer.heroPoints.findHero();
+        if (hash64 === -1n) {
+            state.pushInt(0);
+            return;
+        }
 
-        // const player = World.getPlayerByHash64(hash64);
-        // if (!player) {
-        //     state.pushInt(0);
-        //     return;
-        // }
-        // state._activePlayer2 = player;
-        // state.pointerAdd(ScriptPointer.ActivePlayer2);
-        // state.pushInt(1);
+        const player = World.getPlayerByHash64(hash64);
+        if (!player) {
+            state.pushInt(0);
+            return;
+        }
+        state._activePlayer2 = player;
+        state.pointerAdd(ScriptPointer.ActivePlayer2);
+        state.pushInt(1);
     }),
 
     // https://x.com/JagexAsh/status/1799020087086903511

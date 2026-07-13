@@ -40,14 +40,14 @@ const ObjOps: CommandHandlers = {
         if (!objType.stackable || count === 1) {
             for (let i = 0; i < count; i++) {
                 const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objId, 1);
-                // World.addObj(obj, state.activePlayer.hash64, duration);
+                World.addObj(obj, state.activePlayer.hash64, duration);
 
                 state.activeObj = obj;
                 state.pointerAdd(ActiveObj[state.intOperand]);
             }
         } else {
             const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objId, count);
-            // World.addObj(obj, state.activePlayer.hash64, duration);
+            World.addObj(obj, state.activePlayer.hash64, duration);
 
             state.activeObj = obj;
             state.pointerAdd(ActiveObj[state.intOperand]);
@@ -78,14 +78,14 @@ const ObjOps: CommandHandlers = {
         if (!objType.stackable || count === 1) {
             for (let i = 0; i < count; i++) {
                 const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objId, 1);
-                // World.addObj(obj, Obj.NO_RECEIVER, duration);
+                World.addObj(obj, Obj.NO_RECEIVER, duration);
 
                 state.activeObj = obj;
                 state.pointerAdd(ActiveObj[state.intOperand]);
             }
         } else {
             const obj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objId, count);
-            // World.addObj(obj, Obj.NO_RECEIVER, duration);
+            World.addObj(obj, Obj.NO_RECEIVER, duration);
 
             state.activeObj = obj;
             state.pointerAdd(ActiveObj[state.intOperand]);
@@ -112,9 +112,9 @@ const ObjOps: CommandHandlers = {
     [ScriptOpcode.OBJ_DEL]: state => {
         const duration: number = ObjType.get(state.activeObj.type).respawnrate;
         if (state.pointerGet(ActivePlayer[state.intOperand])) {
-            // World.removeObj(state.activeObj, duration);
+            World.removeObj(state.activeObj, duration);
         } else {
-            // World.removeObj(state.activeObj, duration);
+            World.removeObj(state.activeObj, duration);
         }
     },
 
@@ -154,9 +154,9 @@ const ObjOps: CommandHandlers = {
         });
         
         if (obj.lifecycle === EntityLifeCycle.RESPAWN) {
-            // World.removeObj(obj, objType.respawnrate);
+            World.removeObj(obj, objType.respawnrate);
         } else if (obj.lifecycle === EntityLifeCycle.DESPAWN) {
-            // World.removeObj(obj, 0);
+            World.removeObj(obj, 0);
         }
     },
 
@@ -171,13 +171,13 @@ const ObjOps: CommandHandlers = {
         const objType: ObjType = check(objId, ObjTypeValid);
         const position: CoordGrid = check(coord, CoordValid);
 
-        // const obj = World.getObj(position.x, position.z, position.level, objType.id, state.activePlayer.hash64);
-        // if (!obj) {
-        //     state.pushInt(0);
-        //     return;
-        // }
+        const obj = World.getObj(position.x, position.z, position.level, objType.id, state.activePlayer.hash64);
+        if (!obj) {
+            state.pushInt(0);
+            return;
+        }
 
-        // state.activeObj = obj;
+        state.activeObj = obj;
         state.pointerAdd(ActiveObj[state.intOperand]);
         state.pushInt(1);
     },
@@ -205,4 +205,3 @@ const ObjOps: CommandHandlers = {
 };
 
 export default ObjOps;
-// todo

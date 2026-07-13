@@ -2,9 +2,9 @@
 import InvType from '#/cache/config/InvType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
-// import { ObjDelayedRequest } from '#/engine/entity/ObjDelayedRequest.js';
+import { ObjDelayedRequest } from '#/engine/entity/ObjDelayedRequest.js';
 import { EntityLifeCycle } from '#/engine/entity/EntityLifeCycle.js';
-import { isClientConnected } from '#/engine/entity/NetworkPlayer.js';
+import { isClientConnected } from '#/engine/entity/ClientConnection.ts';
 import Obj from '#/engine/entity/Obj.js';
 import Player from '#/engine/entity/Player.js';
 import type { WealthEventItem } from '#/engine/entity/tracking/WealthEvent.js';
@@ -73,13 +73,13 @@ const InvOps: CommandHandlers = {
         const player = state.activePlayer;
         const overflow = count - player.invAdd(invType.id, objType.id, count, false);
         if (overflow > 0) {
-            // if (!objType.stackable || overflow === 1) {
-            //     for (let i = 0; i < overflow; i++) {
-            //         World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, 1), player.hash64, 200);
-            //     }
-            // } else {
-            //     World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, overflow), player.hash64, 200);
-            // }
+            if (!objType.stackable || overflow === 1) {
+                for (let i = 0; i < overflow; i++) {
+                    World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, 1), player.hash64, 200);
+                }
+            } else {
+                World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, overflow), player.hash64, 200);
+            }
         }
     }),
 
@@ -181,7 +181,7 @@ const InvOps: CommandHandlers = {
         }
 
         const floorObj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objType.id, completed);
-        // World.addObj(floorObj, player.hash64, duration);
+        World.addObj(floorObj, player.hash64, duration);
         state.activeObj = floorObj;
         state.pointerAdd(ActiveObj[state.intOperand]);
     }),
@@ -206,7 +206,7 @@ const InvOps: CommandHandlers = {
         }
 
         const floorObj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, objType.id, completed);
-        // World.objDelayedQueue.addTail(new ObjDelayedRequest(floorObj, duration, delay, player.hash64));
+        World.objDelayedQueue.addTail(new ObjDelayedRequest(floorObj, duration, delay, player.hash64));
     }),
 
     // https://x.com/JagexAsh/status/1679942100249464833
@@ -246,14 +246,14 @@ const InvOps: CommandHandlers = {
         if (!objType.stackable || completed === 1) {
             for (let i = 0; i < completed; i++) {
                 const floorObj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, 1);
-                // World.addObj(floorObj, player.hash64, duration);
+                World.addObj(floorObj, player.hash64, duration);
 
                 state.activeObj = floorObj;
                 state.pointerAdd(ActiveObj[state.intOperand]);
             }
         } else {
             const floorObj: Obj = new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, completed);
-            // World.addObj(floorObj, player.hash64, duration);
+            World.addObj(floorObj, player.hash64, duration);
 
             state.activeObj = floorObj;
             state.pointerAdd(ActiveObj[state.intOperand]);
@@ -341,10 +341,10 @@ const InvOps: CommandHandlers = {
             const objType: ObjType = ObjType.get(fromObj);
             if (!objType.stackable || overflow === 1) {
                 for (let i = 0; i < overflow; i++) {
-                    // World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, fromObj, 1), player.hash64, 200);
+                    World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, fromObj, 1), player.hash64, 200);
                 }
             } else {
-                // World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, fromObj, overflow), player.hash64, 200);
+                World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, fromObj, overflow), player.hash64, 200);
             }
         }
     }),
@@ -425,10 +425,10 @@ const InvOps: CommandHandlers = {
             if (overflow > 0) {
                 if (!type.stackable || overflow === 1) {
                     for (let i = 0; i < overflow; i++) {
-                        // World.addObj(new Obj(toPlayer.level, toPlayer.x, toPlayer.z, EntityLifeCycle.DESPAWN, type.id, 1), toPlayer.hash64, 200);
+                        World.addObj(new Obj(toPlayer.level, toPlayer.x, toPlayer.z, EntityLifeCycle.DESPAWN, type.id, 1), toPlayer.hash64, 200);
                     }
                 } else {
-                    // World.addObj(new Obj(toPlayer.level, toPlayer.x, toPlayer.z, EntityLifeCycle.DESPAWN, type.id, overflow), toPlayer.hash64, 200);
+                    World.addObj(new Obj(toPlayer.level, toPlayer.x, toPlayer.z, EntityLifeCycle.DESPAWN, type.id, overflow), toPlayer.hash64, 200);
                 }
             }
 
@@ -526,10 +526,10 @@ const InvOps: CommandHandlers = {
         if (overflow > 0) {
             if (!objType.stackable || overflow === 1) {
                 for (let i = 0; i < overflow; i++) {
-                    // World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, 1), player.hash64, 200);
+                    World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, 1), player.hash64, 200);
                 }
             } else {
-                // World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, overflow), player.hash64, 200);
+                World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, objType.id, overflow), player.hash64, 200);
             }
         }
     }),
@@ -565,7 +565,7 @@ const InvOps: CommandHandlers = {
         const overflow = count - player.invAdd(toInvType.id, finalObj, completed, false);
         if (overflow > 0) {
             // should be a stackable cert already!
-            // World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, finalObj, overflow), player.hash64, 200);
+            World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, finalObj, overflow), player.hash64, 200);
         }
     }),
 
@@ -723,7 +723,7 @@ const InvOps: CommandHandlers = {
             return; // stop untradables after delete.
         }
 
-        // World.addObj(new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, completed), toPlayer.hash64, duration);
+        World.addObj(new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, completed), toPlayer.hash64, duration);
     }),
 
     // https://x.com/JagexAsh/status/1778879334167548366
@@ -774,7 +774,7 @@ const InvOps: CommandHandlers = {
                 continue; // stop untradables after delete.
             }
 
-            // World.addObj(new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, obj.count), Obj.NO_RECEIVER, duration);
+            World.addObj(new Obj(position.level, position.x, position.z, EntityLifeCycle.DESPAWN, obj.id, obj.count), Obj.NO_RECEIVER, duration);
         }
 
         if (wealthLog.size > 0) {

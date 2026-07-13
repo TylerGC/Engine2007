@@ -2,7 +2,7 @@ import ScriptVarType from '#/cache/config/ScriptVarType.ts';
 //import VarNpcType from '#/cache/config/VarNpcType.js';
 import VarPlayerType from '#/cache/config/VarPlayerType.ts';
 //import VarSharedType from '#/cache/config/VarSharedType.js';
-//import Npc from '#/engine/entity/Npc.js';
+import Npc from '#/engine/entity/Npc.js';
 import Player from '#/engine/entity/Player.js';
 import ScriptFile from '#/engine/script/ScriptFile.js';
 import { ScriptOpcode } from '#/engine/script/ScriptOpcode.js';

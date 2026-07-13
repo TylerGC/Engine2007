@@ -125,7 +125,8 @@ class Login {
             const password = buf.gjstr();
 
         const player = new NetworkPlayer(fromBase37(userhash), userhash, userhash, client);
-        World.addPlayer(player, opcode === 18);
+        player.reconnecting = opcode === 18;
+        World.addPlayer(player);
         }
     }
 }

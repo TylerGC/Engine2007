@@ -11,6 +11,8 @@ export default abstract class Entity extends Linkable {
     readonly width: number;
     readonly length: number;
     readonly lifecycle: EntityLifeCycle;
+    readonly isPlayer: boolean = false;
+    readonly isNpc: boolean = false;
 
     // runtime
     lifecycleTick: number = -1;

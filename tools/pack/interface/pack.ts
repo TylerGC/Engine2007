@@ -181,8 +181,6 @@ function parseScriptTermLine(raw: string): ScriptTermRaw {
     return { operator: 'add', opName: parts[0], args: parts.slice(1) };
 }
 
-// Mirrors unpack.ts's disassembleIfScriptTerms opcode-for-opcode, so a
-// term round-trips as "opName,arg1,arg2" (comma-separated, no parens).
 function encodeScriptTerm(
     term: ScriptTermRaw,
     out: number[],
@@ -442,12 +440,6 @@ function readIfFile(filePath: string): IfFileBlock[] {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        // Any line that LOOKS like a bracketed header (starts with '[' and
-        // ends with ']') must have a non-empty name inside. If it doesn't,
-        // silently falling through to "treat as content" merges this block
-        // with whatever comes next — which is exactly how one component's
-        // fields can end up overwritten by its neighbor's. Fail loudly
-        // instead, so a malformed .if file can never be packed silently.
         if (/^\[.*]$/.test(trimmed) && !/^\[(.+)]$/.test(trimmed)) {
             throw new Error(
                 `${filePath}:${lineNo + 1}: malformed empty block header "${trimmed}". ` +
@@ -945,12 +937,6 @@ export function pack() {
             }
 
             if (groupMap.has(compId) && groupMap.get(compId) !== undefined) {
-                // A previous block in this same .if file already claimed this
-                // exact compId. Since names are now resolved per-group, this
-                // can only happen if two blocks in the same file legitimately
-                // resolved to the same slot — almost certainly a duplicate
-                // name in component-names.pack for this group. Don't silently
-                // let the second one win; surface it loudly.
                 console.error(
                     `Interface '${interfaceName}' (group ${groupId}): component '${shortName}' resolved to ` +
                     `file ${compId}, which was already written by an earlier block in this same file. ` +

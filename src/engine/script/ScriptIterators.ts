@@ -1,12 +1,12 @@
 import LocType from '#/cache/config/LocType.js';
-// import NpcType from '#/cache/config/NpcType.js';
+import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
 import Entity from '#/engine/entity/Entity.js';
 import { HuntModeType } from '#/engine/entity/hunt/HuntModeType.js';
 import { HuntVis } from '#/engine/entity/hunt/HuntVis.js';
 import Loc from '#/engine/entity/Loc.js';
-// import Npc from '#/engine/entity/Npc.js';
+import Npc from '#/engine/entity/Npc.js';
 import { NpcIteratorType } from '#/engine/entity/NpcIteratorType.ts';
 import Obj from '#/engine/entity/Obj.js';
 import { isLineOfSight, isLineOfWalk } from '#/engine/GameMap.ts';
@@ -95,28 +95,28 @@ export class HuntIterator extends ScriptIterator<Entity> {
                         yield player;
                     }
                 } else if (this.type === HuntModeType.NPC) {
-                    // for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
-                    //     if (World.currentTick > this.tick) {
-                    //         throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
-                    //     }
-                    //     if (this.checkType !== -1 && npc.type !== this.checkType) {
-                    //         continue;
-                    //     }
-                    //     const npcType: NpcType = NpcType.get(npc.type);
-                    //     if (this.checkCategory !== -1 && npcType.category !== this.checkCategory) {
-                    //         continue;
-                    //     }
-                    //     if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
-                    //         continue;
-                    //     }
-                    //     if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
-                    //         continue;
-                    //     }
-                    //     if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
-                    //         continue;
-                    //     }
-                    //     yield npc;
-                    // }
+                    for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
+                        if (World.currentTick > this.tick) {
+                            throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
+                        }
+                        if (this.checkType !== -1 && npc.type !== this.checkType) {
+                            continue;
+                        }
+                        const npcType: NpcType = NpcType.get(npc.type);
+                        if (this.checkCategory !== -1 && npcType.category !== this.checkCategory) {
+                            continue;
+                        }
+                        if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
+                            continue;
+                        }
+                        yield npc;
+                    }
                 } else if (this.type === HuntModeType.OBJ) {
                     // scripting only cares about dynamic objs??
                     for (const obj of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllObjsSafe(true)) {
@@ -173,7 +173,7 @@ export class HuntIterator extends ScriptIterator<Entity> {
 /**
  * This iterator powers the `npc_huntall` RuneScript command.
  */
-export class NpcHuntAllCommandIterator extends ScriptIterator<any> { // todo npc
+export class NpcHuntAllCommandIterator extends ScriptIterator<Npc> {
     // a radius of 1 will loop 9 zones
     // a radius of 2 will loop 25 zones
     // a radius of 3 will loop 49 zones
@@ -203,40 +203,40 @@ export class NpcHuntAllCommandIterator extends ScriptIterator<any> { // todo npc
         this.checkVis = checkVis;
     }
 
-    protected *generator(): IterableIterator<any> { // todo npc
-        // for (let x: number = this.maxX; x >= this.minX; x--) {
-        //     const zoneX: number = x << 3;
-        //     for (let z: number = this.maxZ; z >= this.minZ; z--) {
-        //         const zoneZ: number = z << 3;
+    protected *generator(): IterableIterator<any> {
+        for (let x: number = this.maxX; x >= this.minX; x--) {
+            const zoneX: number = x << 3;
+            for (let z: number = this.maxZ; z >= this.minZ; z--) {
+                const zoneZ: number = z << 3;
 
-        //         for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
-        //             if (World.currentTick > this.tick) {
-        //                 throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
-        //             }
-        //             const npcType: NpcType = NpcType.get(npc.type);
-        //             if (!npcType.op) {
-        //                 continue;
-        //             }
-        //             if (!npcType.op[1]) {
-        //                 continue;
-        //             }
-        //             if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
-        //                 continue;
-        //             }
-        //             if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
-        //                 continue;
-        //             }
-        //             if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
-        //                 continue;
-        //             }
-        //             yield npc;
-        //         }
-        //     }
-        // }
+                for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
+                    if (World.currentTick > this.tick) {
+                        throw new Error('[HuntIterator] tried to use an old iterator. Create a new iterator instead.');
+                    }
+                    const npcType: NpcType = NpcType.get(npc.type);
+                    if (!npcType.op) {
+                        continue;
+                    }
+                    if (!npcType.op[1]) {
+                        continue;
+                    }
+                    if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
+                        continue;
+                    }
+                    if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
+                        continue;
+                    }
+                    if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
+                        continue;
+                    }
+                    yield npc;
+                }
+            }
+        }
     }
 }
 
-export class NpcIterator extends ScriptIterator<any> { // todo npc
+export class NpcIterator extends ScriptIterator<any> {
     private readonly level: number;
     private readonly x: number;
     private readonly z: number;
@@ -247,9 +247,9 @@ export class NpcIterator extends ScriptIterator<any> { // todo npc
     private readonly distance: number;
     private readonly checkVis: HuntVis;
     private readonly type: NpcIteratorType;
-    // private readonly npcType?: NpcType;
+    private readonly npcType?: NpcType;
 
-    constructor(tick: number, level: number, x: number, z: number, distance: number, checkVis: HuntVis, type: NpcIteratorType, npcType?: any) { // todo npc
+    constructor(tick: number, level: number, x: number, z: number, distance: number, checkVis: HuntVis, type: NpcIteratorType, npcType?: NpcType) {
         super(tick);
         const centerX: number = CoordGrid.zone(x);
         const centerZ: number = CoordGrid.zone(z);
@@ -264,43 +264,43 @@ export class NpcIterator extends ScriptIterator<any> { // todo npc
         this.distance = distance;
         this.checkVis = checkVis;
         this.type = type;
-        // this.npcType = npcType;
+        this.npcType = npcType;
     }
 
-    protected *generator(): IterableIterator<any> { // todo npc
-        // if (this.type === NpcIteratorType.ZONE) {
-        //     for (const npc of World.gameMap.getZone(this.x, this.z, this.level).getAllNpcsSafe(true)) {
-        //         if (World.currentTick > this.tick) {
-        //             throw new Error('[NpcIterator] tried to use an old iterator. Create a new iterator instead.');
-        //         }
-        //         yield npc;
-        //     }
-        // } else if (this.type === NpcIteratorType.DISTANCE) {
-        //     for (let x: number = this.maxX; x >= this.minX; x--) {
-        //         const zoneX: number = x << 3;
-        //         for (let z: number = this.maxZ; z >= this.minZ; z--) {
-        //             const zoneZ: number = z << 3;
-        //             for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
-        //                 if (World.currentTick > this.tick) {
-        //                     throw new Error('[NpcIterator] tried to use an old iterator. Create a new iterator instead.');
-        //                 }
-        //                 if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
-        //                     continue;
-        //                 }
-        //                 if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
-        //                     continue;
-        //                 }
-        //                 if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
-        //                     continue;
-        //                 }
-        //                 if (this.npcType && NpcType.get(npc.type) !== this.npcType) {
-        //                     continue;
-        //                 }
-        //                 yield npc;
-        //             }
-        //         }
-        //     }
-        // }
+    protected *generator(): IterableIterator<any> {
+        if (this.type === NpcIteratorType.ZONE) {
+            for (const npc of World.gameMap.getZone(this.x, this.z, this.level).getAllNpcsSafe(true)) {
+                if (World.currentTick > this.tick) {
+                    throw new Error('[NpcIterator] tried to use an old iterator. Create a new iterator instead.');
+                }
+                yield npc;
+            }
+        } else if (this.type === NpcIteratorType.DISTANCE) {
+            for (let x: number = this.maxX; x >= this.minX; x--) {
+                const zoneX: number = x << 3;
+                for (let z: number = this.maxZ; z >= this.minZ; z--) {
+                    const zoneZ: number = z << 3;
+                    for (const npc of World.gameMap.getZone(zoneX, zoneZ, this.level).getAllNpcsSafe(true)) {
+                        if (World.currentTick > this.tick) {
+                            throw new Error('[NpcIterator] tried to use an old iterator. Create a new iterator instead.');
+                        }
+                        if (CoordGrid.distanceToSW({ x: this.x, z: this.z }, npc) > this.distance) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFSIGHT && !isLineOfSight(this.level, this.x, this.z, npc.x, npc.z)) {
+                            continue;
+                        }
+                        if (this.checkVis === HuntVis.LINEOFWALK && !isLineOfWalk(this.level, this.x, this.z, npc.x, npc.z)) {
+                            continue;
+                        }
+                        if (this.npcType && NpcType.get(npc.type) !== this.npcType) {
+                            continue;
+                        }
+                        yield npc;
+                    }
+                }
+            }
+        }
     }
 }
 

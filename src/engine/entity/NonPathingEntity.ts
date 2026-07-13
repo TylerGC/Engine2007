@@ -17,7 +17,7 @@ export default abstract class NonPathingEntity extends Entity {
         // Track the event for positive durations
         if (duration > 0) {
             const event = new LocObjEvent(this);
-            // World.locObjTracker.addTail(event); todo
+            World.locObjTracker.addTail(event);
             super.setLifeCycle(duration);
         } else {
             super.setLifeCycle(-1);

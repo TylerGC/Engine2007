@@ -1,7 +1,7 @@
 // import DbTableType from '#/cache/config/DbTableType.js';
 import Entity from '#/engine/entity/Entity.js';
 import Loc from '#/engine/entity/Loc.js';
-// import Npc from '#/engine/entity/Npc.js';
+import Npc from '#/engine/entity/Npc.js';
 import Obj from '#/engine/entity/Obj.js';
 import Player from '#/engine/entity/Player.js';
 import type { ScriptArgument } from '#/engine/entity/PlayerQueueRequest.js';
@@ -82,12 +82,12 @@ export default class ScriptState {
     /**
      * The primary active npc.
      */
-    // _activeNpc: Npc | null = null; todo
+    _activeNpc: Npc | null = null;
 
     /**
      * The secondary active npc.
      */
-    // _activeNpc2: Npc | null = null;
+    _activeNpc2: Npc | null = null;
 
     /**
      * The primary active loc.
@@ -122,7 +122,7 @@ export default class ScriptState {
     timespent: number = 0;
 
     huntIterator: IterableIterator<Entity> | null = null;
-    // npcIterator: IterableIterator<Npc> | null = null;
+    npcIterator: IterableIterator<Npc> | null = null;
     locIterator: IterableIterator<Loc> | null = null;
     objIterator: IterableIterator<Obj> | null = null;
 
@@ -235,25 +235,24 @@ export default class ScriptState {
      * Gets the active npc. Automatically checks the operand to determine primary and secondary.
      */
     get activeNpc() {
-        return null;
-        // const npc = this.intOperand === 0 ? this._activeNpc : this._activeNpc2;
-        // if (npc === null) {
-        //     throw new Error('Attempt to access null active_npc');
-        // }
-        // return npc; todo
+        const npc = this.intOperand === 0 ? this._activeNpc : this._activeNpc2;
+        if (npc === null) {
+            throw new Error('Attempt to access null active_npc');
+        }
+        return npc;
     }
 
     /**
      * Sets the active npc. Automatically checks the operand to determine primary and secondary.
      * @param npc The npc to set.
      */
-    // set activeNpc(npc: Npc) {
-    //     if (this.intOperand === 0) {
-    //         this._activeNpc = npc;
-    //     } else {
-    //         this._activeNpc2 = npc;
-    //     }
-    // } todo
+    set activeNpc(npc: Npc) {
+        if (this.intOperand === 0) {
+            this._activeNpc = npc;
+        } else {
+            this._activeNpc2 = npc;
+        }
+    }
 
     /**
      * Gets the active location. Automatically checks the operand to determine primary and secondary.

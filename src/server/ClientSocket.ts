@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 
-import { NetworkPlayer } from '#/engine/entity/NetworkPlayer.ts';
+import type { NetworkPlayer } from '#/engine/entity/NetworkPlayer.ts';
 import Isaac from '#/io/Isaac.js';
 import Packet from '#/io/Packet.js';
 

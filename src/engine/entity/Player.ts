@@ -8,7 +8,7 @@ import Component, { IfType } from '#/cache/config/Component.js';
 // import FontType from '#/cache/config/FontType.js';
 import InvType from '#/cache/config/InvType.js';
 import LocType from '#/cache/config/LocType.js';
-// import NpcType from '#/cache/config/NpcType.js';
+import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 // import { ParamHelper } from '#/cache/config/ParamHelper.js';
 // import ParamType from '#/cache/config/ParamType.js';
@@ -29,10 +29,10 @@ import { ModalState } from '#/engine/entity/ModalState.ts';
 import { MoveRestrict } from '#/engine/entity/MoveRestrict.js';
 import { MoveSpeed } from '#/engine/entity/MoveSpeed.js';
 import { MoveStrategy } from '#/engine/entity/MoveStrategy.js';
-import { isClientConnected } from '#/engine/entity/NetworkPlayer.ts';
-// import Npc from '#/engine/entity/Npc.js';
+import { isClientConnected } from '#/engine/entity/ClientConnection.ts';
+import Npc from '#/engine/entity/Npc.js';
 import Obj from '#/engine/entity/Obj.js';
-import PathingEntity from '#/engine/entity/PathingEntity.ts';
+import PathingEntity from '#/engine/entity/PathingEntity.js';
 // import { PlayerLoading } from '#/engine/entity/PlayerLoading.js';
 import { PlayerQueueRequest, PlayerQueueType } from '#/engine/entity/PlayerQueueRequest.js';
 import type { QueueType, ScriptArgument } from '#/engine/entity/PlayerQueueRequest.js';
@@ -44,7 +44,7 @@ import { Inventory } from '#/engine/Inventory.ts';
 import type {InventoryListener } from '#/engine/Inventory.ts';
 import ScriptFile from '#/engine/script/ScriptFile.js';
 import ScriptPointer from '#/engine/script/ScriptPointer.js';
-import ScriptProvider from '#/engine/script/ScriptProvider.ts';
+import ScriptProvider from '#/engine/script/ScriptProvider.js';
 import ScriptRunner from '#/engine/script/ScriptRunner.js';
 import ScriptState from '#/engine/script/ScriptState.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.js';
@@ -102,6 +102,7 @@ export function getExpByLevel(level: number) {
 }
 
 export default class Player extends PathingEntity {
+    override readonly isPlayer = true;
     static readonly DESIGN_BODY_COLORS: number[][] = [
         [6798, 107, 10283, 16, 4797, 7744, 5799, 4634, 33697, 22433, 2983, 54193],
         [8741, 12, 64030, 43162, 7735, 8404, 1701, 38430, 24094, 10153, 56621, 4783, 1341, 16578, 35003, 25239],
@@ -271,6 +272,7 @@ export default class Player extends PathingEntity {
         return sav.data.subarray(0, sav.pos);
     }
 
+    readonly isNetworked: boolean = false;
     // constructor properties
     username: string;
     username37: bigint;
@@ -658,16 +660,16 @@ export default class Player extends PathingEntity {
     }
 
     addSessionLog(event_type: LoggerEventType, message: string, ...args: string[]): void {
-        // World.addSessionLog(event_type, this.account_id, 'headless', CoordGrid.packCoord(this.level, this.x, this.z), message, ...args);
+        World.addSessionLog(event_type, this.account_id, 'headless', CoordGrid.packCoord(this.level, this.x, this.z), message, ...args);
     }
 
     addWealthEvent(event: WealthEventParams) {
-        // World.addWealthEvent({
-        //     coord: CoordGrid.packCoord(this.level, this.x, this.z),
-        //     account_id: this.account_id,
-        //     account_session: 'headless',
-        //     ...event
-        // });
+        World.addWealthEvent({
+            coord: CoordGrid.packCoord(this.level, this.x, this.z),
+            account_id: this.account_id,
+            account_session: 'headless',
+            ...event
+        });
     }
 
     processEngineQueue() {
@@ -968,13 +970,12 @@ export default class Player extends PathingEntity {
         let categoryId = -1;
 
         // prio trigger details by target<type<com
-        if (this.target instanceof Loc || this.target instanceof Obj) {
-            let type: LocType | ObjType | null = null;
+        if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
+            let type: NpcType | LocType | ObjType | null = null;
 
-            // if (this.target instanceof Npc) {
-            //     type = NpcType.get(this.target.type);
-            // } else 
-                if (this.target instanceof Loc) {
+            if (this.target instanceof Npc) {
+                type = NpcType.get(this.target.type);
+            } else if (this.target instanceof Loc) {
                 type = LocType.get(this.target.type);
             } else if (this.target instanceof Obj) {
                 type = ObjType.get(this.target.type);
@@ -1003,13 +1004,12 @@ export default class Player extends PathingEntity {
         let categoryId = -1;
 
         // prio trigger details by target<type<com
-        if (this.target instanceof Loc || this.target instanceof Obj) {
-            let type: LocType | ObjType | null = null;
+        if (this.target instanceof Npc || this.target instanceof Loc || this.target instanceof Obj) {
+            let type: NpcType | LocType | ObjType | null = null;
 
-            // if (this.target instanceof Npc) {
-            //     type = NpcType.get(this.target.type);
-            // } else
-                 if (this.target instanceof Loc) {
+            if (this.target instanceof Npc) {
+                type = NpcType.get(this.target.type);
+            } else if (this.target instanceof Loc) {
                 type = LocType.get(this.target.type);
             } else if (this.target instanceof Obj) {
                 type = ObjType.get(this.target.type);
@@ -1044,7 +1044,7 @@ export default class Player extends PathingEntity {
         }
 
         if (Environment.NODE_CLIENT_ROUTEFINDER && CoordGrid.intersects(this.x, this.z, this.width, this.length, this.target.x, this.target.z, this.target.width, this.target.length)) {
-            // this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL)); todo
+            this.queueWaypoints(findNaivePath(this.level, this.x, this.z, this.target.x, this.target.z, this.width, this.length, this.target.width, this.target.length, 0, CollisionType.NORMAL));
             return;
         }
         if (this.isLastOrNoWaypoint()) {
@@ -1073,11 +1073,10 @@ export default class Player extends PathingEntity {
 
         if (!Environment.NODE_PRODUCTION && !opTrigger && !apTrigger) {
             let debugname = '_';
-            // if (this.target instanceof Npc) {
-            //     const type = NpcType.get(this.target.type);
-            //     debugname = type.debugname ?? this.target.type.toString();
-            // } else 
-                if (this.target instanceof Loc) {
+            if (this.target instanceof Npc) {
+                const type = NpcType.get(this.target.type);
+                debugname = type.debugname ?? this.target.type.toString();
+            } else if (this.target instanceof Loc) {
                 const type = LocType.get(this.target.type);
                 debugname = type.debugname ?? this.target.type.toString();
             } else if (this.target instanceof Obj) {
@@ -1189,9 +1188,9 @@ export default class Player extends PathingEntity {
         }
 
         // This is effectively checking if the Npc or Loc did a changetype
-        // if ((this.target instanceof Npc || this.target instanceof Loc) && this.targetSubject.type !== this.target.type) {
-        //     return false;
-        // } todo
+        if ((this.target instanceof Npc || this.target instanceof Loc) && this.targetSubject.type !== this.target.type) {
+            return false;
+        }
 
         return this.target.isValid(this.hash64);
     }
@@ -1888,14 +1887,14 @@ export default class Player extends PathingEntity {
         }
         // This doesn't actually cancel interactions, source: https://youtu.be/ARS7eO3_Z8U?si=OkYfjW0sVhkQmQ8y&t=293
         this.visibility = visibility;
-        // if (visibility === Visibility.DEFAULT) {
-        //     this.blockWalk = BlockWalk.NPC;
-        //     changeNpcCollision(this.width, this.x, this.z, this.level, true);
-        // } else {
-        //     this.blockWalk = BlockWalk.NONE;
-        //     changeNpcCollision(this.width, this.x, this.z, this.level, false);
-        //     changePlayerCollision(this.width, this.x, this.z, this.level, false);
-        // } todo
+        if (visibility === Visibility.DEFAULT) {
+            this.blockWalk = BlockWalk.NPC;
+            changeNpcCollision(this.width, this.x, this.z, this.level, true);
+        } else {
+            this.blockWalk = BlockWalk.NONE;
+            changeNpcCollision(this.width, this.x, this.z, this.level, false);
+            changePlayerCollision(this.width, this.x, this.z, this.level, false);
+        }
         this.messageGame(`vis: ${visibility}`);
     }
 
@@ -2042,9 +2041,9 @@ export default class Player extends PathingEntity {
 
         if (state !== ScriptState.FINISHED && state !== ScriptState.ABORTED) {
             if (state === ScriptState.WORLD_SUSPENDED) {
-                // World.enqueueScript(script, script.popInt());
+                World.enqueueScript(script, script.popInt());
             } else if (state === ScriptState.NPC_SUSPENDED) {
-                // script.activeNpc.activeScript = script;
+                script.activeNpc.activeScript = script;
             } else {
                 script.activePlayer.activeScript = script;
                 script.activePlayer.protect = protect; // preserve protected access when delayed

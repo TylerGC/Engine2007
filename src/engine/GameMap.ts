@@ -4,12 +4,12 @@ import { CollisionFlag, CollisionType, LocAngle, LocLayer } from '@2004scape/rsm
 import * as rsmod from '@2004scape/rsmod-pathfinder';
 
 import LocType from '#/cache/config/LocType.js';
-// import NpcType from '#/cache/config/NpcType.js';
+import NpcType from '#/cache/config/NpcType.js';
 import ObjType from '#/cache/config/ObjType.js';
 import { CoordGrid } from '#/engine/CoordGrid.js';
 import { EntityLifeCycle } from '#/engine/entity/EntityLifeCycle.js';
 import Loc from '#/engine/entity/Loc.js';
-// import Npc from '#/engine/entity/Npc.js';
+import type Npc from '#/engine/entity/Npc.js';
 import Obj from '#/engine/entity/Obj.js';
 import World from '#/engine/World.js';
 import Zone from '#/engine/zone/Zone.js';
@@ -45,7 +45,7 @@ export default class GameMap {
         this.freemap = new Set();
     }
 
-    init(): void {
+    async init(): Promise<void> {
         if (!fs.existsSync(`${Environment.BUILD_SRC_DIR}/maps`)) {
             return;
         }
@@ -67,7 +67,7 @@ export default class GameMap {
             const mapsquareX: number = mx << 6;
             const mapsquareZ: number = mz << 6;
 
-            this.loadNpcs(Packet.load(`${path}n${mx}_${mz}`), mapsquareX, mapsquareZ);
+            await this.loadNpcs(Packet.load(`${path}n${mx}_${mz}`), mapsquareX, mapsquareZ);
             this.loadObjs(Packet.load(`${path}o${mx}_${mz}`), mapsquareX, mapsquareZ);
             // collision
             const lands: Int8Array = new Int8Array(GameMap.MAPSQUARE); // 4 * 64 * 64 size is guaranteed for lands
@@ -109,29 +109,30 @@ export default class GameMap {
         return this.zonemap.objCount();
     }
 
-    private loadNpcs(packet: Packet, mapsquareX: number, mapsquareZ: number): void {
-        // while (packet.available > 0) {
-        //     const { x, z, level } = this.unpackCoord(packet.g2());
-        //     const absoluteX: number = mapsquareX + x;
-        //     const absoluteZ: number = mapsquareZ + z;
-        //     const count: number = packet.g1();
-        //     for (let index: number = 0; index < count; index++) {
-        //         const id: number = packet.g2();
-        //         if (!this.members && !this.isFreeToPlay(absoluteX, absoluteZ)) {
-        //             continue;
-        //         }
-        //         const npcType: NpcType = NpcType.get(id);
-        //         if (!npcType) {
-        //             printFatalError(`Invalid npc type ${id} in map m${mapsquareX >> 6}_${mapsquareZ >> 6}.jm2`);
-        //             continue;
-        //         }
-        //         const size: number = npcType.size;
-        //         const npc: Npc = new Npc(level, absoluteX, absoluteZ, size, size, EntityLifeCycle.RESPAWN, World.getNextNid(), npcType.id, npcType.moverestrict, npcType.blockwalk);
-        //         if ((npcType.members && this.members) || !npcType.members) {
-        //             World.addNpc(npc, -1);
-        //         }
-        //     }
-        // } todo
+    private async loadNpcs(packet: Packet, mapsquareX: number, mapsquareZ: number): Promise<void> {
+        const { default: NpcClass } = await import('#/engine/entity/Npc.js');
+        while (packet.available > 0) {
+            const { x, z, level } = this.unpackCoord(packet.g2());
+            const absoluteX: number = mapsquareX + x;
+            const absoluteZ: number = mapsquareZ + z;
+            const count: number = packet.g1();
+            for (let index: number = 0; index < count; index++) {
+                const id: number = packet.g2();
+                if (!this.members && !this.isFreeToPlay(absoluteX, absoluteZ)) {
+                    continue;
+                }
+                const npcType: NpcType = NpcType.get(id);
+                if (!npcType) {
+                    printFatalError(`Invalid npc type ${id} in map m${mapsquareX >> 6}_${mapsquareZ >> 6}.jm2`);
+                    continue;
+                }
+                const size: number = npcType.size;
+                const npc: Npc = new NpcClass(level, absoluteX, absoluteZ, size, size, EntityLifeCycle.RESPAWN, World.getNextNid(), npcType.id, npcType.moverestrict, npcType.blockwalk);
+                if ((npcType.members && this.members) || !npcType.members) {
+                    World.addNpc(npc, -1);
+                }
+            }
+        }
     }
 
     private loadObjs(packet: Packet, mapsquareX: number, mapsquareZ: number): void {

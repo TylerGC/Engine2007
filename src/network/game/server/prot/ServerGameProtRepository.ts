@@ -9,6 +9,7 @@ import MessageGameEncoder from '#/network/game/server/codec/MessageGameEncoder.j
 import MessagePrivateEncoder from '#/network/game/server/codec/MessagePrivateEncoder.js';
 import MidiJingleEncoder from '#/network/game/server/codec/MidiJingleEncoder.js';
 import MidiSongEncoder from '#/network/game/server/codec/MidiSongEncoder.js';
+import NpcInfoEncoder from '#/network/game/server/codec/NpcInfoEncoder.js';
 import PlayerInfoEncoder from '#/network/game/server/codec/PlayerInfoEncoder.js';
 import RebuildNormalEncoder from '#/network/game/server/codec/RebuildNormalEncoder.js';
 import SynthSoundEncoder from '#/network/game/server/codec/SynthSoundEncoder.js';
@@ -22,6 +23,7 @@ import MessageGame from '#/network/game/server/model/MessageGame.js';
 import MessagePrivate from '#/network/game/server/model/MessagePrivate.js';
 import MidiJingle from '#/network/game/server/model/MidiJingle.js';
 import MidiSong from '#/network/game/server/model/MidiSong.js';
+import NpcInfo from '#/network/game/server/model/NpcInfo.js';
 import PlayerInfo from '#/network/game/server/model/PlayerInfo.js';
 import RebuildNormal from '#/network/game/server/model/RebuildNormal.js';
 import SynthSound from '#/network/game/server/model/SynthSound.js';
@@ -63,6 +65,7 @@ class ServerGameProtRepository {
         this.bind(MidiJingle, new MidiJingleEncoder());
         this.bind(MidiSong, new MidiSongEncoder());
         this.bind(PlayerInfo, new PlayerInfoEncoder());
+        this.bind(NpcInfo, new NpcInfoEncoder());
         this.bind(RebuildNormal, new RebuildNormalEncoder());
         this.bind(SynthSound, new SynthSoundEncoder());
         this.bind(UpdateInvFull, new UpdateInvFullEncoder());

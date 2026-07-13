@@ -11,10 +11,10 @@ import { MoveRestrict } from '#/engine/entity/MoveRestrict.ts';
 import { MoveSpeed } from '#/engine/entity/MoveSpeed.ts';
 import { MoveStrategy } from '#/engine/entity/MoveStrategy.ts';
 import NonPathingEntity from '#/engine/entity/NonPathingEntity.js';
-// import Npc from '#/engine/entity/Npc.js';
+import type Npc from '#/engine/entity/Npc.js';
 import { NpcMode } from '#/engine/entity/NpcMode.ts';
 import Obj from '#/engine/entity/Obj.ts';
-import Player from '#/engine/entity/Player.js';
+import type Player from '#/engine/entity/Player.js';
 import { canTravel, changeNpcCollision, changePlayerCollision, findNaivePath, findPath, findPathToEntity, findPathToLoc, isApproached, isZoneAllocated, reachedEntity, reachedLoc, reachedObj } from '#/engine/GameMap.js';
 import ServerTriggerType from '#/engine/script/ServerTriggerType.ts';
 import World from '#/engine/World.js';
@@ -167,12 +167,12 @@ export default abstract class PathingEntity extends Entity {
             // players and npcs both can change this collision
             switch (this.blockWalk) {
                 case BlockWalk.NPC:
-                    // changeNpcCollision(this.width, previousX, previousZ, previousLevel, false); todo
-                    // changeNpcCollision(this.width, this.x, this.z, this.level, true); todo
+                    changeNpcCollision(this.width, previousX, previousZ, previousLevel, false);
+                    changeNpcCollision(this.width, this.x, this.z, this.level, true);
                     break;
                 case BlockWalk.ALL:
-                    // changeNpcCollision(this.width, previousX, previousZ, previousLevel, false); todo
-                    // changeNpcCollision(this.width, this.x, this.z, this.level, true);
+                    changeNpcCollision(this.width, previousX, previousZ, previousLevel, false);
+                    changeNpcCollision(this.width, this.x, this.z, this.level, true);
                     changePlayerCollision(this.width, previousX, previousZ, previousLevel, false);
                     changePlayerCollision(this.width, this.x, this.z, this.level, true);
                     break;
@@ -273,8 +273,8 @@ export default abstract class PathingEntity extends Entity {
         }
         level = Math.max(0, Math.min(level, 3));
 
-        if (!isZoneAllocated(level, x, z) && (!(this instanceof Player) || this.staffModLevel < 3)) {
-            if (this instanceof Player) {
+        if (!isZoneAllocated(level, x, z) && (!isPlayerEntity(this) || this.staffModLevel < 3)) {
+            if (isPlayerEntity(this)) {
                 this.messageGame('Invalid teleport!');
             }
             return;
@@ -401,12 +401,11 @@ export default abstract class PathingEntity extends Entity {
             // you are not within ap distance of pathing entity if you are underneath it.
             return false;
         }
-        return false; //todo
         // Los for Npcs is always calculated backwards for all Entity types (tested Player and Npc)
-        // if (this instanceof Npc) {
-        //     return CoordGrid.distanceTo(this, target) <= range && isApproached(this.level, target.x, target.z, this.x, this.z, target.width, target.length, this.width, this.length);
-        // }
-        // return CoordGrid.distanceTo(this, target) <= range && isApproached(this.level, this.x, this.z, target.x, target.z, this.width, this.length, target.width, target.length);
+        if (isNpcEntity(this)) {
+            return CoordGrid.distanceTo(this, target) <= range && isApproached(this.level, target.x, target.z, this.x, this.z, target.width, target.length, this.width, this.length);
+        }
+        return CoordGrid.distanceTo(this, target) <= range && isApproached(this.level, this.x, this.z, target.x, target.z, this.width, this.length, target.width, target.length);
     }
 
     pathToMoveClick(input: number[], needsfinding: boolean): void {
@@ -512,7 +511,7 @@ export default abstract class PathingEntity extends Entity {
     }
 
     setInteraction(interaction: Interaction, target: Entity, op: TargetOp, com?: number): boolean {
-        if (!target.isValid(this instanceof Player ? this.hash64 : undefined)) {
+        if (!target.isValid(isPlayerEntity(this) ? this.hash64 : undefined)) {
             return false;
         }
 
@@ -523,26 +522,26 @@ export default abstract class PathingEntity extends Entity {
 
         this.targetSubject.com = com ? com : -1;
         // Remember initial target type for validation
-        // if (target instanceof Npc || target instanceof Loc || target instanceof Obj) {
-        //     this.targetSubject.type = target.type;
-        // } else {
-        //     this.targetSubject.type = -1;
-        // } todo
+        if (isNpcEntity(target) || target instanceof Loc || target instanceof Obj) {
+            this.targetSubject.type = target.type;
+        } else {
+            this.targetSubject.type = -1;
+        }
 
         this.focus(CoordGrid.fine(target.x, target.width), CoordGrid.fine(target.z, target.length), target instanceof NonPathingEntity && interaction === Interaction.ENGINE);
 
-        if (target instanceof Player) {
+        if (isPlayerEntity(target)) {
             const pid: number = target.pid + 32768;
             if (this.faceEntity !== pid) {
                 this.faceEntity = pid;
                 this.masks |= this.entitymask;
             }
-        // } else if (target instanceof Npc) {
-        //     const nid: number = target.nid;
-        //     if (this.faceEntity !== nid) {
-        //         this.faceEntity = nid;
-        //         this.masks |= this.entitymask;
-        //     } todo
+        } else if (isNpcEntity(target)) {
+            const nid: number = target.nid;
+            if (this.faceEntity !== nid) {
+                this.faceEntity = nid;
+                this.masks |= this.entitymask;
+            }
         } else {
             this.targetX = CoordGrid.fine(target.x, target.width);
             this.targetZ = CoordGrid.fine(target.z, target.length);
@@ -688,4 +687,12 @@ export default abstract class PathingEntity extends Entity {
         // https://x.com/JagexAsh/status/1727609489954664502
         return null;
     }
+}
+
+export function isPlayerEntity(entity: Entity): entity is Player {
+    return entity.isPlayer;
+}
+
+export function isNpcEntity(entity: Entity): entity is Npc {
+    return entity.isNpc;
 }

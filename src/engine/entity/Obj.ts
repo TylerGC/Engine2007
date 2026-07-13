@@ -26,7 +26,7 @@ export default class Obj extends NonPathingEntity {
 
     turn() {
         if (this.reveal > -1 && --this.reveal === 0) {
-            //World.revealObj(this); todo
+            World.revealObj(this);
         }
 
         // Decrement lifecycle tick
@@ -34,9 +34,9 @@ export default class Obj extends NonPathingEntity {
 
         if (this.lifecycleTick === 0) {
             if (this.lifecycle === EntityLifeCycle.DESPAWN && this.isActive) {
-                //World.removeObj(this, 0);
+                World.removeObj(this, 0);
             } else if (this.lifecycle === EntityLifeCycle.RESPAWN && !this.isActive) {
-                //World.addObj(this, Obj.NO_RECEIVER, 0);
+                World.addObj(this, Obj.NO_RECEIVER, 0);
             } else {
                 // Fail safe in case no conditions are met (should never happen)
                 this.setLifeCycle(-1);

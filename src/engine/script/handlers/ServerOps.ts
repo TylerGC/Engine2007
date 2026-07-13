@@ -9,7 +9,7 @@ import { CoordGrid } from '#/engine/CoordGrid.js';
 import { HuntModeType } from '#/engine/entity/hunt/HuntModeType.js';
 import { HuntVis } from '#/engine/entity/hunt/HuntVis.js';
 import { MapFindSquareType } from '#/engine/entity/MapFindSquareType.js';
-// import Npc from '#/engine/entity/Npc.js';
+import Npc from '#/engine/entity/Npc.js';
 import Player from '#/engine/entity/Player.js';
 import { isIndoors, isLineOfSight, isLineOfWalk, isMapBlocked } from '#/engine/GameMap.js';
 import { HuntIterator, NpcHuntAllCommandIterator } from '#/engine/script/ScriptIterators.js';
@@ -77,36 +77,36 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.NPC_HUNT]: state => {
-        // const [coord, distance, checkVis] = state.popInts(3);
+        const [coord, distance, checkVis] = state.popInts(3);
 
-        // const position: CoordGrid = check(coord, CoordValid);
-        // // const npcType: NpcType = check(npc, NpcTypeValid);
-        // check(distance, NumberNotNull);
-        // const huntvis: HuntVis = check(checkVis, HuntVisValid);
+        const position: CoordGrid = check(coord, CoordValid);
+        // const npcType: NpcType = check(npc, NpcTypeValid);
+        check(distance, NumberNotNull);
+        const huntvis: HuntVis = check(checkVis, HuntVisValid);
 
-        // let closestNpc: Npc | null = null;
-        // let closestDistance = Number.MAX_SAFE_INTEGER;
+        let closestNpc: Npc | null = null;
+        let closestDistance = Number.MAX_SAFE_INTEGER;
 
-        // const npcs = new NpcHuntAllCommandIterator(World.currentTick, position.level, position.x, position.z, distance, huntvis);
+        const npcs = new NpcHuntAllCommandIterator(World.currentTick, position.level, position.x, position.z, distance, huntvis);
 
-        // for (const npc of npcs) {
-        //     if (npc) {
-        //         // Picks the smallest euclidean distance
-        //         const npcDistance = CoordGrid.euclideanSquaredDistance(position, npc);
-        //         if (npcDistance <= closestDistance) {
-        //             closestNpc = npc;
-        //             closestDistance = npcDistance;
-        //         }
-        //     }
-        // }
-        // if (!closestNpc) {
-        //     state.pushInt(0);
-        //     return;
-        // }
+        for (const npc of npcs) {
+            if (npc) {
+                // Picks the smallest euclidean distance
+                const npcDistance = CoordGrid.euclideanSquaredDistance(position, npc);
+                if (npcDistance <= closestDistance) {
+                    closestNpc = npc;
+                    closestDistance = npcDistance;
+                }
+            }
+        }
+        if (!closestNpc) {
+            state.pushInt(0);
+            return;
+        }
 
-        // state.activeNpc = closestNpc;
-        // state.pointerAdd(ActiveNpc[state.intOperand]);
-        // state.pushInt(1);
+        state.activeNpc = closestNpc;
+        state.pointerAdd(ActiveNpc[state.intOperand]);
+        state.pushInt(1);
     },
 
     // https://x.com/JagexAsh/status/1796460129430433930
@@ -276,7 +276,7 @@ const ServerOps: CommandHandlers = {
     },
 
     [ScriptOpcode.PLAYERCOUNT]: state => {
-        // state.pushInt(World.getTotalPlayers());
+        state.pushInt(World.getTotalPlayers());
     },
 
     [ScriptOpcode.MAP_BLOCKED]: state => {

@@ -183,9 +183,9 @@ export class PlayerInfoEncoder {
 
     private highdefinition(renderer: PlayerRenderer, player: Player, other: Player): void {
         let masks = other.masks;
-        if (player.pid === other.pid) {
-            masks &= ~PlayerInfoProt.CHAT;
-        }
+        // if (player.pid === other.pid) { We want same player chat messages to show up now. No longer gets echoed in the client.. 1t delay now sadge
+        //     masks &= ~PlayerInfoProt.CHAT;
+        // }
         this.writeBlocks(renderer, player, other, masks);
     }
 
@@ -275,7 +275,7 @@ export class PlayerInfoEncoder {
 }
 
 export class NpcInfoEncoder {
-    private static readonly BITS_ADD = 14 + 11 + 5 + 5 + 1;
+    private static readonly BITS_ADD = 15 + 1 + 5 + 1 + 3 + 14 + 5;
     private static readonly BITS_RUN = 1 + 2 + 3 + 3 + 1;
     private static readonly BITS_WALK = 1 + 2 + 3 + 1;
     private static readonly BITS_EXTEND = 1 + 2;
@@ -299,7 +299,7 @@ export class NpcInfoEncoder {
         this.writeNewNpcs(map, npcs, renderer, player, bytes);
 
         if (this.updates.pos > 0) {
-            this.buf.pbit(14, 16383);
+            this.buf.pbit(15, 32767);
             this.buf.bytes();
             this.buf.pdata(this.updates.data, 0, this.updates.pos);
         } else {
@@ -366,12 +366,13 @@ export class NpcInfoEncoder {
     }
 
     private add(renderer: NpcRenderer, player: Player, other: Npc, nid: number, ntype: number, x: number, z: number, jump: boolean): void {
-        this.buf.pbit(14, nid);
-        this.buf.pbit(11, ntype);
-        this.buf.pbit(5, x);
-        this.buf.pbit(5, z);
+        this.buf.pbit(15, nid);
         this.buf.pbit(1, jump ? 1 : 0);
+        this.buf.pbit(5, x);
         this.buf.pbit(1, 1);
+        this.buf.pbit(3, 0);   // angle
+        this.buf.pbit(14, ntype);
+        this.buf.pbit(5, z);
         this.lowdefinition(renderer, other);
         player.build.npcs.insert(other.nid);
     }
@@ -447,29 +448,29 @@ export class NpcInfoEncoder {
     private writeBlocks(renderer: NpcRenderer, nid: number, masks: number): void {
         this.updates.p1(masks & 0xff);
 
-        if ((masks & NpcInfoProt.DAMAGE2) !== 0) {
-            renderer.write(this.updates, nid, NpcInfoProt.DAMAGE2);
-        }
         if ((masks & NpcInfoProt.ANIM) !== 0) {
             renderer.write(this.updates, nid, NpcInfoProt.ANIM);
-        }
-        if ((masks & NpcInfoProt.FACE_ENTITY) !== 0) {
-            renderer.write(this.updates, nid, NpcInfoProt.FACE_ENTITY);
         }
         if ((masks & NpcInfoProt.SAY) !== 0) {
             renderer.write(this.updates, nid, NpcInfoProt.SAY);
         }
-        if ((masks & NpcInfoProt.DAMAGE) !== 0) {
-            renderer.write(this.updates, nid, NpcInfoProt.DAMAGE);
-        }
-        if ((masks & NpcInfoProt.CHANGE_TYPE) !== 0) {
-            renderer.write(this.updates, nid, NpcInfoProt.CHANGE_TYPE);
+        if ((masks & NpcInfoProt.FACE_COORD) !== 0) {
+            renderer.write(this.updates, nid, NpcInfoProt.FACE_COORD);
         }
         if ((masks & NpcInfoProt.SPOT_ANIM) !== 0) {
             renderer.write(this.updates, nid, NpcInfoProt.SPOT_ANIM);
         }
-        if ((masks & NpcInfoProt.FACE_COORD) !== 0) {
-            renderer.write(this.updates, nid, NpcInfoProt.FACE_COORD);
+        if ((masks & NpcInfoProt.FACE_ENTITY) !== 0) {
+            renderer.write(this.updates, nid, NpcInfoProt.FACE_ENTITY);
+        }
+        if ((masks & NpcInfoProt.CHANGE_TYPE) !== 0) {
+            renderer.write(this.updates, nid, NpcInfoProt.CHANGE_TYPE);
+        }
+        if ((masks & NpcInfoProt.DAMAGE) !== 0) {
+            renderer.write(this.updates, nid, NpcInfoProt.DAMAGE);
+        }
+        if ((masks & NpcInfoProt.DAMAGE2) !== 0) {
+            renderer.write(this.updates, nid, NpcInfoProt.DAMAGE2);
         }
     }
 

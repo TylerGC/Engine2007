@@ -124,15 +124,15 @@ export class PlayerInfoChat implements InfoMessage {
         private readonly bytes: Uint8Array,
         private readonly color: number,
         private readonly effect: number,
-        private readonly ignored: number
+        private readonly ignored: number // For mod icon?
     ) {}
 
     encode(buf: Packet): void {
-        buf.p1(this.color);
-        buf.p1(this.effect);
-        buf.p1(this.ignored);
+        const combined = (this.color << 8) | this.effect;
+        buf.p2_alt2(combined);
+        buf.p1_alt3(this.ignored);
         buf.p1(this.bytes.length);
-        buf.pdata(this.bytes, 0, this.bytes.length);
+        buf.pdata_alt1(this.bytes, 0, this.bytes.length);
     }
 
     test(): number {

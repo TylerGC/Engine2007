@@ -15,6 +15,7 @@ export default class ServerGameProt {
     static readonly SYNTH_SOUND = new ServerGameProt(113, 5);
 
     static readonly PLAYER_INFO = new ServerGameProt(116, -2);
+    static readonly NPC_INFO = new ServerGameProt(19, -2);
 
     static readonly REBUILD_NORMAL = new ServerGameProt(79, -2);
 

@@ -12,8 +12,11 @@ import Zone from '#/engine/zone/Zone.js';
 import Packet from '#/io/Packet.js';
 import ClientGameProtCategory from '#/network/game/client/prot/ClientGameProtCategory.js';
 import ServerGameMessageEncoder from '#/network/game/server/ServerGameMessageEncoder.js';
+// import CamLookAt from '#/network/game/server/model/CamLookAt.js';
+// import CamMoveTo from '#/network/game/server/model/CamMoveTo.js';
 import Logout from '#/network/game/server/model/Logout.js';
 import PlayerInfo from '#/network/game/server/model/PlayerInfo.js';
+import NpcInfo from '#/network/game/server/model/NpcInfo.ts';
 import UpdateInvFull from '#/network/game/server/model/UpdateInvFull.js';
 import UpdateRunEnergy from '#/network/game/server/model/UpdateRunEnergy.js';
 import UpdateRunWeight from '#/network/game/server/model/UpdateRunWeight.js';
@@ -27,8 +30,10 @@ import ClientGameProt from '#/network/game/client/prot/ClientGameProt.js';
 import ClientGameProtRepository from '#/network/game/client/prot/ClientGameProtRepository.js';
 import ServerGameProtRepository from '#/network/game/server/prot/ServerGameProtRepository.js';
 import ClientGameProtSize from '#/network/game/client/prot/ClientGameProtSize.js';
+import { isClientConnected } from '#/engine/entity/ClientConnection.ts';
 
 export class NetworkPlayer extends Player {
+    override readonly isNetworked = true;
     client: ClientSocket;
     userLimit = 0; // user packet limit
     clientLimit = 0; // client packet limit
@@ -102,6 +107,8 @@ export class NetworkPlayer extends Player {
                 this.client.close();
                 return false;
             }
+
+            this.client.waiting = packetType.length;
         }
 
         if (this.client.waiting === -1) {
@@ -225,12 +232,12 @@ export class NetworkPlayer extends Player {
     }
 
     override addWealthEvent(event: WealthEventParams) {
-        // World.addWealthEvent({
-        //     coord: CoordGrid.packCoord(this.level, this.x, this.z),
-        //     account_id: this.account_id,
-        //     account_session: isClientConnected(this) ? this.client.uuid : 'disconnected',
-        //     ...event
-        // });
+        World.addWealthEvent({
+            coord: CoordGrid.packCoord(this.level, this.x, this.z),
+            account_id: this.account_id,
+            account_session: isClientConnected(this) ? this.client.uuid : 'disconnected',
+            ...event
+        });
     }
 
     updateMap() {
@@ -279,7 +286,7 @@ export class NetworkPlayer extends Player {
     }
 
     updateNpcs() {
-        // this.write(new NpcInfo(rsbuf.npcInfo(this.client.out.pos, this.pid, Math.abs(this.lastTickX - this.x), Math.abs(this.lastTickZ - this.z), this.lastLevel !== this.level)));
+        this.write(new NpcInfo(rsbuf.npcInfo(this.client.out.pos, this.pid, Math.abs(this.lastTickX - this.x), Math.abs(this.lastTickZ - this.z), this.lastLevel !== this.level)));
     }
 
     updateZones() {
@@ -379,28 +386,4 @@ export class NetworkPlayer extends Player {
             this.write(new UpdateRunWeight(Math.trunc(this.runweight / 1000)));
         }
     }
-}
-
-export function isClientConnected(player: Player): player is NetworkPlayer {
-    return player instanceof NetworkPlayer && !(player.client instanceof NullClientSocket);
-}
-
-export function isBufferFull(player: Player): boolean {
-    if (!isClientConnected(player)) {
-        return false;
-    }
-
-    let total = 0;
-
-    for (const message of player.buffer) {
-        const encoder: ServerGameMessageEncoder<ServerGameMessage> | undefined = ServerGameProtRepository.getEncoder(message);
-        if (!encoder) {
-            return true;
-        }
-
-        const prot = encoder.prot;
-        total += 1 + (prot.length === -1 ? 1 : prot.length === -2 ? 2 : 0) + encoder.test(message);
-    }
-
-    return total >= 5000;
 }

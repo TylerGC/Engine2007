@@ -10,7 +10,7 @@ await packAll([0]);
 await startWeb();
 
 await Js5.load();
-await World.load();
+await World.start();
 
 const server = new TcpServer();
 await server.start(43594);

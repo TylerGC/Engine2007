@@ -507,17 +507,14 @@ export function encodeObjOps(ops: ObjOpcode[]): Uint8Array {
         } else if (code === 7 || code === 8) {
             buf.p2(Number(payload) & 0xffff);
         } else if (code === 9) {
-            // Parameterless flag
         } else if (code === 10) {
             buf.p2(Number(payload));
         } else if (code === 11) {
-            // Parameterless flag
         } else if (code === 12) {
             buf.p4(Number(payload));
         } else if (code === 13 || code === 14 || code === 15 || code === 27) {
             buf.p1(Number(payload) & 0xff);
         } else if (code === 16) {
-            // Parameterless flag
         } else if (code === 23) {
             buf.p2(Number(payload.model));
             buf.p1(Number(payload.offset) & 0xff);
@@ -544,7 +541,6 @@ export function encodeObjOps(ops: ObjOpcode[]): Uint8Array {
                 buf.p1(Number(v) & 0xff);
             }
         } else if (code === 65) {
-            // Parameterless flag
         } else if (code === 75) {
             buf.p2(Number(payload) & 0xffff);
         } else if (code === 78 || code === 79 ||

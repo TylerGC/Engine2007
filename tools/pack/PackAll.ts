@@ -30,6 +30,7 @@ import { pack as packSeq } from './config/SeqConfig.ts';
 import { pack as packObj } from './config/ObjConfig.ts';
 import { pack as packLoc } from './config/LocConfig.ts';
 import { pack as packIf } from './interface/pack.ts';
+import { pack as packNpc } from './config/NpcConfig.ts';
 
 export async function packAll(modelFlags: number[]) {
     if (parentPort) {
@@ -51,6 +52,7 @@ export async function packAll(modelFlags: number[]) {
     await packSeq();
     await packLoc();
     await packIf();
+    await packNpc();
     
     // revalidatePack();
 

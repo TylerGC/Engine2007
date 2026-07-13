@@ -1,6 +1,6 @@
 import Entity from '#/engine/entity/Entity.js';
 import Loc from '#/engine/entity/Loc.js';
-// import Npc from '#/engine/entity/Npc.js';
+import Npc from '#/engine/entity/Npc.js';
 import Obj from '#/engine/entity/Obj.js';
 import Player from '#/engine/entity/Player.js';
 import type { ScriptArgument } from '#/engine/entity/PlayerQueueRequest.js';
@@ -9,10 +9,10 @@ import CoreOps from '#/engine/script/handlers/CoreOps.js';
 import DebugOps from '#/engine/script/handlers/DebugOps.js';
 // import EnumOps from '#/engine/script/handlers/EnumOps.js';
 import InvOps from '#/engine/script/handlers/InvOps.js';
-// import LocConfigOps from '#/engine/script/handlers/LocConfigOps.js';
-// import LocOps from '#/engine/script/handlers/LocOps.js';
-// import NpcConfigOps from '#/engine/script/handlers/NpcConfigOps.js';
-// import NpcOps from '#/engine/script/handlers/NpcOps.js';
+import LocConfigOps from '#/engine/script/handlers/LocConfigOps.js';
+import LocOps from '#/engine/script/handlers/LocOps.js';
+import NpcConfigOps from '#/engine/script/handlers/NpcConfigOps.js';
+import NpcOps from '#/engine/script/handlers/NpcOps.ts';
 import NumberOps from '#/engine/script/handlers/NumberOps.js';
 import ObjConfigOps from '#/engine/script/handlers/ObjConfigOps.js';
 import ObjOps from '#/engine/script/handlers/ObjOps.js';
@@ -39,11 +39,11 @@ export default class ScriptRunner {
         ...CoreOps,
         ...ServerOps,
         ...PlayerOps,
-        // ...NpcOps,
-        // ...LocOps,
+        ...NpcOps,
+        ...LocOps,
         ...ObjOps,
-        // ...NpcConfigOps,
-        // ...LocConfigOps,
+        ...NpcConfigOps,
+        ...LocConfigOps,
         ...ObjConfigOps,
         ...InvOps,
         // ...EnumOps,
@@ -68,9 +68,9 @@ export default class ScriptRunner {
         if (self instanceof Player) {
             state._activePlayer = self;
             state.pointerAdd(ScriptPointer.ActivePlayer);
-        // } else if (self instanceof Npc) {
-        //     state._activeNpc = self;
-        //     state.pointerAdd(ScriptPointer.ActiveNpc);
+        } else if (self instanceof Npc) {
+            state._activeNpc = self;
+            state.pointerAdd(ScriptPointer.ActiveNpc);
         } else if (self instanceof Loc) {
             state._activeLoc = self;
             state.pointerAdd(ScriptPointer.ActiveLoc);
@@ -87,14 +87,14 @@ export default class ScriptRunner {
                 state._activePlayer = target;
                 state.pointerAdd(ScriptPointer.ActivePlayer);
             }
-        // } else if (target instanceof Npc) {
-        //     if (self instanceof Npc) {
-        //         state._activeNpc2 = target;
-        //         state.pointerAdd(ScriptPointer.ActiveNpc2);
-        //     } else {
-        //         state._activeNpc = target;
-        //         state.pointerAdd(ScriptPointer.ActiveNpc);
-        //     } todo
+        } else if (target instanceof Npc) {
+            if (self instanceof Npc) {
+                state._activeNpc2 = target;
+                state.pointerAdd(ScriptPointer.ActiveNpc2);
+            } else {
+                state._activeNpc = target;
+                state.pointerAdd(ScriptPointer.ActiveNpc);
+            }
         } else if (target instanceof Loc) {
             if (self instanceof Loc) {
                 state._activeLoc2 = target;
@@ -202,12 +202,12 @@ export default class ScriptRunner {
                     state.self.logout();
                     state.self.loggingOut = true;
                 }
-            // } else if (state.self instanceof Npc) {
-            //     // printError(`NPC script error - nid:${state.self.nid} type:${state.self.type}`);
+            } else if (state.self instanceof Npc) {
+                printError(`NPC script error - nid:${state.self.nid} type:${state.self.type}`);
 
-            //     if (Environment.NODE_PRODUCTION) {
-            //         // World.removeNpc(state.self, 0); production? In this econonmy? Todo
-            //     }
+                if (Environment.NODE_PRODUCTION) {
+                    World.removeNpc(state.self, 0);
+                }
             }
 
             console.error(`script error: ${err.message}`);

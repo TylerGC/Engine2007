@@ -1,5 +1,5 @@
 import { CoordGrid } from '#/engine/CoordGrid.js';
-import Player from '#/engine/entity/Player.ts';
+import type Player from '#/engine/entity/Player.ts';
 import World from '#/engine/World.js';
 import ZoneMap from '#/engine/zone/ZoneMap.ts';
 import RebuildNormal from '#/network/game/server/model/RebuildNormal.ts';
